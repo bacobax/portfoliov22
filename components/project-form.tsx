@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { X } from "lucide-react"
 
-import type { Project } from "@/lib/default-content"
+import type { Project, ProjectStatus } from "@/lib/default-content"
 
 interface ProjectFormProps {
   project?: Project
@@ -137,7 +137,7 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
             <select
               id="status"
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value as ProjectStatus })}
               className="w-full bg-background border border-primary/50 focus:border-primary font-mono p-2 text-sm cursor-pointer"
             >
               <option value="DEVELOPMENT">DEVELOPMENT</option>

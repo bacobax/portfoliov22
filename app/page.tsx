@@ -46,7 +46,10 @@ import {
   withDefaultCustomColor,
 } from "@/lib/default-content"
 
-const projectVisualComponentMap: Record<ProjectVisual, React.ComponentType<{ color: { r: number; g: number; b: number }; theme: string }>> = {
+const projectVisualComponentMap: Record<
+  ProjectVisual,
+  React.ComponentType<{ color?: { r: number; g: number; b: number }; theme?: "dark" | "light" }>
+> = {
   brain: ParticleBrain,
   sphere: ParticleSphere,
   engine: ParticleEngine,
@@ -678,13 +681,17 @@ export default function TechDashboardPortfolio() {
                     <Mail className="w-4 h-4 mr-2" />
                     CONTACT
                   </Button>
-                  <Button variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
-                    <Github className="w-4 h-4 mr-2" />
-                    GITHUB
+                  <Button asChild variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
+                    <a href="https://github.com/bacobax" target="_blank" rel="noopener noreferrer">
+                      <Github className="w-4 h-4 mr-2" />
+                      GITHUB
+                    </a>
                   </Button>
-                  <Button variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
-                    <Linkedin className="w-4 h-4 mr-2" />
-                    LINKEDIN
+                  <Button asChild variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
+                    <a href="https://www.linkedin.com/in/francesco-bassignana/" target="_blank" rel="noopener noreferrer">
+                      <Linkedin className="w-4 h-4 mr-2" />
+                      LINKEDIN
+                    </a>
                   </Button>
                 </div>
               </Card>

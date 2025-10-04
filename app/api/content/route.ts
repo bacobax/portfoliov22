@@ -6,6 +6,7 @@ import {
   persistedPortfolioContentSchema,
   withDefaultCustomColor,
 } from "@/lib/default-content"
+import type { PersistedPortfolioContent } from "@/lib/default-content"
 import { getDb } from "@/lib/mongodb"
 import { SESSION_COOKIE_NAME, validateSession } from "@/lib/session"
 
@@ -17,7 +18,7 @@ export async function GET() {
     const db = await getDb()
     const document = await db
       .collection(COLLECTION_NAME)
-      .findOne<{ _id: string } & Record<string, unknown>>({ _id: DOCUMENT_ID })
+      .findOne<{ _id: string } & Record<string, unknown>>({ _id: DOCUMENT_ID } as any)
 
     if (!document) {
       return NextResponse.json({ content: cloneDefaultContent() })
@@ -30,7 +31,7 @@ export async function GET() {
       return NextResponse.json({ content: cloneDefaultContent() })
     }
 
-    return NextResponse.json({ content: withDefaultCustomColor(parsed.data) })
+  return NextResponse.json({ content: withDefaultCustomColor(parsed.data as PersistedPortfolioContent) })
   } catch (error) {
     console.error("Failed to load portfolio content", error)
     return NextResponse.json({ content: cloneDefaultContent() })
@@ -63,7 +64,7 @@ export async function PUT(request: Request) {
   try {
     const db = await getDb()
     await db.collection(COLLECTION_NAME).updateOne(
-      { _id: DOCUMENT_ID },
+      { _id: DOCUMENT_ID } as any,
       { $set: parsed.data, $setOnInsert: { _id: DOCUMENT_ID }, $unset: { customColor: "" } },
       { upsert: true },
     )
