@@ -34,6 +34,7 @@ import { AuthModal } from "@/components/auth-modal"
 import { EditableText } from "@/components/editable-text"
 import { ProjectForm } from "@/components/project-form"
 import { TechCursor } from "@/components/tech-cursor"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   cloneDefaultContent,
   type ExperienceEntry,
@@ -62,6 +63,7 @@ export default function TechDashboardPortfolio() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [showProjectForm, setShowProjectForm] = useState(false)
   const [editingProject, setEditingProject] = useState<EditingProjectState>(null)
+  const [isContentLoading, setIsContentLoading] = useState(true)
   const [content, setContent] = useState<PortfolioContent>(() => cloneDefaultContent())
 
   const persistContent = useCallback(
@@ -71,7 +73,7 @@ export default function TechDashboardPortfolio() {
       }
 
       try {
-        const { customColor: _ignoredCustomColor, ...persistableContent } = data
+        const { customColors: _ignoredCustomColors, ...persistableContent } = data
 
         const response = await fetch("/api/content", {
           method: "PUT",
@@ -103,6 +105,7 @@ export default function TechDashboardPortfolio() {
   )
 
   const fetchContent = useCallback(async () => {
+    setIsContentLoading(true)
     try {
       const response = await fetch("/api/content")
       if (!response.ok) {
@@ -115,6 +118,8 @@ export default function TechDashboardPortfolio() {
     } catch (error) {
       console.error("Failed to load content", error)
       setContent(cloneDefaultContent())
+    } finally {
+      setIsContentLoading(false)
     }
   }, [])
 
@@ -128,13 +133,15 @@ export default function TechDashboardPortfolio() {
     document.documentElement.classList.toggle("dark", theme === "dark")
 
     const root = document.documentElement
-    const { h, s, l } = content.customColor
+    const themeColor = theme === "dark" ? content.customColors.dark : content.customColors.light
+    const { h, s, l } = themeColor
+    const borderLightness = Math.min(100, Math.max(0, l * 0.4))
 
     root.style.setProperty("--primary", `hsl(${h}, ${s}%, ${l}%)`)
     root.style.setProperty("--accent", `hsl(${h}, ${s}%, ${l}%)`)
     root.style.setProperty("--ring", `hsl(${h}, ${s}%, ${l}%)`)
-    root.style.setProperty("--border", `hsl(${h}, ${s}%, ${l * 0.4}%)`)
-  }, [theme, content.customColor])
+    root.style.setProperty("--border", `hsl(${h}, ${s}%, ${borderLightness}%)`)
+  }, [theme, content.customColors])
 
   useEffect(() => {
     const checkSession = async () => {
@@ -270,7 +277,10 @@ export default function TechDashboardPortfolio() {
     applyContentUpdate(
       (previous) => ({
         ...previous,
-        customColor: { h, s, l },
+        customColors: {
+          ...previous.customColors,
+          [theme]: { h, s, l },
+        },
       }),
       false,
     )
@@ -311,9 +321,18 @@ export default function TechDashboardPortfolio() {
     }))
   }
 
-  const { profileData, aboutStats, systemStatus, lastDeployment, experienceLog, skillsData, projectCategories, customColor } =
-    content
-  const projectCategoryCount = projectCategories.length
+  const {
+    profileData,
+    aboutStats,
+    systemStatus,
+    lastDeployment,
+    experienceLog,
+    skillsData,
+    projectCategories,
+    customColors,
+  } = content
+  const activeThemeColor = theme === "dark" ? customColors.dark : customColors.light
+  const projectCategoryCount = isContentLoading ? 0 : projectCategories.length
 
   useEffect(() => {
     if (projectCategoryCount === 0) {
@@ -326,7 +345,7 @@ export default function TechDashboardPortfolio() {
     }
   }, [activeCategoryIndex, projectCategoryCount])
   const activeCategory =
-    projectCategoryCount > 0
+    !isContentLoading && projectCategoryCount > 0
       ? projectCategories[Math.min(activeCategoryIndex, projectCategoryCount - 1)]
       : null
   const ParticleComponent = activeCategory
@@ -394,7 +413,7 @@ export default function TechDashboardPortfolio() {
     return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))]
   }
 
-  const [r, g, b] = hslToRgb(customColor.h, customColor.s, customColor.l)
+  const [r, g, b] = hslToRgb(activeThemeColor.h, activeThemeColor.s, activeThemeColor.l)
 
   return (
     <div className="min-h-screen bg-background text-foreground grid-pattern">
@@ -468,10 +487,11 @@ export default function TechDashboardPortfolio() {
                 )}
               </button>
               <ColorPicker
+                key={theme}
                 onColorChange={handleColorChange}
-                defaultH={customColor.h}
-                defaultS={customColor.s}
-                defaultL={customColor.l}
+                defaultH={activeThemeColor.h}
+                defaultS={activeThemeColor.s}
+                defaultL={activeThemeColor.l}
               />
             </div>
           </div>
@@ -502,257 +522,279 @@ export default function TechDashboardPortfolio() {
 
         {shouldShowSection("ABOUT") && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-8">
-            <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20">
-              <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0">
-                  <Code2 className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+            {isContentLoading ? (
+              <ProfileOverviewSkeleton />
+            ) : (
+              <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20">
+                <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0">
+                    <Code2 className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <EditableText
+                      value={profileData.name}
+                      onChange={(value) => updateProfileField("name", value)}
+                      isEditorMode={isEditorMode}
+                      as="h2"
+                      className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2 text-foreground"
+                    />
+                    <EditableText
+                      value={`> ${profileData.title}`}
+                      onChange={(value) => updateProfileField("title", value.replace(/^>\s*/, ""))}
+                      isEditorMode={isEditorMode}
+                      as="p"
+                      className="text-primary font-mono text-xs sm:text-sm mb-1 sm:mb-2"
+                    />
+                    <EditableText
+                      value={profileData.bio}
+                      onChange={(value) => updateProfileField("bio", value)}
+                      isEditorMode={isEditorMode}
+                      as="p"
+                      multiline
+                      className="text-muted-foreground text-xs sm:text-sm leading-relaxed"
+                    />
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <EditableText
-                    value={profileData.name}
-                    onChange={(value) => updateProfileField("name", value)}
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
+                  <StatCard
+                    label="PROJECTS"
+                    value={aboutStats.projects}
+                    icon={<Database className="w-4 h-4" />}
                     isEditorMode={isEditorMode}
-                    as="h2"
-                    className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2 text-foreground"
+                    onValueChange={(value) => updateAboutStat("projects", value)}
                   />
-                  <EditableText
-                    value={`> ${profileData.title}`}
-                    onChange={(value) => updateProfileField("title", value.replace(/^>\s*/, ""))}
+                  <StatCard
+                    label="COMMITS"
+                    value={aboutStats.commits}
+                    icon={<Github className="w-4 h-4" />}
                     isEditorMode={isEditorMode}
-                    as="p"
-                    className="text-primary font-mono text-xs sm:text-sm mb-1 sm:mb-2"
+                    onValueChange={(value) => updateAboutStat("commits", value)}
                   />
-                  <EditableText
-                    value={profileData.bio}
-                    onChange={(value) => updateProfileField("bio", value)}
+                  <StatCard
+                    label="EXPERIENCE"
+                    value={aboutStats.experience}
+                    icon={<Cpu className="w-4 h-4" />}
                     isEditorMode={isEditorMode}
-                    as="p"
-                    multiline
-                    className="text-muted-foreground text-xs sm:text-sm leading-relaxed"
+                    onValueChange={(value) => updateAboutStat("experience", value)}
+                  />
+                  <StatCard
+                    label="EFFICIENCY"
+                    value={aboutStats.efficiency}
+                    icon={<Activity className="w-4 h-4" />}
+                    isEditorMode={isEditorMode}
+                    onValueChange={(value) => updateAboutStat("efficiency", value)}
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
-                <StatCard
-                  label="PROJECTS"
-                  value={aboutStats.projects}
-                  icon={<Database className="w-4 h-4" />}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateAboutStat("projects", value)}
-                />
-                <StatCard
-                  label="COMMITS"
-                  value={aboutStats.commits}
-                  icon={<Github className="w-4 h-4" />}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateAboutStat("commits", value)}
-                />
-                <StatCard
-                  label="EXPERIENCE"
-                  value={aboutStats.experience}
-                  icon={<Cpu className="w-4 h-4" />}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateAboutStat("experience", value)}
-                />
-                <StatCard
-                  label="EFFICIENCY"
-                  value={aboutStats.efficiency}
-                  icon={<Activity className="w-4 h-4" />}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateAboutStat("efficiency", value)}
-                />
-              </div>
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <Button variant="default" className="font-mono text-xs w-full sm:w-auto cursor-pointer">
+                    <Mail className="w-4 h-4 mr-2" />
+                    CONTACT
+                  </Button>
+                  <Button variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
+                    <Github className="w-4 h-4 mr-2" />
+                    GITHUB
+                  </Button>
+                  <Button variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
+                    <Linkedin className="w-4 h-4 mr-2" />
+                    LINKEDIN
+                  </Button>
+                </div>
+              </Card>
+            )}
 
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                <Button variant="default" className="font-mono text-xs w-full sm:w-auto cursor-pointer">
-                  <Mail className="w-4 h-4 mr-2" />
-                  CONTACT
-                </Button>
-                <Button variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
-                  <Github className="w-4 h-4 mr-2" />
-                  GITHUB
-                </Button>
-                <Button variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
-                  <Linkedin className="w-4 h-4 mr-2" />
-                  LINKEDIN
-                </Button>
-              </div>
-            </Card>
-
-            <Card className="p-4 sm:p-6 bg-card border border-primary/20">
-              <h3 className="text-xs sm:text-sm font-mono text-primary mb-3 sm:mb-4 flex items-center gap-2">
-                <Activity className="w-4 h-4 animate-pulse" />
-                SYSTEM_STATUS
-              </h3>
-              <div className="space-y-3 sm:space-y-4">
-                <StatusBar
-                  label="FRONTEND"
-                  value={systemStatus.frontend}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateSystemStatus("frontend", value)}
-                />
-                <StatusBar
-                  label="BACKEND"
-                  value={systemStatus.backend}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateSystemStatus("backend", value)}
-                />
-                <StatusBar
-                  label="DEVOPS"
-                  value={systemStatus.devops}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateSystemStatus("devops", value)}
-                />
-                <StatusBar
-                  label="DATABASE"
-                  value={systemStatus.database}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateSystemStatus("database", value)}
-                />
-              </div>
-              <div className="mt-4 sm:mt-6 p-2 sm:p-3 bg-primary/10 border border-primary/30 text-[10px] sm:text-xs font-mono">
-                <p className="text-primary mb-1">{">"} LAST_DEPLOYMENT:</p>
-                <EditableText
-                  value={lastDeployment}
-                  onChange={updateLastDeployment}
-                  isEditorMode={isEditorMode}
-                  className="text-muted-foreground"
-                  as="p"
-                />
-                <p className="text-primary mt-2">{">"} BUILD_STATUS:</p>
-                <p className="text-primary">SUCCESS ✓</p>
-              </div>
-            </Card>
+            {isContentLoading ? (
+              <SystemStatusSkeleton />
+            ) : (
+              <Card className="p-4 sm:p-6 bg-card border border-primary/20">
+                <h3 className="text-xs sm:text-sm font-mono text-primary mb-3 sm:mb-4 flex items-center gap-2">
+                  <Activity className="w-4 h-4 animate-pulse" />
+                  SYSTEM_STATUS
+                </h3>
+                <div className="space-y-3 sm:space-y-4">
+                  <StatusBar
+                    label="FRONTEND"
+                    value={systemStatus.frontend}
+                    isEditorMode={isEditorMode}
+                    onValueChange={(value) => updateSystemStatus("frontend", value)}
+                  />
+                  <StatusBar
+                    label="BACKEND"
+                    value={systemStatus.backend}
+                    isEditorMode={isEditorMode}
+                    onValueChange={(value) => updateSystemStatus("backend", value)}
+                  />
+                  <StatusBar
+                    label="DEVOPS"
+                    value={systemStatus.devops}
+                    isEditorMode={isEditorMode}
+                    onValueChange={(value) => updateSystemStatus("devops", value)}
+                  />
+                  <StatusBar
+                    label="DATABASE"
+                    value={systemStatus.database}
+                    isEditorMode={isEditorMode}
+                    onValueChange={(value) => updateSystemStatus("database", value)}
+                  />
+                </div>
+                <div className="mt-4 sm:mt-6 p-2 sm:p-3 bg-primary/10 border border-primary/30 text-[10px] sm:text-xs font-mono">
+                  <p className="text-primary mb-1">{">"} LAST_DEPLOYMENT:</p>
+                  <EditableText
+                    value={lastDeployment}
+                    onChange={updateLastDeployment}
+                    isEditorMode={isEditorMode}
+                    className="text-muted-foreground"
+                    as="p"
+                  />
+                  <p className="text-primary mt-2">{">"} BUILD_STATUS:</p>
+                  <p className="text-primary">SUCCESS ✓</p>
+                </div>
+              </Card>
+            )}
           </div>
         )}
 
         {shouldShowSection("EXPERIENCE") && (
-          <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <h3 className="text-base sm:text-lg font-mono text-primary flex items-center gap-2">
-                <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
-                EXPERIENCE_LOG
-              </h3>
-              {isEditorMode && (
-                <button
-                  onClick={handleAddExperienceEntry}
-                  className="flex items-center gap-2 px-3 py-2 border border-primary/50 bg-card hover:border-primary cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-mono text-primary">NEW_ENTRY</span>
-                </button>
-              )}
-            </div>
-            {experienceLog.length > 0 ? (
-              <div className="space-y-4 sm:space-y-6">
-                {experienceLog.map((entry, index) => (
-                  <ExperienceItem
-                    key={`${entry.title}-${entry.year}-${index}`}
-                    entry={entry}
-                    isEditorMode={isEditorMode}
-                    onChange={(updated) => handleExperienceChange(index, updated)}
-                    onDelete={() => handleDeleteExperienceEntry(index)}
-                  />
-                ))}
+          isContentLoading ? (
+            <ExperienceSkeleton />
+          ) : (
+            <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h3 className="text-base sm:text-lg font-mono text-primary flex items-center gap-2">
+                  <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
+                  EXPERIENCE_LOG
+                </h3>
+                {isEditorMode && (
+                  <button
+                    onClick={handleAddExperienceEntry}
+                    className="flex items-center gap-2 px-3 py-2 border border-primary/50 bg-card hover:border-primary cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-mono text-primary">NEW_ENTRY</span>
+                  </button>
+                )}
               </div>
-            ) : (
-              <p className="text-xs sm:text-sm text-muted-foreground font-mono">
-                No experience entries yet. Use NEW_ENTRY to add your journey.
-              </p>
-            )}
-          </Card>
+              {experienceLog.length > 0 ? (
+                <div className="space-y-4 sm:space-y-6">
+                  {experienceLog.map((entry, index) => (
+                    <ExperienceItem
+                      key={`${entry.title}-${entry.year}-${index}`}
+                      entry={entry}
+                      isEditorMode={isEditorMode}
+                      onChange={(updated) => handleExperienceChange(index, updated)}
+                      onDelete={() => handleDeleteExperienceEntry(index)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs sm:text-sm text-muted-foreground font-mono">
+                  No experience entries yet. Use NEW_ENTRY to add your journey.
+                </p>
+              )}
+            </Card>
+          )
         )}
 
-        {shouldShowSection("PROJECTS") && activeCategory && (
-          <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <h3 className="text-base sm:text-lg font-mono text-primary">{activeCategory.name}_PROJECTS</h3>
-                <Badge variant="outline" className="text-[10px] sm:text-xs font-mono border-primary/50 text-primary">
-                  {activeCategory.projects.length} ACTIVE
-                </Badge>
-              </div>
-              {isEditorMode && (
-                <button
-                  onClick={handleAddProject}
-                  className="flex items-center gap-2 px-3 py-2 border border-primary/50 bg-card hover:border-primary cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-mono text-primary">NEW_PROJECT</span>
-                </button>
-              )}
-            </div>
+        {shouldShowSection("PROJECTS") && (
+          isContentLoading ? (
+            <ProjectsSkeleton />
+          ) : (
+            activeCategory && (
+              <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <h3 className="text-base sm:text-lg font-mono text-primary">{activeCategory.name}_PROJECTS</h3>
+                    <Badge variant="outline" className="text-[10px] sm:text-xs font-mono border-primary/50 text-primary">
+                      {activeCategory.projects.length} ACTIVE
+                    </Badge>
+                  </div>
+                  {isEditorMode && (
+                    <button
+                      onClick={handleAddProject}
+                      className="flex items-center gap-2 px-3 py-2 border border-primary/50 bg-card hover:border-primary cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4 text-primary" />
+                      <span className="text-xs font-mono text-primary">NEW_PROJECT</span>
+                    </button>
+                  )}
+                </div>
 
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <div className="flex items-center gap-2 text-xs sm:text-sm font-mono text-muted-foreground">
-                <span>{activeCategory.id.toUpperCase()}</span>
-                <span className="text-primary">|</span>
-                <span>PROJECT_CLUSTER</span>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handlePrevCategory}
-                  className="h-7 w-7 sm:h-8 sm:w-8 bg-transparent border-primary/50 hover:border-primary cursor-pointer"
-                >
-                  <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleNextCategory}
-                  className="h-7 w-7 sm:h-8 sm:w-8 bg-transparent border-primary/50 hover:border-primary cursor-pointer"
-                >
-                  <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
-                </Button>
-              </div>
-            </div>
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                  <div className="flex items-center gap-2 text-xs sm:text-sm font-mono text-muted-foreground">
+                    <span>{activeCategory.id.toUpperCase()}</span>
+                    <span className="text-primary">|</span>
+                    <span>PROJECT_CLUSTER</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={handlePrevCategory}
+                      className="h-7 w-7 sm:h-8 sm:w-8 bg-transparent border-primary/50 hover:border-primary cursor-pointer"
+                    >
+                      <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleNextCategory}
+                      className="h-7 w-7 sm:h-8 sm:w-8 bg-transparent border-primary/50 hover:border-primary cursor-pointer"
+                    >
+                      <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                    </Button>
+                  </div>
+                </div>
 
-            <div className="w-full h-48 sm:h-64 mb-4 sm:mb-6 bg-black/50 border border-primary/20 rounded overflow-hidden">
-              <ParticleComponent color={{ r, g, b }} theme={theme} />
-            </div>
+                <div className="w-full h-48 sm:h-64 mb-4 sm:mb-6 bg-black/50 border border-primary/20 rounded overflow-hidden">
+                  <ParticleComponent color={{ r, g, b }} theme={theme} />
+                </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-              {activeCategory.projects.map((project, projectIndex) => (
-                <ProjectCard
-                  key={`${project.title}-${projectIndex}`}
-                  {...project}
-                  isEditorMode={isEditorMode}
-                  onEdit={() => handleEditProject(activeCategoryIndex, projectIndex)}
-                  onDelete={() => handleDeleteProject(activeCategoryIndex, projectIndex)}
-                />
-              ))}
-            </div>
-          </Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                  {activeCategory.projects.map((project, projectIndex) => (
+                    <ProjectCard
+                      key={`${project.title}-${projectIndex}`}
+                      {...project}
+                      isEditorMode={isEditorMode}
+                      onEdit={() => handleEditProject(activeCategoryIndex, projectIndex)}
+                      onDelete={() => handleDeleteProject(activeCategoryIndex, projectIndex)}
+                    />
+                  ))}
+                </div>
+              </Card>
+            )
+          )
         )}
 
         {shouldShowSection("SKILLS") && (
-          <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
-            <h3 className="text-base sm:text-lg font-mono text-primary mb-4 sm:mb-6 flex items-center gap-2">
-              <Cpu className="w-4 h-4 sm:w-5 sm:h-5" />
-              SKILLS_MATRIX
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-              <SkillCategory
-                title="FRONTEND"
-                skills={skillsData.frontend}
-                isEditorMode={isEditorMode}
-                onSkillsChange={(skills) => updateSkills("frontend", skills)}
-              />
-              <SkillCategory
-                title="BACKEND"
-                skills={skillsData.backend}
-                isEditorMode={isEditorMode}
-                onSkillsChange={(skills) => updateSkills("backend", skills)}
-              />
-              <SkillCategory
-                title="DEVOPS"
-                skills={skillsData.devops}
-                isEditorMode={isEditorMode}
-                onSkillsChange={(skills) => updateSkills("devops", skills)}
-              />
-            </div>
-          </Card>
+          isContentLoading ? (
+            <SkillsSkeleton />
+          ) : (
+            <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+              <h3 className="text-base sm:text-lg font-mono text-primary mb-4 sm:mb-6 flex items-center gap-2">
+                <Cpu className="w-4 h-4 sm:w-5 sm:h-5" />
+                SKILLS_MATRIX
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                <SkillCategory
+                  title="FRONTEND"
+                  skills={skillsData.frontend}
+                  isEditorMode={isEditorMode}
+                  onSkillsChange={(skills) => updateSkills("frontend", skills)}
+                />
+                <SkillCategory
+                  title="BACKEND"
+                  skills={skillsData.backend}
+                  isEditorMode={isEditorMode}
+                  onSkillsChange={(skills) => updateSkills("backend", skills)}
+                />
+                <SkillCategory
+                  title="DEVOPS"
+                  skills={skillsData.devops}
+                  isEditorMode={isEditorMode}
+                  onSkillsChange={(skills) => updateSkills("devops", skills)}
+                />
+              </div>
+            </Card>
+          )
         )}
       </main>
 
@@ -771,6 +813,153 @@ export default function TechDashboardPortfolio() {
         </div>
       </footer>
     </div>
+  )
+}
+
+function ProfileOverviewSkeleton() {
+  return (
+    <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20">
+      <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <Skeleton className="w-16 h-16 sm:w-20 sm:h-20 border border-primary/30" />
+        <div className="flex-1 w-full space-y-2">
+          <Skeleton className="h-6 sm:h-8 w-3/4" />
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-3 w-full" />
+          <Skeleton className="h-3 w-5/6" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={`profile-stat-skeleton-${index}`} className="bg-secondary/50 border border-border p-2 sm:p-3">
+            <Skeleton className="h-3 w-1/2 mb-2" />
+            <Skeleton className="h-5 w-2/3" />
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+        <Skeleton className="h-10 w-full sm:w-32" />
+        <Skeleton className="h-10 w-full sm:w-32" />
+        <Skeleton className="h-10 w-full sm:w-32" />
+      </div>
+    </Card>
+  )
+}
+
+function SystemStatusSkeleton() {
+  return (
+    <Card className="p-4 sm:p-6 bg-card border border-primary/20">
+      <div className="flex items-center gap-2 mb-3 sm:mb-4">
+        <Skeleton className="w-5 h-5" />
+        <Skeleton className="h-4 w-32" />
+      </div>
+      <div className="space-y-3 sm:space-y-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={`status-bar-skeleton-${index}`} className="space-y-2">
+            <Skeleton className="h-3 w-1/3" />
+            <Skeleton className="h-2 w-full" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 sm:mt-6 p-2 sm:p-3 bg-primary/5 border border-primary/20 space-y-2">
+        <Skeleton className="h-3 w-1/2" />
+        <Skeleton className="h-3 w-3/4" />
+        <Skeleton className="h-3 w-1/3" />
+      </div>
+    </Card>
+  )
+}
+
+function ExperienceSkeleton() {
+  return (
+    <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-9 w-28" />
+      </div>
+      <div className="space-y-4 sm:space-y-6">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={`experience-skeleton-${index}`} className="border-l-2 border-primary/40 pl-3 sm:pl-4 space-y-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-full" />
+            <div className="flex flex-wrap gap-2">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-14" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+function ProjectsSkeleton() {
+  return (
+    <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-5 w-20" />
+        </div>
+        <Skeleton className="h-9 w-28" />
+      </div>
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-3 w-16" />
+          <Skeleton className="h-3 w-3" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-8 w-8" />
+        </div>
+      </div>
+      <div className="w-full h-48 sm:h-64 mb-4 sm:mb-6 bg-black/30 border border-primary/20 rounded" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Card key={`project-card-skeleton-${index}`} className="bg-secondary/40 border border-primary/10 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-16" />
+            </div>
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-5/6" />
+            <div className="flex flex-wrap gap-2">
+              <Skeleton className="h-3 w-12" />
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-3 w-14" />
+            </div>
+          </Card>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+function SkillsSkeleton() {
+  return (
+    <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+      <div className="flex items-center gap-2 mb-4 sm:mb-6">
+        <Skeleton className="w-5 h-5" />
+        <Skeleton className="h-5 w-32" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={`skills-skeleton-${index}`} className="space-y-3 border-b border-border pb-3">
+            <Skeleton className="h-4 w-20" />
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((__, skillIndex) => (
+                <div key={`skill-line-${index}-${skillIndex}`} className="flex items-center gap-2">
+                  <Skeleton className="w-2 h-2 rounded" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
   )
 }
 

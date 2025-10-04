@@ -88,7 +88,10 @@ export interface PortfolioContent {
   experienceLog: ExperienceEntry[]
   skillsData: SkillsData
   projectCategories: ProjectCategory[]
-  customColor: { h: number; s: number; l: number }
+  customColors: {
+    dark: { h: number; s: number; l: number }
+    light: { h: number; s: number; l: number }
+  }
 }
 
 export const portfolioContentSchema = z.object({
@@ -145,26 +148,35 @@ export const portfolioContentSchema = z.object({
     )
     .min(1),
   lastDeployment: z.string(),
-  customColor: z.object({
-    h: z.number(),
-    s: z.number(),
-    l: z.number(),
-  }),
+  customColors: z
+    .object({
+      dark: z.object({
+        h: z.number(),
+        s: z.number(),
+        l: z.number(),
+      }),
+      light: z.object({
+        h: z.number(),
+        s: z.number(),
+        l: z.number(),
+      }),
+    })
+    .optional(),
 })
 
-export type PersistedPortfolioContent = Omit<PortfolioContent, "customColor">
+export type PersistedPortfolioContent = Omit<PortfolioContent, "customColors">
 
 export const persistedPortfolioContentSchema = portfolioContentSchema.omit({
-  customColor: true,
+  customColors: true,
 })
 
-export function withDefaultCustomColor(content: PersistedPortfolioContent): PortfolioContent {
+export function withDefaultCustomColors(content: PersistedPortfolioContent): PortfolioContent {
   const defaults = cloneDefaultContent()
   return {
     ...content,
     experienceLog: content.experienceLog ?? defaults.experienceLog,
     lastDeployment: content.lastDeployment ?? defaults.lastDeployment,
-    customColor: defaults.customColor,
+    customColors: defaults.customColors,
   }
 }
 
@@ -260,7 +272,10 @@ export const defaultContent: PortfolioContent = {
       ],
     },
   ],
-  customColor: { h: 186, s: 100, l: 37 },
+  customColors: {
+    dark: { h: 186, s: 100, l: 37 },
+    light: { h: 245, s: 100, l: 37 },
+  },
 }
 
 export function cloneDefaultContent(): PortfolioContent {

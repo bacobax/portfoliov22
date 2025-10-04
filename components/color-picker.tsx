@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
 import { Palette } from "lucide-react"
@@ -17,6 +17,12 @@ export function ColorPicker({ onColorChange, defaultH = 25, defaultS = 90, defau
   const [saturation, setSaturation] = useState(defaultS)
   const [lightness, setLightness] = useState(defaultL)
   const [isOpen, setIsOpen] = useState(false)
+
+  useEffect(() => {
+    setHue(defaultH)
+    setSaturation(defaultS)
+    setLightness(defaultL)
+  }, [defaultH, defaultS, defaultL])
 
   const handleHueChange = (value: number[]) => {
     setHue(value[0])

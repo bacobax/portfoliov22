@@ -4,7 +4,7 @@ import { NextResponse } from "next/server"
 import {
   cloneDefaultContent,
   persistedPortfolioContentSchema,
-  withDefaultCustomColor,
+  withDefaultCustomColors,
 } from "@/lib/default-content"
 import { getDb } from "@/lib/mongodb"
 import { SESSION_COOKIE_NAME, validateSession } from "@/lib/session"
@@ -23,14 +23,14 @@ export async function GET() {
       return NextResponse.json({ content: cloneDefaultContent() })
     }
 
-    const { _id, customColor: _ignoredCustomColor, ...rest } = document
+    const { _id, customColor: _ignoredCustomColor, customColors: _ignoredCustomColors, ...rest } = document
     const parsed = persistedPortfolioContentSchema.safeParse(rest)
 
     if (!parsed.success) {
       return NextResponse.json({ content: cloneDefaultContent() })
     }
 
-    return NextResponse.json({ content: withDefaultCustomColor(parsed.data) })
+    return NextResponse.json({ content: withDefaultCustomColors(parsed.data) })
   } catch (error) {
     console.error("Failed to load portfolio content", error)
     return NextResponse.json({ content: cloneDefaultContent() })
@@ -52,7 +52,8 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: false, error: "Invalid payload" }, { status: 400 })
   }
 
-  const { customColor: _ignoredCustomColor, ...persistablePayload } = payload as Record<string, unknown>
+  const { customColor: _ignoredCustomColor, customColors: _ignoredCustomColors, ...persistablePayload } =
+    payload as Record<string, unknown>
 
   const parsed = persistedPortfolioContentSchema.safeParse(persistablePayload)
 
@@ -64,7 +65,7 @@ export async function PUT(request: Request) {
     const db = await getDb()
     await db.collection(COLLECTION_NAME).updateOne(
       { _id: DOCUMENT_ID },
-      { $set: parsed.data, $setOnInsert: { _id: DOCUMENT_ID }, $unset: { customColor: "" } },
+      { $set: parsed.data, $setOnInsert: { _id: DOCUMENT_ID }, $unset: { customColor: "", customColors: "" } },
       { upsert: true },
     )
 
