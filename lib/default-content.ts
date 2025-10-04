@@ -47,6 +47,14 @@ export interface ExperienceEntry {
   tags: string[]
 }
 
+export interface EducationEntry {
+  year: string
+  degree: string
+  institution: string
+  description: string
+  tags: string[]
+}
+
 const defaultExperienceLog: ExperienceEntry[] = [
   {
     year: "2021 - PRESENT",
@@ -74,6 +82,25 @@ const defaultExperienceLog: ExperienceEntry[] = [
   },
 ]
 
+const defaultEducationLog: EducationEntry[] = [
+  {
+    year: "2016 - 2018",
+    degree: "M.S. SOFTWARE_ENGINEERING",
+    institution: "Global Tech University",
+    description:
+      "Focused on distributed systems, cloud-native architectures, and advanced software design patterns.",
+    tags: ["Distributed Systems", "Cloud Architecture", "Leadership"],
+  },
+  {
+    year: "2012 - 2016",
+    degree: "B.S. COMPUTER_SCIENCE",
+    institution: "Innovation Institute of Technology",
+    description:
+      "Graduated with honors. Specialized in algorithms, data structures, and human-computer interaction.",
+    tags: ["Algorithms", "HCI", "Dean's List"],
+  },
+]
+
 export interface SkillsData {
   frontend: string[]
   backend: string[]
@@ -86,6 +113,7 @@ export interface PortfolioContent {
   systemStatus: SystemStatus
   lastDeployment: string
   experienceLog: ExperienceEntry[]
+  educationLog: EducationEntry[]
   skillsData: SkillsData
   projectCategories: ProjectCategory[]
   customColor: { h: number; s: number; l: number }
@@ -120,6 +148,18 @@ export const portfolioContentSchema = z.object({
       }),
     )
     .default(defaultExperienceLog)
+    .optional(),
+  educationLog: z
+    .array(
+      z.object({
+        year: z.string(),
+        degree: z.string(),
+        institution: z.string(),
+        description: z.string(),
+        tags: z.array(z.string()),
+      }),
+    )
+    .default(defaultEducationLog)
     .optional(),
   skillsData: z.object({
     frontend: z.array(z.string()),
@@ -163,6 +203,7 @@ export function withDefaultCustomColor(content: PersistedPortfolioContent): Port
   return {
     ...content,
     experienceLog: content.experienceLog ?? defaults.experienceLog,
+    educationLog: content.educationLog ?? defaults.educationLog,
     lastDeployment: content.lastDeployment ?? defaults.lastDeployment,
     customColor: defaults.customColor,
   }
@@ -188,6 +229,7 @@ export const defaultContent: PortfolioContent = {
   },
   lastDeployment: "2024-03-15 14:32:07 UTC",
   experienceLog: defaultExperienceLog,
+  educationLog: defaultEducationLog,
   skillsData: {
     frontend: ["React", "Next.js", "TypeScript", "Tailwind CSS", "Vue.js"],
     backend: ["Node.js", "Python", "Go", "PostgreSQL", "Redis"],
