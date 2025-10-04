@@ -231,8 +231,16 @@
 
   /* Simplified cursor to clean "+" with subtle corners, removed glow effects */
   /* Redesigned cursor as simple "+" crosshair with minimal tech styling */
-  * {
-    cursor: none !important;
+  @media (pointer: fine) {
+    * {
+      cursor: none !important;
+    }
+  }
+
+  @media (pointer: coarse) {
+    .tech-cursor {
+      display: none !important;
+    }
   }
 
   .tech-cursor {
