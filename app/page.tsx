@@ -32,7 +32,7 @@ import { ParticleEngine } from "@/components/particle-engine"
 import { ColorPicker } from "@/components/color-picker"
 import { GridTrails } from "@/components/grid-trails"
 import { AuthModal } from "@/components/auth-modal"
-import { EditableText } from "@/components/editable-text"
+import { EditableText, formatMultilineText } from "@/components/editable-text"
 import { ProjectForm } from "@/components/project-form"
 import { TechCursor } from "@/components/tech-cursor"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -42,7 +42,9 @@ import {
   type ExperienceEntry,
   type PortfolioContent,
   type Project,
+  type ProjectCategory,
   type ProjectVisual,
+  type SystemStatus,
   withDefaultCustomColor,
 } from "@/lib/default-content"
 
@@ -73,10 +75,45 @@ const sortEducationEntries = (entries: EducationEntry[] | undefined): EducationE
   return [...entries].sort((first, second) => extractStartYear(second.year) - extractStartYear(first.year))
 }
 
-const withSortedEducationLog = (content: PortfolioContent): PortfolioContent => ({
-  ...content,
-  educationLog: sortEducationEntries(content.educationLog),
-})
+const calculateProjectCount = (categories: ProjectCategory[] | undefined): number => {
+  if (!categories) {
+    return 0
+  }
+
+  return categories.reduce((total, category) => total + category.projects.length, 0)
+}
+
+const generateSystemStatusId = (label?: string) => {
+  const normalized = label?.toLowerCase().replace(/\s+/g, "-") ?? "status"
+  return `status-${normalized}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+}
+
+const ensureSystemStatusEntries = (entries: SystemStatus | undefined): SystemStatus => {
+  if (entries && entries.length > 0) {
+    return entries.map((entry) => ({
+      ...entry,
+      id: entry.id || generateSystemStatusId(entry.label),
+    }))
+  }
+
+  return cloneDefaultContent().systemStatus
+}
+
+const withDerivedContent = (content: PortfolioContent): PortfolioContent => {
+  const educationLog = sortEducationEntries(content.educationLog)
+  const projectsCount = calculateProjectCount(content.projectCategories)
+  const systemStatus = ensureSystemStatusEntries(content.systemStatus)
+
+  return {
+    ...content,
+    educationLog,
+    systemStatus,
+    aboutStats: {
+      ...content.aboutStats,
+      projects: String(projectsCount),
+    },
+  }
+}
 
 type EditingProjectState = { categoryIndex: number; projectIndex: number } | null
 
@@ -131,7 +168,7 @@ export default function TechDashboardPortfolio() {
         if (!previous) {
           return previous
         }
-        const updated = withSortedEducationLog(updater(previous))
+        const updated = withDerivedContent(updater(previous))
         if (shouldPersist) {
           void persistContent(updated)
         }
@@ -151,14 +188,14 @@ export default function TechDashboardPortfolio() {
       }
       const data = (await response.json()) as { content?: PortfolioContent }
       if (data.content) {
-        setContent(withSortedEducationLog(withDefaultCustomColor(data.content)))
+        setContent(withDerivedContent(withDefaultCustomColor(data.content)))
       } else {
-        setContent(withSortedEducationLog(cloneDefaultContent()))
+        setContent(withDerivedContent(cloneDefaultContent()))
       }
     } catch (error) {
       console.error("Failed to load content", error)
       setContentError("Unable to load portfolio content.")
-      setContent(withSortedEducationLog(cloneDefaultContent()))
+      setContent(withDerivedContent(cloneDefaultContent()))
     } finally {
       setIsContentLoading(false)
     }
@@ -383,16 +420,48 @@ export default function TechDashboardPortfolio() {
   }
 
   const updateAboutStat = (field: keyof PortfolioContent["aboutStats"], value: string) => {
+    if (field === "projects") {
+      return
+    }
+
     applyContentUpdate((previous) => ({
       ...previous,
       aboutStats: { ...previous.aboutStats, [field]: value },
     }))
   }
 
-  const updateSystemStatus = (field: keyof PortfolioContent["systemStatus"], value: number) => {
+  const updateSystemStatusValue = (id: string, value: number) => {
     applyContentUpdate((previous) => ({
       ...previous,
-      systemStatus: { ...previous.systemStatus, [field]: value },
+      systemStatus: previous.systemStatus.map((entry) =>
+        entry.id === id ? { ...entry, value: Math.max(0, Math.min(100, value)) } : entry,
+      ),
+    }))
+  }
+
+  const updateSystemStatusLabel = (id: string, label: string) => {
+    applyContentUpdate((previous) => ({
+      ...previous,
+      systemStatus: previous.systemStatus.map((entry) =>
+        entry.id === id ? { ...entry, label: label.trim().length > 0 ? label : entry.label } : entry,
+      ),
+    }))
+  }
+
+  const handleAddSystemStatusEntry = () => {
+    applyContentUpdate((previous) => ({
+      ...previous,
+      systemStatus: [
+        ...previous.systemStatus,
+        { id: generateSystemStatusId("new-skill"), label: "NEW_SKILL", value: 50 },
+      ],
+    }))
+  }
+
+  const handleRemoveSystemStatusEntry = (id: string) => {
+    applyContentUpdate((previous) => ({
+      ...previous,
+      systemStatus: previous.systemStatus.filter((entry) => entry.id !== id),
     }))
   }
 
@@ -669,7 +738,6 @@ export default function TechDashboardPortfolio() {
                     value={content.aboutStats.projects}
                     icon={<Database className="w-4 h-4" />}
                     isEditorMode={isEditorMode}
-                    onValueChange={(value) => updateAboutStat("projects", value)}
                   />
                   <StatCard
                     label="COMMITS"
@@ -695,9 +763,15 @@ export default function TechDashboardPortfolio() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                  <Button variant="default" className="font-mono text-xs w-full sm:w-auto cursor-pointer">
-                    <Mail className="w-4 h-4 mr-2" />
-                    CONTACT
+                  <Button
+                    asChild
+                    variant="default"
+                    className="font-mono text-xs w-full sm:w-auto cursor-pointer"
+                  >
+                    <a href="mailto:quicksolver02@gmail.com">
+                      <Mail className="w-4 h-4 mr-2" />
+                      CONTACT
+                    </a>
                   </Button>
                   <Button asChild variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
                     <a href="https://github.com/bacobax" target="_blank" rel="noopener noreferrer">
@@ -720,30 +794,30 @@ export default function TechDashboardPortfolio() {
                   SYSTEM_STATUS
                 </h3>
                 <div className="space-y-3 sm:space-y-4">
-                  <StatusBar
-                    label="FRONTEND"
-                    value={content.systemStatus.frontend}
-                    isEditorMode={isEditorMode}
-                    onValueChange={(value) => updateSystemStatus("frontend", value)}
-                  />
-                  <StatusBar
-                    label="BACKEND"
-                    value={content.systemStatus.backend}
-                    isEditorMode={isEditorMode}
-                    onValueChange={(value) => updateSystemStatus("backend", value)}
-                  />
-                  <StatusBar
-                    label="DEVOPS"
-                    value={content.systemStatus.devops}
-                    isEditorMode={isEditorMode}
-                    onValueChange={(value) => updateSystemStatus("devops", value)}
-                  />
-                  <StatusBar
-                    label="DATABASE"
-                    value={content.systemStatus.database}
-                    isEditorMode={isEditorMode}
-                    onValueChange={(value) => updateSystemStatus("database", value)}
-                  />
+                  {content.systemStatus.map((status) => (
+                    <StatusBar
+                      key={status.id}
+                      label={status.label}
+                      value={status.value}
+                      isEditorMode={isEditorMode}
+                      onValueChange={(value) => updateSystemStatusValue(status.id, value)}
+                      onLabelChange={isEditorMode ? (value) => updateSystemStatusLabel(status.id, value) : undefined}
+                      onDelete={
+                        isEditorMode && content.systemStatus.length > 1
+                          ? () => handleRemoveSystemStatusEntry(status.id)
+                          : undefined
+                      }
+                    />
+                  ))}
+                  {isEditorMode && (
+                    <button
+                      type="button"
+                      onClick={handleAddSystemStatusEntry}
+                      className="w-full border border-dashed border-primary/50 text-primary text-[10px] sm:text-xs font-mono py-2 cursor-pointer hover:border-primary bg-background/40"
+                    >
+                      <Plus className="inline-block w-3 h-3 mr-2" /> ADD_STATUS_BAR
+                    </button>
+                  )}
                 </div>
                 <div className="mt-4 sm:mt-6 p-2 sm:p-3 bg-primary/10 border border-primary/30 text-[10px] sm:text-xs font-mono">
                   <p className="text-primary mb-1">{">"} LAST_DEPLOYMENT:</p>
@@ -997,11 +1071,15 @@ function StatusBar({
   value,
   isEditorMode,
   onValueChange,
+  onLabelChange,
+  onDelete,
 }: {
   label: string
   value: number
   isEditorMode?: boolean
   onValueChange?: (value: number) => void
+  onLabelChange?: (value: string) => void
+  onDelete?: () => void
 }) {
   const handleChange = (newValue: string) => {
     const num = Number.parseInt(newValue, 10)
@@ -1012,8 +1090,30 @@ function StatusBar({
 
   return (
     <div>
-      <div className="flex justify-between text-xs font-mono mb-1">
-        <span className="text-muted-foreground">{label}</span>
+      <div className="flex items-center justify-between gap-2 text-xs font-mono mb-1">
+        <div className="flex items-center gap-2 flex-1">
+          {isEditorMode && onLabelChange ? (
+            <EditableText
+              value={label}
+              onChange={onLabelChange}
+              isEditorMode={isEditorMode}
+              className="text-muted-foreground"
+              as="span"
+            />
+          ) : (
+            <span className="text-muted-foreground">{label}</span>
+          )}
+          {isEditorMode && onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              className="text-[10px] text-destructive border border-destructive/50 px-1 py-0.5 cursor-pointer hover:border-destructive"
+              title="Remove status bar"
+            >
+              REMOVE
+            </button>
+          )}
+        </div>
         {isEditorMode && onValueChange ? (
           <EditableText
             value={`${value}%`}
@@ -1215,7 +1315,9 @@ function EducationItem({
             )}
           </div>
           {description.trim().length > 0 && (
-            <p className="text-xs sm:text-sm text-foreground mb-3 leading-relaxed">{description}</p>
+            <div className="text-xs sm:text-sm text-foreground mb-3 leading-relaxed space-y-2">
+              {formatMultilineText(description)}
+            </div>
           )}
           {tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 sm:gap-2">
@@ -1467,7 +1569,9 @@ function ProjectCard({
           {status}
         </Badge>
       </div>
-      <p className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 leading-relaxed">{description}</p>
+      <div className="text-xs sm:text-sm text-muted-foreground mb-3 sm:mb-4 leading-relaxed space-y-2">
+        {formatMultilineText(description)}
+      </div>
       <div className="flex flex-wrap gap-2 sm:gap-4 text-[10px] sm:text-xs font-mono">
         {Object.entries(metrics).map(([key, value]) => (
           <div key={key}>
