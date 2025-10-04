@@ -100,6 +100,17 @@ export const portfolioContentSchema = z.object({
   }),
 })
 
+export type PersistedPortfolioContent = Omit<PortfolioContent, "customColor">
+
+export const persistedPortfolioContentSchema = portfolioContentSchema.omit({
+  customColor: true,
+})
+
+export function withDefaultCustomColor(content: PersistedPortfolioContent): PortfolioContent {
+  const defaults = cloneDefaultContent()
+  return { ...content, customColor: defaults.customColor }
+}
+
 export const defaultContent: PortfolioContent = {
   profileData: {
     name: "JOHN_DOE.exe",

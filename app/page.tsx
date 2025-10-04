@@ -70,10 +70,12 @@ export default function TechDashboardPortfolio() {
       }
 
       try {
+        const { customColor: _ignoredCustomColor, ...persistableContent } = data
+
         const response = await fetch("/api/content", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+          body: JSON.stringify(persistableContent),
         })
 
         if (!response.ok) {
@@ -258,10 +260,13 @@ export default function TechDashboardPortfolio() {
   }
 
   const handleColorChange = (h: number, s: number, l: number) => {
-    applyContentUpdate((previous) => ({
-      ...previous,
-      customColor: { h, s, l },
-    }))
+    applyContentUpdate(
+      (previous) => ({
+        ...previous,
+        customColor: { h, s, l },
+      }),
+      false,
+    )
   }
 
   const updateProfileField = (field: keyof PortfolioContent["profileData"], value: string) => {

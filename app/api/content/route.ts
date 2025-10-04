@@ -1,7 +1,11 @@
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
-import { cloneDefaultContent, portfolioContentSchema } from "@/lib/default-content"
+import {
+  cloneDefaultContent,
+  persistedPortfolioContentSchema,
+  withDefaultCustomColor,
+} from "@/lib/default-content"
 import { getDb } from "@/lib/mongodb"
 import { SESSION_COOKIE_NAME, validateSession } from "@/lib/session"
 
@@ -19,14 +23,14 @@ export async function GET() {
       return NextResponse.json({ content: cloneDefaultContent() })
     }
 
-    const { _id, ...rest } = document
-    const parsed = portfolioContentSchema.safeParse(rest)
+    const { _id, customColor: _ignoredCustomColor, ...rest } = document
+    const parsed = persistedPortfolioContentSchema.safeParse(rest)
 
     if (!parsed.success) {
       return NextResponse.json({ content: cloneDefaultContent() })
     }
 
-    return NextResponse.json({ content: parsed.data })
+    return NextResponse.json({ content: withDefaultCustomColor(parsed.data) })
   } catch (error) {
     console.error("Failed to load portfolio content", error)
     return NextResponse.json({ content: cloneDefaultContent() })
@@ -44,11 +48,13 @@ export async function PUT(request: Request) {
 
   const payload = await request.json().catch(() => null)
 
-  if (!payload) {
+  if (!payload || typeof payload !== "object") {
     return NextResponse.json({ success: false, error: "Invalid payload" }, { status: 400 })
   }
 
-  const parsed = portfolioContentSchema.safeParse(payload)
+  const { customColor: _ignoredCustomColor, ...persistablePayload } = payload as Record<string, unknown>
+
+  const parsed = persistedPortfolioContentSchema.safeParse(persistablePayload)
 
   if (!parsed.success) {
     return NextResponse.json({ success: false, error: "Invalid content" }, { status: 400 })
@@ -58,7 +64,7 @@ export async function PUT(request: Request) {
     const db = await getDb()
     await db.collection(COLLECTION_NAME).updateOne(
       { _id: DOCUMENT_ID },
-      { $set: parsed.data, $setOnInsert: { _id: DOCUMENT_ID } },
+      { $set: parsed.data, $setOnInsert: { _id: DOCUMENT_ID }, $unset: { customColor: "" } },
       { upsert: true },
     )
 
