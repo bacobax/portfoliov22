@@ -9,21 +9,33 @@ import { Input } from "@/components/ui/input"
 import { Lock, X } from "lucide-react"
 
 interface AuthModalProps {
-  onAuthenticate: (password: string) => void
+  onAuthenticate: (password: string) => Promise<{ success: boolean; error?: string }>
   onClose: () => void
 }
 
 export function AuthModal({ onAuthenticate, onClose }: AuthModalProps) {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!password) {
       setError("Password required")
       return
     }
-    onAuthenticate(password)
+
+    setIsSubmitting(true)
+    const result = await onAuthenticate(password)
+    setIsSubmitting(false)
+
+    if (!result.success) {
+      setError(result.error || "Authentication failed")
+      return
+    }
+
+    setPassword("")
+    setError("")
   }
 
   return (
@@ -58,19 +70,21 @@ export function AuthModal({ onAuthenticate, onClose }: AuthModalProps) {
               className="font-mono bg-background border-primary/50 focus:border-primary"
               placeholder="••••••••"
               autoFocus
+              disabled={isSubmitting}
             />
             {error && <p className="text-xs text-red-500 mt-2 font-mono">ERROR: {error}</p>}
           </div>
 
           <div className="flex gap-3">
-            <Button type="submit" className="flex-1 font-mono cursor-pointer">
-              AUTHENTICATE
+            <Button type="submit" className="flex-1 font-mono cursor-pointer" disabled={isSubmitting}>
+              {isSubmitting ? "VALIDATING" : "AUTHENTICATE"}
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={onClose}
               className="font-mono cursor-pointer bg-transparent"
+              disabled={isSubmitting}
             >
               CANCEL
             </Button>

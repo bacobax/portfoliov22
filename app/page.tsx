@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -34,129 +34,88 @@ import { AuthModal } from "@/components/auth-modal"
 import { EditableText } from "@/components/editable-text"
 import { ProjectForm } from "@/components/project-form"
 import { TechCursor } from "@/components/tech-cursor"
+import {
+  cloneDefaultContent,
+  type PortfolioContent,
+  type Project,
+  type ProjectVisual,
+} from "@/lib/default-content"
 
-interface Project {
-  title: string
-  description: string
-  status: string
-  metrics: Record<string, string>
+const projectVisualComponentMap: Record<ProjectVisual, React.ComponentType<{ color: { r: number; g: number; b: number }; theme: string }>> = {
+  brain: ParticleBrain,
+  sphere: ParticleSphere,
+  engine: ParticleEngine,
 }
 
-interface ProjectCategory {
-  id: string
-  name: string
-  component: React.ComponentType<{ color: { r: number; g: number; b: number }; theme: string }>
-  projects: Project[]
-}
+type EditingProjectState = { categoryIndex: number; projectIndex: number } | null
 
-const initialProjectCategories: ProjectCategory[] = [
-  {
-    id: "ai",
-    name: "AI",
-    component: ParticleBrain,
-    projects: [
-      {
-        title: "NEURAL_NETWORK_DASHBOARD",
-        description: "Real-time ML model monitoring system with predictive analytics and automated alerting.",
-        status: "PRODUCTION",
-        metrics: { users: "15K", uptime: "99.9%" },
-      },
-      {
-        title: "NLP_SENTIMENT_ANALYZER",
-        description:
-          "Advanced natural language processing engine for real-time sentiment analysis across multiple languages.",
-        status: "PRODUCTION",
-        metrics: { accuracy: "94%", speed: "50ms" },
-      },
-    ],
-  },
-  {
-    id: "webdev",
-    name: "WEB_DEV",
-    component: ParticleSphere,
-    projects: [
-      {
-        title: "E-COMMERCE_PLATFORM",
-        description:
-          "Full-stack e-commerce solution with real-time inventory, payment processing, and analytics dashboard.",
-        status: "PRODUCTION",
-        metrics: { transactions: "100K+", revenue: "$2M" },
-      },
-      {
-        title: "SOCIAL_MEDIA_APP",
-        description: "Real-time social networking platform with live messaging, media sharing, and content moderation.",
-        status: "BETA",
-        metrics: { users: "50K", messages: "1M/day" },
-      },
-    ],
-  },
-  {
-    id: "software",
-    name: "SOFTWARE_DEV",
-    component: ParticleEngine,
-    projects: [
-      {
-        title: "DISTRIBUTED_CACHE_SYSTEM",
-        description: "High-performance caching layer reducing database load by 85% across microservices.",
-        status: "PRODUCTION",
-        metrics: { requests: "50M/day", latency: "12ms" },
-      },
-      {
-        title: "API_GATEWAY_v3",
-        description: "Scalable API gateway with rate limiting, authentication, and request transformation.",
-        status: "BETA",
-        metrics: { endpoints: "200+", throughput: "10K/s" },
-      },
-      {
-        title: "MONITORING_SUITE",
-        description: "Comprehensive observability platform with custom metrics, logs, and distributed tracing.",
-        status: "DEVELOPMENT",
-        metrics: { services: "45", alerts: "120" },
-      },
-    ],
-  },
-]
+type AuthResult = { success: boolean; error?: string }
 
 export default function TechDashboardPortfolio() {
   const [time, setTime] = useState(new Date())
   const [activeSection, setActiveSection] = useState<"ALL" | "ABOUT" | "EXPERIENCE" | "PROJECTS" | "SKILLS">("ALL")
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0)
   const [theme, setTheme] = useState<"dark" | "light">("dark")
-  const [customColor, setCustomColor] = useState({ h: 186, s: 100, l: 37 })
   const [isEditorMode, setIsEditorMode] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [projectCategories, setProjectCategories] = useState<ProjectCategory[]>(initialProjectCategories)
   const [showProjectForm, setShowProjectForm] = useState(false)
-  const [editingProject, setEditingProject] = useState<{ categoryIndex: number; projectIndex: number } | null>(null)
+  const [editingProject, setEditingProject] = useState<EditingProjectState>(null)
+  const [content, setContent] = useState<PortfolioContent>(() => cloneDefaultContent())
 
-  const EDITOR_PASSWORD = "admin123"
+  const persistContent = useCallback(
+    async (data: PortfolioContent) => {
+      if (!isAuthenticated) {
+        return
+      }
 
-  const [profileData, setProfileData] = useState({
-    name: "JOHN_DOE.exe",
-    title: "FULL_STACK_DEVELOPER",
-    bio: "Building scalable systems and crafting pixel-perfect interfaces. Specializing in modern web technologies, cloud architecture, and performance optimization. Currently architecting solutions at TechCorp Industries.",
-  })
+      try {
+        const { customColor: _ignoredCustomColor, ...persistableContent } = data
 
-  const [aboutStats, setAboutStats] = useState({
-    projects: "47",
-    commits: "2.3K",
-    experience: "5Y",
-    efficiency: "98%",
-  })
+        const response = await fetch("/api/content", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(persistableContent),
+        })
 
-  const [systemStatus, setSystemStatus] = useState({
-    frontend: 95,
-    backend: 88,
-    devops: 82,
-    database: 90,
-  })
+        if (!response.ok) {
+          console.error("Failed to persist content", await response.text())
+        }
+      } catch (error) {
+        console.error("Failed to persist content", error)
+      }
+    },
+    [isAuthenticated],
+  )
 
-  const [skillsData, setSkillsData] = useState({
-    frontend: ["React", "Next.js", "TypeScript", "Tailwind CSS", "Vue.js"],
-    backend: ["Node.js", "Python", "Go", "PostgreSQL", "Redis"],
-    devops: ["Docker", "Kubernetes", "AWS", "CI/CD", "Terraform"],
-  })
+  const applyContentUpdate = useCallback(
+    (updater: (previous: PortfolioContent) => PortfolioContent, shouldPersist = true) => {
+      setContent((previous) => {
+        const updated = updater(previous)
+        if (shouldPersist) {
+          void persistContent(updated)
+        }
+        return updated
+      })
+    },
+    [persistContent],
+  )
+
+  const fetchContent = useCallback(async () => {
+    try {
+      const response = await fetch("/api/content")
+      if (!response.ok) {
+        throw new Error(`Failed to load content: ${response.status}`)
+      }
+      const data = (await response.json()) as { content?: PortfolioContent }
+      if (data.content) {
+        setContent(data.content)
+      }
+    } catch (error) {
+      console.error("Failed to load content", error)
+      setContent(cloneDefaultContent())
+    }
+  }, [])
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
@@ -168,48 +127,79 @@ export default function TechDashboardPortfolio() {
     document.documentElement.classList.toggle("dark", theme === "dark")
 
     const root = document.documentElement
-    const { h, s, l } = customColor
+    const { h, s, l } = content.customColor
 
     root.style.setProperty("--primary", `hsl(${h}, ${s}%, ${l}%)`)
     root.style.setProperty("--accent", `hsl(${h}, ${s}%, ${l}%)`)
     root.style.setProperty("--ring", `hsl(${h}, ${s}%, ${l}%)`)
     root.style.setProperty("--border", `hsl(${h}, ${s}%, ${l * 0.4}%)`)
-  }, [theme, customColor])
+  }, [theme, content.customColor])
 
-  const handlePrevCategory = () => {
-    setActiveCategoryIndex((prev) => (prev === 0 ? projectCategories.length - 1 : prev - 1))
-  }
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const response = await fetch("/api/auth/session")
+        if (!response.ok) {
+          return
+        }
+        const data = (await response.json()) as { authenticated?: boolean }
+        if (data.authenticated) {
+          setIsAuthenticated(true)
+          setIsEditorMode(true)
+        }
+      } catch (error) {
+        console.error("Failed to verify session", error)
+      }
+    }
 
-  const handleNextCategory = () => {
-    setActiveCategoryIndex((prev) => (prev === projectCategories.length - 1 ? 0 : prev + 1))
-  }
-
-  const handleColorChange = (h: number, s: number, l: number) => {
-    setCustomColor({ h, s, l })
-  }
+    void checkSession()
+    void fetchContent()
+  }, [fetchContent])
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"))
+    setTheme((previous) => (previous === "dark" ? "light" : "dark"))
   }
 
-  const handleAuthenticate = (password: string) => {
-    if (password === EDITOR_PASSWORD) {
+  const handleAuthenticate = async (password: string): Promise<AuthResult> => {
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      })
+
+      const data = (await response.json().catch(() => ({}))) as AuthResult
+
+      if (!response.ok || !data.success) {
+        return { success: false, error: data.error || "Authentication failed" }
+      }
+
       setIsAuthenticated(true)
       setIsEditorMode(true)
       setShowAuthModal(false)
-    } else {
-      alert("ERROR: Invalid password")
+      await fetchContent()
+
+      return { success: true }
+    } catch (error) {
+      console.error("Authentication error", error)
+      return { success: false, error: "Unable to authenticate" }
     }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" })
+    } catch (error) {
+      console.error("Failed to logout", error)
+    }
+
     setIsAuthenticated(false)
     setIsEditorMode(false)
   }
 
   const handleToggleEditor = () => {
     if (isAuthenticated) {
-      setIsEditorMode(!isEditorMode)
+      setIsEditorMode((previous) => !previous)
     } else {
       setShowAuthModal(true)
     }
@@ -226,32 +216,124 @@ export default function TechDashboardPortfolio() {
   }
 
   const handleDeleteProject = (categoryIndex: number, projectIndex: number) => {
-    if (confirm("Are you sure you want to delete this project?")) {
-      const newCategories = [...projectCategories]
-      newCategories[categoryIndex].projects.splice(projectIndex, 1)
-      setProjectCategories(newCategories)
+    if (!window.confirm("Are you sure you want to delete this project?")) {
+      return
     }
+
+    applyContentUpdate((previous) => {
+      const updatedCategories = previous.projectCategories.map((category, index) => {
+        if (index !== categoryIndex) {
+          return category
+        }
+
+        return {
+          ...category,
+          projects: category.projects.filter((_, idx) => idx !== projectIndex),
+        }
+      })
+
+      return { ...previous, projectCategories: updatedCategories }
+    })
   }
 
   const handleSaveProject = (project: Project) => {
-    const newCategories = [...projectCategories]
-    if (editingProject) {
-      // Update existing project
-      newCategories[editingProject.categoryIndex].projects[editingProject.projectIndex] = project
-    } else {
-      // Add new project to current category
-      newCategories[activeCategoryIndex].projects.push(project)
-    }
-    setProjectCategories(newCategories)
+    applyContentUpdate((previous) => {
+      const updatedCategories = previous.projectCategories.map((category, index) => {
+        if (editingProject && index === editingProject.categoryIndex) {
+          const projects = [...category.projects]
+          projects[editingProject.projectIndex] = project
+          return { ...category, projects }
+        }
+
+        if (!editingProject && index === activeCategoryIndex) {
+          return { ...category, projects: [...category.projects, project] }
+        }
+
+        return category
+      })
+
+      return { ...previous, projectCategories: updatedCategories }
+    })
+
     setShowProjectForm(false)
     setEditingProject(null)
   }
 
-  const activeCategory = projectCategories[activeCategoryIndex]
-  const ParticleComponent = activeCategory.component
+  const handleColorChange = (h: number, s: number, l: number) => {
+    applyContentUpdate(
+      (previous) => ({
+        ...previous,
+        customColor: { h, s, l },
+      }),
+      false,
+    )
+  }
+
+  const updateProfileField = (field: keyof PortfolioContent["profileData"], value: string) => {
+    applyContentUpdate((previous) => ({
+      ...previous,
+      profileData: { ...previous.profileData, [field]: value },
+    }))
+  }
+
+  const updateAboutStat = (field: keyof PortfolioContent["aboutStats"], value: string) => {
+    applyContentUpdate((previous) => ({
+      ...previous,
+      aboutStats: { ...previous.aboutStats, [field]: value },
+    }))
+  }
+
+  const updateSystemStatus = (field: keyof PortfolioContent["systemStatus"], value: number) => {
+    applyContentUpdate((previous) => ({
+      ...previous,
+      systemStatus: { ...previous.systemStatus, [field]: value },
+    }))
+  }
+
+  const updateSkills = (field: keyof PortfolioContent["skillsData"], skills: string[]) => {
+    applyContentUpdate((previous) => ({
+      ...previous,
+      skillsData: { ...previous.skillsData, [field]: skills },
+    }))
+  }
+
+  const { profileData, aboutStats, systemStatus, skillsData, projectCategories, customColor } = content
+  const projectCategoryCount = projectCategories.length
+
+  useEffect(() => {
+    if (projectCategoryCount === 0) {
+      setActiveCategoryIndex(0)
+      return
+    }
+
+    if (activeCategoryIndex >= projectCategoryCount) {
+      setActiveCategoryIndex(projectCategoryCount - 1)
+    }
+  }, [activeCategoryIndex, projectCategoryCount])
+  const activeCategory =
+    projectCategoryCount > 0
+      ? projectCategories[Math.min(activeCategoryIndex, projectCategoryCount - 1)]
+      : null
+  const ParticleComponent = activeCategory
+    ? projectVisualComponentMap[activeCategory.visual] || ParticleBrain
+    : ParticleBrain
 
   const shouldShowSection = (section: string) => {
     return activeSection === "ALL" || activeSection === section
+  }
+
+  const handlePrevCategory = () => {
+    if (projectCategoryCount === 0) {
+      return
+    }
+    setActiveCategoryIndex((previous) => (previous === 0 ? projectCategoryCount - 1 : previous - 1))
+  }
+
+  const handleNextCategory = () => {
+    if (projectCategoryCount === 0) {
+      return
+    }
+    setActiveCategoryIndex((previous) => (previous === projectCategoryCount - 1 ? 0 : previous + 1))
   }
 
   const hslToRgb = (h: number, s: number, l: number) => {
@@ -272,7 +354,7 @@ export default function TechDashboardPortfolio() {
       <GridTrails color={{ r, g, b }} />
 
       {showAuthModal && <AuthModal onAuthenticate={handleAuthenticate} onClose={() => setShowAuthModal(false)} />}
-      {showProjectForm && (
+      {showProjectForm && activeCategory && (
         <ProjectForm
           project={
             editingProject
@@ -356,7 +438,6 @@ export default function TechDashboardPortfolio() {
       )}
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 relative z-10">
-        {/* Navigation Tabs */}
         <div className="flex gap-1.5 sm:gap-2 mb-4 sm:mb-8 overflow-x-auto pb-2 -mx-3 px-3 sm:mx-0 sm:px-0">
           {["ALL", "ABOUT", "EXPERIENCE", "PROJECTS", "SKILLS"].map((section) => (
             <Button
@@ -372,7 +453,6 @@ export default function TechDashboardPortfolio() {
 
         {shouldShowSection("ABOUT") && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-8">
-            {/* Profile Card - Spans 2 columns on large screens */}
             <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20">
               <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0">
@@ -381,21 +461,21 @@ export default function TechDashboardPortfolio() {
                 <div className="flex-1 min-w-0">
                   <EditableText
                     value={profileData.name}
-                    onChange={(value) => setProfileData({ ...profileData, name: value })}
+                    onChange={(value) => updateProfileField("name", value)}
                     isEditorMode={isEditorMode}
                     as="h2"
                     className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2 text-foreground"
                   />
                   <EditableText
                     value={`> ${profileData.title}`}
-                    onChange={(value) => setProfileData({ ...profileData, title: value.replace(/^>\s*/, "") })}
+                    onChange={(value) => updateProfileField("title", value.replace(/^>\s*/, ""))}
                     isEditorMode={isEditorMode}
                     as="p"
                     className="text-primary font-mono text-xs sm:text-sm mb-1 sm:mb-2"
                   />
                   <EditableText
                     value={profileData.bio}
-                    onChange={(value) => setProfileData({ ...profileData, bio: value })}
+                    onChange={(value) => updateProfileField("bio", value)}
                     isEditorMode={isEditorMode}
                     as="p"
                     multiline
@@ -410,28 +490,28 @@ export default function TechDashboardPortfolio() {
                   value={aboutStats.projects}
                   icon={<Database className="w-4 h-4" />}
                   isEditorMode={isEditorMode}
-                  onValueChange={(value) => setAboutStats({ ...aboutStats, projects: value })}
+                  onValueChange={(value) => updateAboutStat("projects", value)}
                 />
                 <StatCard
                   label="COMMITS"
                   value={aboutStats.commits}
                   icon={<Github className="w-4 h-4" />}
                   isEditorMode={isEditorMode}
-                  onValueChange={(value) => setAboutStats({ ...aboutStats, commits: value })}
+                  onValueChange={(value) => updateAboutStat("commits", value)}
                 />
                 <StatCard
                   label="EXPERIENCE"
                   value={aboutStats.experience}
                   icon={<Cpu className="w-4 h-4" />}
                   isEditorMode={isEditorMode}
-                  onValueChange={(value) => setAboutStats({ ...aboutStats, experience: value })}
+                  onValueChange={(value) => updateAboutStat("experience", value)}
                 />
                 <StatCard
                   label="EFFICIENCY"
                   value={aboutStats.efficiency}
                   icon={<Activity className="w-4 h-4" />}
                   isEditorMode={isEditorMode}
-                  onValueChange={(value) => setAboutStats({ ...aboutStats, efficiency: value })}
+                  onValueChange={(value) => updateAboutStat("efficiency", value)}
                 />
               </div>
 
@@ -461,25 +541,25 @@ export default function TechDashboardPortfolio() {
                   label="FRONTEND"
                   value={systemStatus.frontend}
                   isEditorMode={isEditorMode}
-                  onValueChange={(value) => setSystemStatus({ ...systemStatus, frontend: value })}
+                  onValueChange={(value) => updateSystemStatus("frontend", value)}
                 />
                 <StatusBar
                   label="BACKEND"
                   value={systemStatus.backend}
                   isEditorMode={isEditorMode}
-                  onValueChange={(value) => setSystemStatus({ ...systemStatus, backend: value })}
+                  onValueChange={(value) => updateSystemStatus("backend", value)}
                 />
                 <StatusBar
                   label="DEVOPS"
                   value={systemStatus.devops}
                   isEditorMode={isEditorMode}
-                  onValueChange={(value) => setSystemStatus({ ...systemStatus, devops: value })}
+                  onValueChange={(value) => updateSystemStatus("devops", value)}
                 />
                 <StatusBar
                   label="DATABASE"
                   value={systemStatus.database}
                   isEditorMode={isEditorMode}
-                  onValueChange={(value) => setSystemStatus({ ...systemStatus, database: value })}
+                  onValueChange={(value) => updateSystemStatus("database", value)}
                 />
               </div>
               <div className="mt-4 sm:mt-6 p-2 sm:p-3 bg-primary/10 border border-primary/30 text-[10px] sm:text-xs font-mono">
@@ -524,39 +604,42 @@ export default function TechDashboardPortfolio() {
           </Card>
         )}
 
-        {shouldShowSection("PROJECTS") && (
+        {shouldShowSection("PROJECTS") && activeCategory && (
           <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
-            <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2">
-              <h3 className="text-sm sm:text-lg font-mono text-primary flex items-center gap-2 min-w-0">
-                <Database className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                <span className="truncate">PROJECTS_[{activeCategory.name}]</span>
-              </h3>
-              <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-                {isEditorMode && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleAddProject}
-                    className="h-7 w-7 sm:h-8 sm:w-8 bg-transparent border-primary/50 hover:border-primary cursor-pointer"
-                    title="Add Project"
-                  >
-                    <Plus className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
-                  </Button>
-                )}
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <h3 className="text-base sm:text-lg font-mono text-primary">{activeCategory.name}_PROJECTS</h3>
+                <Badge variant="outline" className="text-[10px] sm:text-xs font-mono border-primary/50 text-primary">
+                  {activeCategory.projects.length} ACTIVE
+                </Badge>
+              </div>
+              {isEditorMode && (
+                <button
+                  onClick={handleAddProject}
+                  className="flex items-center gap-2 px-3 py-2 border border-primary/50 bg-card hover:border-primary cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-mono text-primary">NEW_PROJECT</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-mono text-muted-foreground">
+                <span>{activeCategory.id.toUpperCase()}</span>
+                <span className="text-primary">|</span>
+                <span>PROJECT_CLUSTER</span>
+              </div>
+              <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  size="icon"
                   onClick={handlePrevCategory}
                   className="h-7 w-7 sm:h-8 sm:w-8 bg-transparent border-primary/50 hover:border-primary cursor-pointer"
                 >
                   <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
                 </Button>
-                <span className="text-[10px] sm:text-xs font-mono text-muted-foreground px-1 sm:px-2">
-                  {activeCategoryIndex + 1} / {projectCategories.length}
-                </span>
                 <Button
                   variant="outline"
-                  size="icon"
                   onClick={handleNextCategory}
                   className="h-7 w-7 sm:h-8 sm:w-8 bg-transparent border-primary/50 hover:border-primary cursor-pointer"
                 >
@@ -572,7 +655,7 @@ export default function TechDashboardPortfolio() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               {activeCategory.projects.map((project, projectIndex) => (
                 <ProjectCard
-                  key={project.title}
+                  key={`${project.title}-${projectIndex}`}
                   {...project}
                   isEditorMode={isEditorMode}
                   onEdit={() => handleEditProject(activeCategoryIndex, projectIndex)}
@@ -594,19 +677,19 @@ export default function TechDashboardPortfolio() {
                 title="FRONTEND"
                 skills={skillsData.frontend}
                 isEditorMode={isEditorMode}
-                onSkillsChange={(skills) => setSkillsData({ ...skillsData, frontend: skills })}
+                onSkillsChange={(skills) => updateSkills("frontend", skills)}
               />
               <SkillCategory
                 title="BACKEND"
                 skills={skillsData.backend}
                 isEditorMode={isEditorMode}
-                onSkillsChange={(skills) => setSkillsData({ ...skillsData, backend: skills })}
+                onSkillsChange={(skills) => updateSkills("backend", skills)}
               />
               <SkillCategory
                 title="DEVOPS"
                 skills={skillsData.devops}
                 isEditorMode={isEditorMode}
-                onSkillsChange={(skills) => setSkillsData({ ...skillsData, devops: skills })}
+                onSkillsChange={(skills) => updateSkills("devops", skills)}
               />
             </div>
           </Card>
@@ -676,8 +759,8 @@ function StatusBar({
   onValueChange?: (value: number) => void
 }) {
   const handleChange = (newValue: string) => {
-    const num = Number.parseInt(newValue)
-    if (!isNaN(num) && num >= 0 && num <= 100 && onValueChange) {
+    const num = Number.parseInt(newValue, 10)
+    if (!Number.isNaN(num) && num >= 0 && num <= 100 && onValueChange) {
       onValueChange(num)
     }
   }
@@ -725,11 +808,7 @@ function ExperienceItem({
       <p className="text-xs sm:text-sm text-foreground mb-3 leading-relaxed">{description}</p>
       <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {tags.map((tag) => (
-          <Badge
-            key={tag}
-            variant="outline"
-            className="text-[10px] sm:text-xs font-mono border-primary/50 text-primary"
-          >
+          <Badge key={tag} variant="outline" className="text-[10px] sm:text-xs font-mono border-primary/50 text-primary">
             {tag}
           </Badge>
         ))}
@@ -746,11 +825,7 @@ function ProjectCard({
   isEditorMode,
   onEdit,
   onDelete,
-}: {
-  title: string
-  description: string
-  status: string
-  metrics: Record<string, string>
+}: Project & {
   isEditorMode?: boolean
   onEdit?: () => void
   onDelete?: () => void
@@ -759,7 +834,7 @@ function ProjectCard({
     PRODUCTION: "text-primary border-primary",
     BETA: "text-primary/70 border-primary/70",
     DEVELOPMENT: "text-primary/50 border-primary/50",
-  }
+  } as const
 
   return (
     <Card className="p-3 sm:p-5 bg-card border border-primary/20 hover:border-primary transition-colors relative group">
@@ -851,7 +926,7 @@ function SkillCategory({
       </div>
       <div className="space-y-1.5 sm:space-y-2">
         {skills.map((skill, index) => (
-          <div key={index} className="flex items-center gap-2 text-xs sm:text-sm group">
+          <div key={`${skill}-${index}`} className="flex items-center gap-2 text-xs sm:text-sm group">
             <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-primary flex-shrink-0" />
             {isEditorMode && onSkillsChange ? (
               <>
