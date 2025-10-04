@@ -38,6 +38,41 @@ export interface SystemStatus {
   database: number
 }
 
+export interface ExperienceEntry {
+  year: string
+  title: string
+  company: string
+  description: string
+  tags: string[]
+}
+
+const defaultExperienceLog: ExperienceEntry[] = [
+  {
+    year: "2021 - PRESENT",
+    title: "SENIOR_FULL_STACK_ENGINEER",
+    company: "TechCorp Industries",
+    description:
+      "Leading development of cloud-native applications. Architected microservices handling 10M+ requests/day.",
+    tags: ["React", "Node.js", "AWS", "Docker"],
+  },
+  {
+    year: "2019 - 2021",
+    title: "SOFTWARE_ENGINEER",
+    company: "StartupXYZ",
+    description:
+      "Built scalable web applications from ground up. Reduced load times by 60% through optimization.",
+    tags: ["Vue.js", "Python", "PostgreSQL"],
+  },
+  {
+    year: "2018 - 2019",
+    title: "JUNIOR_DEVELOPER",
+    company: "Digital Solutions Inc",
+    description:
+      "Developed responsive web interfaces and RESTful APIs. Collaborated with cross-functional teams.",
+    tags: ["JavaScript", "Express", "MongoDB"],
+  },
+]
+
 export interface SkillsData {
   frontend: string[]
   backend: string[]
@@ -48,6 +83,7 @@ export interface PortfolioContent {
   profileData: ProfileData
   aboutStats: AboutStats
   systemStatus: SystemStatus
+  experienceLog: ExperienceEntry[]
   skillsData: SkillsData
   projectCategories: ProjectCategory[]
   customColor: { h: number; s: number; l: number }
@@ -71,6 +107,18 @@ export const portfolioContentSchema = z.object({
     devops: z.number().int().min(0).max(100),
     database: z.number().int().min(0).max(100),
   }),
+  experienceLog: z
+    .array(
+      z.object({
+        year: z.string(),
+        title: z.string(),
+        company: z.string(),
+        description: z.string(),
+        tags: z.array(z.string()),
+      }),
+    )
+    .default(defaultExperienceLog)
+    .optional(),
   skillsData: z.object({
     frontend: z.array(z.string()),
     backend: z.array(z.string()),
@@ -108,7 +156,11 @@ export const persistedPortfolioContentSchema = portfolioContentSchema.omit({
 
 export function withDefaultCustomColor(content: PersistedPortfolioContent): PortfolioContent {
   const defaults = cloneDefaultContent()
-  return { ...content, customColor: defaults.customColor }
+  return {
+    ...content,
+    experienceLog: content.experienceLog ?? defaults.experienceLog,
+    customColor: defaults.customColor,
+  }
 }
 
 export const defaultContent: PortfolioContent = {
@@ -129,6 +181,7 @@ export const defaultContent: PortfolioContent = {
     devops: 82,
     database: 90,
   },
+  experienceLog: defaultExperienceLog,
   skillsData: {
     frontend: ["React", "Next.js", "TypeScript", "Tailwind CSS", "Vue.js"],
     backend: ["Node.js", "Python", "Go", "PostgreSQL", "Redis"],

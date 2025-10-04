@@ -36,6 +36,7 @@ import { ProjectForm } from "@/components/project-form"
 import { TechCursor } from "@/components/tech-cursor"
 import {
   cloneDefaultContent,
+  type ExperienceEntry,
   type PortfolioContent,
   type Project,
   type ProjectVisual,
@@ -297,7 +298,7 @@ export default function TechDashboardPortfolio() {
     }))
   }
 
-  const { profileData, aboutStats, systemStatus, skillsData, projectCategories, customColor } = content
+  const { profileData, aboutStats, systemStatus, experienceLog, skillsData, projectCategories, customColor } = content
   const projectCategoryCount = projectCategories.length
 
   useEffect(() => {
@@ -334,6 +335,40 @@ export default function TechDashboardPortfolio() {
       return
     }
     setActiveCategoryIndex((previous) => (previous === projectCategoryCount - 1 ? 0 : previous + 1))
+  }
+
+  const handleAddExperienceEntry = () => {
+    const currentYear = new Date().getFullYear()
+    const newEntry: ExperienceEntry = {
+      year: `${currentYear} - PRESENT`,
+      title: "NEW_ROLE_TITLE",
+      company: "Company Name",
+      description: "Describe your impact and responsibilities.",
+      tags: ["Skill"],
+    }
+
+    applyContentUpdate((previous) => ({
+      ...previous,
+      experienceLog: [...previous.experienceLog, newEntry],
+    }))
+  }
+
+  const handleExperienceChange = (index: number, updatedEntry: ExperienceEntry) => {
+    applyContentUpdate((previous) => ({
+      ...previous,
+      experienceLog: previous.experienceLog.map((entry, idx) => (idx === index ? updatedEntry : entry)),
+    }))
+  }
+
+  const handleDeleteExperienceEntry = (index: number) => {
+    if (!window.confirm("Are you sure you want to delete this experience entry?")) {
+      return
+    }
+
+    applyContentUpdate((previous) => ({
+      ...previous,
+      experienceLog: previous.experienceLog.filter((_, idx) => idx !== index),
+    }))
   }
 
   const hslToRgb = (h: number, s: number, l: number) => {
@@ -574,33 +609,38 @@ export default function TechDashboardPortfolio() {
 
         {shouldShowSection("EXPERIENCE") && (
           <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
-            <h3 className="text-base sm:text-lg font-mono text-primary mb-4 sm:mb-6 flex items-center gap-2">
-              <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
-              EXPERIENCE_LOG
-            </h3>
-            <div className="space-y-4 sm:space-y-6">
-              <ExperienceItem
-                year="2021 - PRESENT"
-                title="SENIOR_FULL_STACK_ENGINEER"
-                company="TechCorp Industries"
-                description="Leading development of cloud-native applications. Architected microservices handling 10M+ requests/day."
-                tags={["React", "Node.js", "AWS", "Docker"]}
-              />
-              <ExperienceItem
-                year="2019 - 2021"
-                title="SOFTWARE_ENGINEER"
-                company="StartupXYZ"
-                description="Built scalable web applications from ground up. Reduced load times by 60% through optimization."
-                tags={["Vue.js", "Python", "PostgreSQL"]}
-              />
-              <ExperienceItem
-                year="2018 - 2019"
-                title="JUNIOR_DEVELOPER"
-                company="Digital Solutions Inc"
-                description="Developed responsive web interfaces and RESTful APIs. Collaborated with cross-functional teams."
-                tags={["JavaScript", "Express", "MongoDB"]}
-              />
+            <div className="flex items-center justify-between mb-4 sm:mb-6">
+              <h3 className="text-base sm:text-lg font-mono text-primary flex items-center gap-2">
+                <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
+                EXPERIENCE_LOG
+              </h3>
+              {isEditorMode && (
+                <button
+                  onClick={handleAddExperienceEntry}
+                  className="flex items-center gap-2 px-3 py-2 border border-primary/50 bg-card hover:border-primary cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-mono text-primary">NEW_ENTRY</span>
+                </button>
+              )}
             </div>
+            {experienceLog.length > 0 ? (
+              <div className="space-y-4 sm:space-y-6">
+                {experienceLog.map((entry, index) => (
+                  <ExperienceItem
+                    key={`${entry.title}-${entry.year}-${index}`}
+                    entry={entry}
+                    isEditorMode={isEditorMode}
+                    onChange={(updated) => handleExperienceChange(index, updated)}
+                    onDelete={() => handleDeleteExperienceEntry(index)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs sm:text-sm text-muted-foreground font-mono">
+                No experience entries yet. Use NEW_ENTRY to add your journey.
+              </p>
+            )}
           </Card>
         )}
 
@@ -788,30 +828,135 @@ function StatusBar({
 }
 
 function ExperienceItem({
-  year,
-  title,
-  company,
-  description,
-  tags,
+  entry,
+  isEditorMode,
+  onChange,
+  onDelete,
 }: {
-  year: string
-  title: string
-  company: string
-  description: string
-  tags: string[]
+  entry: ExperienceEntry
+  isEditorMode?: boolean
+  onChange?: (entry: ExperienceEntry) => void
+  onDelete?: () => void
 }) {
+  const editable = Boolean(isEditorMode && onChange)
+
+  const handleFieldChange = (field: keyof ExperienceEntry, value: string) => {
+    if (!onChange) {
+      return
+    }
+
+    onChange({ ...entry, [field]: value })
+  }
+
+  const handleTagChange = (index: number, value: string) => {
+    if (!onChange) {
+      return
+    }
+
+    const newTags = [...entry.tags]
+    newTags[index] = value
+    onChange({ ...entry, tags: newTags })
+  }
+
+  const handleAddTag = () => {
+    if (!onChange) {
+      return
+    }
+
+    onChange({ ...entry, tags: [...entry.tags, "New Tag"] })
+  }
+
+  const handleRemoveTag = (index: number) => {
+    if (!onChange) {
+      return
+    }
+
+    onChange({ ...entry, tags: entry.tags.filter((_, idx) => idx !== index) })
+  }
+
   return (
-    <div className="border-l-2 border-primary pl-3 sm:pl-4">
-      <p className="text-[10px] sm:text-xs font-mono text-primary mb-1">{year}</p>
-      <h4 className="text-base sm:text-lg font-bold text-foreground mb-1">{title}</h4>
-      <p className="text-xs sm:text-sm text-muted-foreground mb-2">{company}</p>
-      <p className="text-xs sm:text-sm text-foreground mb-3 leading-relaxed">{description}</p>
+    <div className="border-l-2 border-primary pl-3 sm:pl-4 relative group">
+      {editable && onDelete && (
+        <button
+          onClick={onDelete}
+          className="absolute -top-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-card border border-destructive/50 hover:border-destructive cursor-pointer"
+          title="Delete Experience"
+        >
+          <Trash2 className="w-3 h-3 text-destructive" />
+        </button>
+      )}
+      <EditableText
+        value={entry.year}
+        onChange={(value) => handleFieldChange("year", value)}
+        isEditorMode={editable}
+        className="text-[10px] sm:text-xs font-mono text-primary mb-1"
+        as="p"
+      />
+      <EditableText
+        value={entry.title}
+        onChange={(value) => handleFieldChange("title", value)}
+        isEditorMode={editable}
+        className="text-base sm:text-lg font-bold text-foreground mb-1"
+        as="h4"
+      />
+      <EditableText
+        value={entry.company}
+        onChange={(value) => handleFieldChange("company", value)}
+        isEditorMode={editable}
+        className="text-xs sm:text-sm text-muted-foreground mb-2"
+        as="p"
+      />
+      <EditableText
+        value={entry.description}
+        onChange={(value) => handleFieldChange("description", value)}
+        isEditorMode={editable}
+        className="text-xs sm:text-sm text-foreground mb-3 leading-relaxed"
+        as="p"
+        multiline
+      />
       <div className="flex flex-wrap gap-1.5 sm:gap-2">
-        {tags.map((tag) => (
-          <Badge key={tag} variant="outline" className="text-[10px] sm:text-xs font-mono border-primary/50 text-primary">
-            {tag}
-          </Badge>
-        ))}
+        {entry.tags.map((tag, index) =>
+          editable ? (
+            <Badge
+              key={`${tag}-${index}`}
+              variant="outline"
+              className="text-[10px] sm:text-xs font-mono border-primary/50 text-primary flex items-center gap-1"
+            >
+              <EditableText
+                value={tag}
+                onChange={(value) => handleTagChange(index, value)}
+                isEditorMode={editable}
+                className="text-primary text-[10px] sm:text-xs font-mono"
+                as="span"
+              />
+              <button
+                onClick={() => handleRemoveTag(index)}
+                className="p-0.5 border border-destructive/50 hover:border-destructive cursor-pointer"
+                title="Remove Tag"
+              >
+                <Trash2 className="w-2.5 h-2.5 text-destructive" />
+              </button>
+            </Badge>
+          ) : (
+            <Badge
+              key={`${tag}-${index}`}
+              variant="outline"
+              className="text-[10px] sm:text-xs font-mono border-primary/50 text-primary"
+            >
+              {tag}
+            </Badge>
+          ),
+        )}
+        {editable && (
+          <button
+            onClick={handleAddTag}
+            className="text-[10px] sm:text-xs font-mono px-2 py-1 border border-dashed border-primary/50 text-primary hover:border-primary cursor-pointer bg-transparent flex items-center gap-1"
+            title="Add Tag"
+          >
+            <Plus className="w-3 h-3" />
+            TAG
+          </button>
+        )}
       </div>
     </div>
   )
