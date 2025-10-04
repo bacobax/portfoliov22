@@ -238,16 +238,22 @@ export default function TechDashboardPortfolio() {
   }
 
   const handleSaveProject = (project: Project) => {
+    const normalizedProject: Project = {
+      ...project,
+      githubUrl:
+        project.githubUrl && project.githubUrl.trim().length > 0 ? project.githubUrl.trim() : undefined,
+    }
+
     applyContentUpdate((previous) => {
       const updatedCategories = previous.projectCategories.map((category, index) => {
         if (editingProject && index === editingProject.categoryIndex) {
           const projects = [...category.projects]
-          projects[editingProject.projectIndex] = project
+          projects[editingProject.projectIndex] = normalizedProject
           return { ...category, projects }
         }
 
         if (!editingProject && index === activeCategoryIndex) {
-          return { ...category, projects: [...category.projects, project] }
+          return { ...category, projects: [...category.projects, normalizedProject] }
         }
 
         return category
@@ -291,6 +297,13 @@ export default function TechDashboardPortfolio() {
     }))
   }
 
+  const updateLastDeployment = (value: string) => {
+    applyContentUpdate((previous) => ({
+      ...previous,
+      lastDeployment: value,
+    }))
+  }
+
   const updateSkills = (field: keyof PortfolioContent["skillsData"], skills: string[]) => {
     applyContentUpdate((previous) => ({
       ...previous,
@@ -298,7 +311,8 @@ export default function TechDashboardPortfolio() {
     }))
   }
 
-  const { profileData, aboutStats, systemStatus, experienceLog, skillsData, projectCategories, customColor } = content
+  const { profileData, aboutStats, systemStatus, lastDeployment, experienceLog, skillsData, projectCategories, customColor } =
+    content
   const projectCategoryCount = projectCategories.length
 
   useEffect(() => {
@@ -599,7 +613,13 @@ export default function TechDashboardPortfolio() {
               </div>
               <div className="mt-4 sm:mt-6 p-2 sm:p-3 bg-primary/10 border border-primary/30 text-[10px] sm:text-xs font-mono">
                 <p className="text-primary mb-1">{">"} LAST_DEPLOYMENT:</p>
-                <p className="text-muted-foreground">2024-03-15 14:32:07 UTC</p>
+                <EditableText
+                  value={lastDeployment}
+                  onChange={updateLastDeployment}
+                  isEditorMode={isEditorMode}
+                  className="text-muted-foreground"
+                  as="p"
+                />
                 <p className="text-primary mt-2">{">"} BUILD_STATUS:</p>
                 <p className="text-primary">SUCCESS ✓</p>
               </div>
@@ -879,7 +899,7 @@ function ExperienceItem({
       {editable && onDelete && (
         <button
           onClick={onDelete}
-          className="absolute -top-2 right-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-card border border-destructive/50 hover:border-destructive cursor-pointer"
+          className="absolute -top-2 right-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity p-1 bg-card border border-destructive/50 hover:border-destructive cursor-pointer"
           title="Delete Experience"
         >
           <Trash2 className="w-3 h-3 text-destructive" />
@@ -967,6 +987,7 @@ function ProjectCard({
   description,
   status,
   metrics,
+  githubUrl,
   isEditorMode,
   onEdit,
   onDelete,
@@ -984,7 +1005,7 @@ function ProjectCard({
   return (
     <Card className="p-3 sm:p-5 bg-card border border-primary/20 hover:border-primary transition-colors relative group">
       {isEditorMode && (
-        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <button
             onClick={onEdit}
             className="p-1.5 bg-card border border-primary/50 hover:border-primary cursor-pointer"
@@ -1019,6 +1040,18 @@ function ProjectCard({
           </div>
         ))}
       </div>
+      {githubUrl && (
+        <a
+          href={githubUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-2 text-xs sm:text-sm font-mono text-primary hover:text-primary/80 transition-colors"
+          title="View GitHub repository"
+        >
+          <Github className="w-4 h-4" />
+          VIEW_REPOSITORY
+        </a>
+      )}
     </Card>
   )
 }
@@ -1083,7 +1116,7 @@ function SkillCategory({
                 />
                 <button
                   onClick={() => handleRemoveSkill(index)}
-                  className="opacity-0 group-hover:opacity-100 p-0.5 border border-destructive/50 hover:border-destructive cursor-pointer"
+                  className="opacity-100 md:opacity-0 md:group-hover:opacity-100 p-0.5 border border-destructive/50 hover:border-destructive cursor-pointer"
                   title="Remove Skill"
                 >
                   <Trash2 className="w-2.5 h-2.5 text-destructive" />

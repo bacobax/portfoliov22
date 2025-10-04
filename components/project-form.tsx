@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,14 +17,31 @@ interface ProjectFormProps {
 }
 
 export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
-  const [formData, setFormData] = useState<Project>(
-    project || {
-      title: "",
-      description: "",
-      status: "DEVELOPMENT",
-      metrics: {},
-    },
+  const [formData, setFormData] = useState<Project>(() =>
+    project
+      ? { ...project, metrics: { ...project.metrics } }
+      : {
+          title: "",
+          description: "",
+          status: "DEVELOPMENT",
+          metrics: {},
+          githubUrl: undefined,
+        },
   )
+
+  useEffect(() => {
+    setFormData(
+      project
+        ? { ...project, metrics: { ...project.metrics } }
+        : {
+            title: "",
+            description: "",
+            status: "DEVELOPMENT",
+            metrics: {},
+            githubUrl: undefined,
+          },
+    )
+  }, [project])
 
   const [metricKey, setMetricKey] = useState("")
   const [metricValue, setMetricValue] = useState("")
@@ -32,7 +49,13 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (formData.title && formData.description) {
-      onSave(formData)
+      const trimmedGithub = formData.githubUrl?.trim()
+      const projectToSave: Project = {
+        ...formData,
+        githubUrl: trimmedGithub ? trimmedGithub : undefined,
+      }
+
+      onSave(projectToSave)
     }
   }
 
@@ -89,6 +112,21 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
               className="w-full bg-background border border-primary/50 focus:border-primary font-mono p-2 min-h-[100px] text-sm"
               placeholder="Describe your project..."
               required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="githubUrl" className="text-sm font-mono text-muted-foreground mb-2 block">
+              GITHUB_REPOSITORY <span className="text-xs text-muted-foreground">(optional)</span>
+            </Label>
+            <Input
+              id="githubUrl"
+              type="url"
+              value={formData.githubUrl ?? ""}
+              onChange={(e) => setFormData({ ...formData, githubUrl: e.target.value })}
+              className="bg-background border-primary/50 focus:border-primary font-mono"
+              placeholder="https://github.com/username/repository"
+              inputMode="url"
             />
           </div>
 

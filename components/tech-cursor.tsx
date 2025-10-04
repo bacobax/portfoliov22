@@ -5,8 +5,43 @@ import { useEffect, useState } from "react"
 export function TechCursor() {
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isVisible, setIsVisible] = useState(false)
+  const [isPointerFine, setIsPointerFine] = useState(false)
 
   useEffect(() => {
+    const mediaQuery = window.matchMedia("(pointer: fine)")
+
+    const updatePointerMode = (event: MediaQueryList | MediaQueryListEvent) => {
+      const matches = "matches" in event ? event.matches : mediaQuery.matches
+      setIsPointerFine(matches)
+      if (!matches) {
+        setIsVisible(false)
+      }
+    }
+
+    updatePointerMode(mediaQuery)
+
+    const listener = (event: MediaQueryListEvent) => updatePointerMode(event)
+
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", listener)
+    } else {
+      mediaQuery.addListener(listener)
+    }
+
+    return () => {
+      if (typeof mediaQuery.removeEventListener === "function") {
+        mediaQuery.removeEventListener("change", listener)
+      } else {
+        mediaQuery.removeListener(listener)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isPointerFine) {
+      return undefined
+    }
+
     const handleMouseMove = (e: MouseEvent) => {
       setPosition({ x: e.clientX, y: e.clientY })
       setIsVisible(true)
@@ -23,9 +58,9 @@ export function TechCursor() {
       document.removeEventListener("mousemove", handleMouseMove)
       document.removeEventListener("mouseleave", handleMouseLeave)
     }
-  }, [])
+  }, [isPointerFine])
 
-  if (!isVisible) return null
+  if (!isPointerFine || !isVisible) return null
 
   return (
     <div

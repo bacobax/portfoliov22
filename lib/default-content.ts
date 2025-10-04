@@ -7,6 +7,7 @@ export interface Project {
   description: string
   status: ProjectStatus
   metrics: Record<string, string>
+  githubUrl?: string
 }
 
 export type ProjectVisual = "brain" | "sphere" | "engine"
@@ -83,6 +84,7 @@ export interface PortfolioContent {
   profileData: ProfileData
   aboutStats: AboutStats
   systemStatus: SystemStatus
+  lastDeployment: string
   experienceLog: ExperienceEntry[]
   skillsData: SkillsData
   projectCategories: ProjectCategory[]
@@ -136,11 +138,13 @@ export const portfolioContentSchema = z.object({
             description: z.string(),
             status: z.union([z.literal("PRODUCTION"), z.literal("BETA"), z.literal("DEVELOPMENT")]),
             metrics: z.record(z.string()),
+            githubUrl: z.string().url().optional(),
           }),
         ),
       }),
     )
     .min(1),
+  lastDeployment: z.string(),
   customColor: z.object({
     h: z.number(),
     s: z.number(),
@@ -159,6 +163,7 @@ export function withDefaultCustomColor(content: PersistedPortfolioContent): Port
   return {
     ...content,
     experienceLog: content.experienceLog ?? defaults.experienceLog,
+    lastDeployment: content.lastDeployment ?? defaults.lastDeployment,
     customColor: defaults.customColor,
   }
 }
@@ -181,6 +186,7 @@ export const defaultContent: PortfolioContent = {
     devops: 82,
     database: 90,
   },
+  lastDeployment: "2024-03-15 14:32:07 UTC",
   experienceLog: defaultExperienceLog,
   skillsData: {
     frontend: ["React", "Next.js", "TypeScript", "Tailwind CSS", "Vue.js"],
@@ -198,6 +204,7 @@ export const defaultContent: PortfolioContent = {
           description: "Real-time ML model monitoring system with predictive analytics and automated alerting.",
           status: "PRODUCTION",
           metrics: { users: "15K", uptime: "99.9%" },
+          githubUrl: "https://github.com/johndoe/neural-network-dashboard",
         },
         {
           title: "NLP_SENTIMENT_ANALYZER",
@@ -242,6 +249,7 @@ export const defaultContent: PortfolioContent = {
           description: "Scalable API gateway with rate limiting, authentication, and request transformation.",
           status: "BETA",
           metrics: { endpoints: "200+", throughput: "10K/s" },
+          githubUrl: "https://github.com/johndoe/api-gateway-v3",
         },
         {
           title: "MONITORING_SUITE",
