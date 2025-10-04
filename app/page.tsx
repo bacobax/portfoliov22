@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -34,12 +34,14 @@ import { AuthModal } from "@/components/auth-modal"
 import { EditableText } from "@/components/editable-text"
 import { ProjectForm } from "@/components/project-form"
 import { TechCursor } from "@/components/tech-cursor"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   cloneDefaultContent,
   type ExperienceEntry,
   type PortfolioContent,
   type Project,
   type ProjectVisual,
+  withDefaultCustomColor,
 } from "@/lib/default-content"
 
 const projectVisualComponentMap: Record<ProjectVisual, React.ComponentType<{ color: { r: number; g: number; b: number }; theme: string }>> = {
@@ -47,6 +49,11 @@ const projectVisualComponentMap: Record<ProjectVisual, React.ComponentType<{ col
   sphere: ParticleSphere,
   engine: ParticleEngine,
 }
+
+const DEFAULT_THEME_COLORS = {
+  dark: { h: 186, s: 100, l: 37 },
+  light: { h: 245, s: 100, l: 37 },
+} as const
 
 type EditingProjectState = { categoryIndex: number; projectIndex: number } | null
 
@@ -62,7 +69,9 @@ export default function TechDashboardPortfolio() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [showProjectForm, setShowProjectForm] = useState(false)
   const [editingProject, setEditingProject] = useState<EditingProjectState>(null)
-  const [content, setContent] = useState<PortfolioContent>(() => cloneDefaultContent())
+  const [content, setContent] = useState<PortfolioContent | null>(null)
+  const [isContentLoading, setIsContentLoading] = useState(true)
+  const [contentError, setContentError] = useState<string | null>(null)
 
   const persistContent = useCallback(
     async (data: PortfolioContent) => {
@@ -92,6 +101,9 @@ export default function TechDashboardPortfolio() {
   const applyContentUpdate = useCallback(
     (updater: (previous: PortfolioContent) => PortfolioContent, shouldPersist = true) => {
       setContent((previous) => {
+        if (!previous) {
+          return previous
+        }
         const updated = updater(previous)
         if (shouldPersist) {
           void persistContent(updated)
@@ -103,6 +115,8 @@ export default function TechDashboardPortfolio() {
   )
 
   const fetchContent = useCallback(async () => {
+    setIsContentLoading(true)
+    setContentError(null)
     try {
       const response = await fetch("/api/content")
       if (!response.ok) {
@@ -110,31 +124,51 @@ export default function TechDashboardPortfolio() {
       }
       const data = (await response.json()) as { content?: PortfolioContent }
       if (data.content) {
-        setContent(data.content)
+        setContent(withDefaultCustomColor(data.content))
+      } else {
+        setContent(cloneDefaultContent())
       }
     } catch (error) {
       console.error("Failed to load content", error)
+      setContentError("Unable to load portfolio content.")
       setContent(cloneDefaultContent())
+    } finally {
+      setIsContentLoading(false)
     }
   }, [])
+
+  const accentColor = useMemo(() => {
+    if (content) {
+      const defaultDark = DEFAULT_THEME_COLORS.dark
+      const { h, s, l } = content.customColor
+      const isDefaultDarkColor = h === defaultDark.h && s === defaultDark.s && l === defaultDark.l
+
+      if (!isDefaultDarkColor) {
+        return content.customColor
+      }
+    }
+
+    return DEFAULT_THEME_COLORS[theme]
+  }, [content, theme])
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
 
+  const { h, s, l } = accentColor
+
   useEffect(() => {
     document.documentElement.classList.toggle("light", theme === "light")
     document.documentElement.classList.toggle("dark", theme === "dark")
 
     const root = document.documentElement
-    const { h, s, l } = content.customColor
 
     root.style.setProperty("--primary", `hsl(${h}, ${s}%, ${l}%)`)
     root.style.setProperty("--accent", `hsl(${h}, ${s}%, ${l}%)`)
     root.style.setProperty("--ring", `hsl(${h}, ${s}%, ${l}%)`)
-    root.style.setProperty("--border", `hsl(${h}, ${s}%, ${l * 0.4}%)`)
-  }, [theme, content.customColor])
+    root.style.setProperty("--border", `hsl(${h}, ${s}%, ${Math.max(Math.min(l * 0.4, 100), 0)}%)`)
+  }, [theme, h, s, l])
 
   useEffect(() => {
     const checkSession = async () => {
@@ -311,8 +345,7 @@ export default function TechDashboardPortfolio() {
     }))
   }
 
-  const { profileData, aboutStats, systemStatus, lastDeployment, experienceLog, skillsData, projectCategories, customColor } =
-    content
+  const projectCategories = content?.projectCategories ?? []
   const projectCategoryCount = projectCategories.length
 
   useEffect(() => {
@@ -394,7 +427,7 @@ export default function TechDashboardPortfolio() {
     return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))]
   }
 
-  const [r, g, b] = hslToRgb(customColor.h, customColor.s, customColor.l)
+  const [r, g, b] = hslToRgb(accentColor.h, accentColor.s, accentColor.l)
 
   return (
     <div className="min-h-screen bg-background text-foreground grid-pattern">
@@ -467,12 +500,17 @@ export default function TechDashboardPortfolio() {
                   <Moon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                 )}
               </button>
-              <ColorPicker
-                onColorChange={handleColorChange}
-                defaultH={customColor.h}
-                defaultS={customColor.s}
-                defaultL={customColor.l}
-              />
+              {isContentLoading ? (
+                <Skeleton className="h-9 w-9 sm:h-10 sm:w-10 border border-primary/50" />
+              ) : (
+                <ColorPicker
+                  key={`${accentColor.h}-${accentColor.s}-${accentColor.l}`}
+                  onColorChange={handleColorChange}
+                  defaultH={accentColor.h}
+                  defaultS={accentColor.s}
+                  defaultL={accentColor.l}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -500,260 +538,288 @@ export default function TechDashboardPortfolio() {
           ))}
         </div>
 
-        {shouldShowSection("ABOUT") && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-8">
-            <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20">
-              <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0">
-                  <Code2 className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <EditableText
-                    value={profileData.name}
-                    onChange={(value) => updateProfileField("name", value)}
-                    isEditorMode={isEditorMode}
-                    as="h2"
-                    className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2 text-foreground"
-                  />
-                  <EditableText
-                    value={`> ${profileData.title}`}
-                    onChange={(value) => updateProfileField("title", value.replace(/^>\s*/, ""))}
-                    isEditorMode={isEditorMode}
-                    as="p"
-                    className="text-primary font-mono text-xs sm:text-sm mb-1 sm:mb-2"
-                  />
-                  <EditableText
-                    value={profileData.bio}
-                    onChange={(value) => updateProfileField("bio", value)}
-                    isEditorMode={isEditorMode}
-                    as="p"
-                    multiline
-                    className="text-muted-foreground text-xs sm:text-sm leading-relaxed"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
-                <StatCard
-                  label="PROJECTS"
-                  value={aboutStats.projects}
-                  icon={<Database className="w-4 h-4" />}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateAboutStat("projects", value)}
-                />
-                <StatCard
-                  label="COMMITS"
-                  value={aboutStats.commits}
-                  icon={<Github className="w-4 h-4" />}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateAboutStat("commits", value)}
-                />
-                <StatCard
-                  label="EXPERIENCE"
-                  value={aboutStats.experience}
-                  icon={<Cpu className="w-4 h-4" />}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateAboutStat("experience", value)}
-                />
-                <StatCard
-                  label="EFFICIENCY"
-                  value={aboutStats.efficiency}
-                  icon={<Activity className="w-4 h-4" />}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateAboutStat("efficiency", value)}
-                />
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                <Button variant="default" className="font-mono text-xs w-full sm:w-auto cursor-pointer">
-                  <Mail className="w-4 h-4 mr-2" />
-                  CONTACT
-                </Button>
-                <Button variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
-                  <Github className="w-4 h-4 mr-2" />
-                  GITHUB
-                </Button>
-                <Button variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
-                  <Linkedin className="w-4 h-4 mr-2" />
-                  LINKEDIN
-                </Button>
-              </div>
-            </Card>
-
-            <Card className="p-4 sm:p-6 bg-card border border-primary/20">
-              <h3 className="text-xs sm:text-sm font-mono text-primary mb-3 sm:mb-4 flex items-center gap-2">
-                <Activity className="w-4 h-4 animate-pulse" />
-                SYSTEM_STATUS
-              </h3>
-              <div className="space-y-3 sm:space-y-4">
-                <StatusBar
-                  label="FRONTEND"
-                  value={systemStatus.frontend}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateSystemStatus("frontend", value)}
-                />
-                <StatusBar
-                  label="BACKEND"
-                  value={systemStatus.backend}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateSystemStatus("backend", value)}
-                />
-                <StatusBar
-                  label="DEVOPS"
-                  value={systemStatus.devops}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateSystemStatus("devops", value)}
-                />
-                <StatusBar
-                  label="DATABASE"
-                  value={systemStatus.database}
-                  isEditorMode={isEditorMode}
-                  onValueChange={(value) => updateSystemStatus("database", value)}
-                />
-              </div>
-              <div className="mt-4 sm:mt-6 p-2 sm:p-3 bg-primary/10 border border-primary/30 text-[10px] sm:text-xs font-mono">
-                <p className="text-primary mb-1">{">"} LAST_DEPLOYMENT:</p>
-                <EditableText
-                  value={lastDeployment}
-                  onChange={updateLastDeployment}
-                  isEditorMode={isEditorMode}
-                  className="text-muted-foreground"
-                  as="p"
-                />
-                <p className="text-primary mt-2">{">"} BUILD_STATUS:</p>
-                <p className="text-primary">SUCCESS ✓</p>
-              </div>
-            </Card>
+        {contentError && !isContentLoading && (
+          <div className="mb-4 sm:mb-6">
+            <div className="border border-destructive/50 bg-destructive/10 text-destructive text-xs sm:text-sm font-mono px-3 py-2 flex items-center justify-between gap-3">
+              <span>{contentError}</span>
+              <button
+                onClick={() => {
+                  void fetchContent()
+                }}
+                className="px-2 py-1 border border-destructive/60 bg-card text-destructive hover:border-destructive cursor-pointer"
+              >
+                RETRY
+              </button>
+            </div>
           </div>
         )}
 
-        {shouldShowSection("EXPERIENCE") && (
-          <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <h3 className="text-base sm:text-lg font-mono text-primary flex items-center gap-2">
-                <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
-                EXPERIENCE_LOG
-              </h3>
-              {isEditorMode && (
-                <button
-                  onClick={handleAddExperienceEntry}
-                  className="flex items-center gap-2 px-3 py-2 border border-primary/50 bg-card hover:border-primary cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-mono text-primary">NEW_ENTRY</span>
-                </button>
-              )}
-            </div>
-            {experienceLog.length > 0 ? (
-              <div className="space-y-4 sm:space-y-6">
-                {experienceLog.map((entry, index) => (
-                  <ExperienceItem
-                    key={`${entry.title}-${entry.year}-${index}`}
-                    entry={entry}
+        {shouldShowSection("ABOUT") &&
+          (content ? (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-8">
+              <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20">
+                <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0">
+                    <Code2 className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <EditableText
+                      value={content.profileData.name}
+                      onChange={(value) => updateProfileField("name", value)}
+                      isEditorMode={isEditorMode}
+                      as="h2"
+                      className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2 text-foreground"
+                    />
+                    <EditableText
+                      value={`> ${content.profileData.title}`}
+                      onChange={(value) => updateProfileField("title", value.replace(/^>\s*/, ""))}
+                      isEditorMode={isEditorMode}
+                      as="p"
+                      className="text-primary font-mono text-xs sm:text-sm mb-1 sm:mb-2"
+                    />
+                    <EditableText
+                      value={content.profileData.bio}
+                      onChange={(value) => updateProfileField("bio", value)}
+                      isEditorMode={isEditorMode}
+                      as="p"
+                      multiline
+                      className="text-muted-foreground text-xs sm:text-sm leading-relaxed"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
+                  <StatCard
+                    label="PROJECTS"
+                    value={content.aboutStats.projects}
+                    icon={<Database className="w-4 h-4" />}
                     isEditorMode={isEditorMode}
-                    onChange={(updated) => handleExperienceChange(index, updated)}
-                    onDelete={() => handleDeleteExperienceEntry(index)}
+                    onValueChange={(value) => updateAboutStat("projects", value)}
+                  />
+                  <StatCard
+                    label="COMMITS"
+                    value={content.aboutStats.commits}
+                    icon={<Github className="w-4 h-4" />}
+                    isEditorMode={isEditorMode}
+                    onValueChange={(value) => updateAboutStat("commits", value)}
+                  />
+                  <StatCard
+                    label="EXPERIENCE"
+                    value={content.aboutStats.experience}
+                    icon={<Cpu className="w-4 h-4" />}
+                    isEditorMode={isEditorMode}
+                    onValueChange={(value) => updateAboutStat("experience", value)}
+                  />
+                  <StatCard
+                    label="EFFICIENCY"
+                    value={content.aboutStats.efficiency}
+                    icon={<Activity className="w-4 h-4" />}
+                    isEditorMode={isEditorMode}
+                    onValueChange={(value) => updateAboutStat("efficiency", value)}
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <Button variant="default" className="font-mono text-xs w-full sm:w-auto cursor-pointer">
+                    <Mail className="w-4 h-4 mr-2" />
+                    CONTACT
+                  </Button>
+                  <Button variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
+                    <Github className="w-4 h-4 mr-2" />
+                    GITHUB
+                  </Button>
+                  <Button variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
+                    <Linkedin className="w-4 h-4 mr-2" />
+                    LINKEDIN
+                  </Button>
+                </div>
+              </Card>
+
+              <Card className="p-4 sm:p-6 bg-card border border-primary/20">
+                <h3 className="text-xs sm:text-sm font-mono text-primary mb-3 sm:mb-4 flex items-center gap-2">
+                  <Activity className="w-4 h-4 animate-pulse" />
+                  SYSTEM_STATUS
+                </h3>
+                <div className="space-y-3 sm:space-y-4">
+                  <StatusBar
+                    label="FRONTEND"
+                    value={content.systemStatus.frontend}
+                    isEditorMode={isEditorMode}
+                    onValueChange={(value) => updateSystemStatus("frontend", value)}
+                  />
+                  <StatusBar
+                    label="BACKEND"
+                    value={content.systemStatus.backend}
+                    isEditorMode={isEditorMode}
+                    onValueChange={(value) => updateSystemStatus("backend", value)}
+                  />
+                  <StatusBar
+                    label="DEVOPS"
+                    value={content.systemStatus.devops}
+                    isEditorMode={isEditorMode}
+                    onValueChange={(value) => updateSystemStatus("devops", value)}
+                  />
+                  <StatusBar
+                    label="DATABASE"
+                    value={content.systemStatus.database}
+                    isEditorMode={isEditorMode}
+                    onValueChange={(value) => updateSystemStatus("database", value)}
+                  />
+                </div>
+                <div className="mt-4 sm:mt-6 p-2 sm:p-3 bg-primary/10 border border-primary/30 text-[10px] sm:text-xs font-mono">
+                  <p className="text-primary mb-1">{">"} LAST_DEPLOYMENT:</p>
+                  <EditableText
+                    value={content.lastDeployment}
+                    onChange={updateLastDeployment}
+                    isEditorMode={isEditorMode}
+                    className="text-muted-foreground"
+                    as="p"
+                  />
+                  <p className="text-primary mt-2">{">"} BUILD_STATUS:</p>
+                  <p className="text-primary">SUCCESS ✓</p>
+                </div>
+              </Card>
+            </div>
+          ) : (
+            <AboutSectionSkeleton />
+          ))}
+
+        {shouldShowSection("EXPERIENCE") &&
+          (content ? (
+            <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h3 className="text-base sm:text-lg font-mono text-primary flex items-center gap-2">
+                  <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
+                  EXPERIENCE_LOG
+                </h3>
+                {isEditorMode && (
+                  <button
+                    onClick={handleAddExperienceEntry}
+                    className="flex items-center gap-2 px-3 py-2 border border-primary/50 bg-card hover:border-primary cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-mono text-primary">NEW_ENTRY</span>
+                  </button>
+                )}
+              </div>
+              {content.experienceLog.length > 0 ? (
+                <div className="space-y-4 sm:space-y-6">
+                  {content.experienceLog.map((entry, index) => (
+                    <ExperienceItem
+                      key={`${entry.title}-${entry.year}-${index}`}
+                      entry={entry}
+                      isEditorMode={isEditorMode}
+                      onChange={(updated) => handleExperienceChange(index, updated)}
+                      onDelete={() => handleDeleteExperienceEntry(index)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs sm:text-sm text-muted-foreground font-mono">
+                  No experience entries yet. Use NEW_ENTRY to add your journey.
+                </p>
+              )}
+            </Card>
+          ) : (
+            <ExperienceSectionSkeleton />
+          ))}
+
+        {shouldShowSection("PROJECTS") &&
+          (content && activeCategory ? (
+            <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <h3 className="text-base sm:text-lg font-mono text-primary">{activeCategory.name}_PROJECTS</h3>
+                  <Badge variant="outline" className="text-[10px] sm:text-xs font-mono border-primary/50 text-primary">
+                    {activeCategory.projects.length} ACTIVE
+                  </Badge>
+                </div>
+                {isEditorMode && (
+                  <button
+                    onClick={handleAddProject}
+                    className="flex items-center gap-2 px-3 py-2 border border-primary/50 bg-card hover:border-primary cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 text-primary" />
+                    <span className="text-xs font-mono text-primary">NEW_PROJECT</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <div className="flex items-center gap-2 text-xs sm:text-sm font-mono text-muted-foreground">
+                  <span>{activeCategory.id.toUpperCase()}</span>
+                  <span className="text-primary">|</span>
+                  <span>PROJECT_CLUSTER</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handlePrevCategory}
+                    className="h-7 w-7 sm:h-8 sm:w-8 bg-transparent border-primary/50 hover:border-primary cursor-pointer"
+                  >
+                    <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleNextCategory}
+                    className="h-7 w-7 sm:h-8 sm:w-8 bg-transparent border-primary/50 hover:border-primary cursor-pointer"
+                  >
+                    <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="w-full h-48 sm:h-64 mb-4 sm:mb-6 bg-black/50 border border-primary/20 rounded overflow-hidden">
+                <ParticleComponent color={{ r, g, b }} theme={theme} />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                {activeCategory.projects.map((project, projectIndex) => (
+                  <ProjectCard
+                    key={`${project.title}-${projectIndex}`}
+                    {...project}
+                    isEditorMode={isEditorMode}
+                    onEdit={() => handleEditProject(activeCategoryIndex, projectIndex)}
+                    onDelete={() => handleDeleteProject(activeCategoryIndex, projectIndex)}
                   />
                 ))}
               </div>
-            ) : (
-              <p className="text-xs sm:text-sm text-muted-foreground font-mono">
-                No experience entries yet. Use NEW_ENTRY to add your journey.
-              </p>
-            )}
-          </Card>
-        )}
+            </Card>
+          ) : (
+            <ProjectsSectionSkeleton />
+          ))}
 
-        {shouldShowSection("PROJECTS") && activeCategory && (
-          <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <div className="flex items-center gap-2 sm:gap-3">
-                <h3 className="text-base sm:text-lg font-mono text-primary">{activeCategory.name}_PROJECTS</h3>
-                <Badge variant="outline" className="text-[10px] sm:text-xs font-mono border-primary/50 text-primary">
-                  {activeCategory.projects.length} ACTIVE
-                </Badge>
-              </div>
-              {isEditorMode && (
-                <button
-                  onClick={handleAddProject}
-                  className="flex items-center gap-2 px-3 py-2 border border-primary/50 bg-card hover:border-primary cursor-pointer"
-                >
-                  <Plus className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-mono text-primary">NEW_PROJECT</span>
-                </button>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between mb-4 sm:mb-6">
-              <div className="flex items-center gap-2 text-xs sm:text-sm font-mono text-muted-foreground">
-                <span>{activeCategory.id.toUpperCase()}</span>
-                <span className="text-primary">|</span>
-                <span>PROJECT_CLUSTER</span>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handlePrevCategory}
-                  className="h-7 w-7 sm:h-8 sm:w-8 bg-transparent border-primary/50 hover:border-primary cursor-pointer"
-                >
-                  <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleNextCategory}
-                  className="h-7 w-7 sm:h-8 sm:w-8 bg-transparent border-primary/50 hover:border-primary cursor-pointer"
-                >
-                  <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="w-full h-48 sm:h-64 mb-4 sm:mb-6 bg-black/50 border border-primary/20 rounded overflow-hidden">
-              <ParticleComponent color={{ r, g, b }} theme={theme} />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-              {activeCategory.projects.map((project, projectIndex) => (
-                <ProjectCard
-                  key={`${project.title}-${projectIndex}`}
-                  {...project}
+        {shouldShowSection("SKILLS") &&
+          (content ? (
+            <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+              <h3 className="text-base sm:text-lg font-mono text-primary mb-4 sm:mb-6 flex items-center gap-2">
+                <Cpu className="w-4 h-4 sm:w-5 sm:h-5" />
+                SKILLS_MATRIX
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                <SkillCategory
+                  title="FRONTEND"
+                  skills={content.skillsData.frontend}
                   isEditorMode={isEditorMode}
-                  onEdit={() => handleEditProject(activeCategoryIndex, projectIndex)}
-                  onDelete={() => handleDeleteProject(activeCategoryIndex, projectIndex)}
+                  onSkillsChange={(skills) => updateSkills("frontend", skills)}
                 />
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {shouldShowSection("SKILLS") && (
-          <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
-            <h3 className="text-base sm:text-lg font-mono text-primary mb-4 sm:mb-6 flex items-center gap-2">
-              <Cpu className="w-4 h-4 sm:w-5 sm:h-5" />
-              SKILLS_MATRIX
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
-              <SkillCategory
-                title="FRONTEND"
-                skills={skillsData.frontend}
-                isEditorMode={isEditorMode}
-                onSkillsChange={(skills) => updateSkills("frontend", skills)}
-              />
-              <SkillCategory
-                title="BACKEND"
-                skills={skillsData.backend}
-                isEditorMode={isEditorMode}
-                onSkillsChange={(skills) => updateSkills("backend", skills)}
-              />
-              <SkillCategory
-                title="DEVOPS"
-                skills={skillsData.devops}
-                isEditorMode={isEditorMode}
-                onSkillsChange={(skills) => updateSkills("devops", skills)}
-              />
-            </div>
-          </Card>
-        )}
+                <SkillCategory
+                  title="BACKEND"
+                  skills={content.skillsData.backend}
+                  isEditorMode={isEditorMode}
+                  onSkillsChange={(skills) => updateSkills("backend", skills)}
+                />
+                <SkillCategory
+                  title="DEVOPS"
+                  skills={content.skillsData.devops}
+                  isEditorMode={isEditorMode}
+                  onSkillsChange={(skills) => updateSkills("devops", skills)}
+                />
+              </div>
+            </Card>
+          ) : (
+            <SkillsSectionSkeleton />
+          ))}
       </main>
 
       <footer className="border-t border-border bg-card/50 backdrop-blur-sm mt-8 sm:mt-16 relative z-10">
@@ -1129,5 +1195,137 @@ function SkillCategory({
         ))}
       </div>
     </div>
+  )
+}
+
+function AboutSectionSkeleton() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-8">
+      <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20">
+        <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 border-2 border-primary flex items-center justify-center">
+            <Skeleton className="h-10 w-10 sm:h-12 sm:w-12 bg-primary/30" />
+          </div>
+          <div className="flex-1 space-y-2 w-full">
+            <Skeleton className="h-6 sm:h-7 w-40 sm:w-56" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-20 sm:h-24 w-full" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="bg-secondary/50 border border-border p-2 sm:p-3 space-y-2">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-6 sm:h-8 w-16" />
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+          <Skeleton className="h-9 sm:h-10 w-full sm:w-32" />
+          <Skeleton className="h-9 sm:h-10 w-full sm:w-32" />
+          <Skeleton className="h-9 sm:h-10 w-full sm:w-32" />
+        </div>
+      </Card>
+      <Card className="p-4 sm:p-6 bg-card border border-primary/20 space-y-4">
+        <Skeleton className="h-4 w-32" />
+        <div className="space-y-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="space-y-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-2 w-full" />
+            </div>
+          ))}
+        </div>
+        <div className="space-y-2 p-2 sm:p-3 bg-primary/5 border border-primary/20">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+function ExperienceSectionSkeleton() {
+  return (
+    <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <Skeleton className="h-6 sm:h-7 w-40" />
+        <Skeleton className="h-9 w-28" />
+      </div>
+      <div className="space-y-4 sm:space-y-6">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <div key={index} className="border-l-2 border-primary pl-3 sm:pl-4 space-y-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-3 w-36" />
+            <Skeleton className="h-12 w-full" />
+            <div className="flex gap-2">
+              <Skeleton className="h-6 w-16" />
+              <Skeleton className="h-6 w-16" />
+              <Skeleton className="h-6 w-16" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+function ProjectsSectionSkeleton() {
+  return (
+    <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8 space-y-4 sm:space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <Skeleton className="h-9 w-28" />
+      </div>
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-4 w-32" />
+        <div className="flex gap-2">
+          <Skeleton className="h-8 w-8" />
+          <Skeleton className="h-8 w-8" />
+        </div>
+      </div>
+      <Skeleton className="h-48 sm:h-64 w-full border border-primary/20" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+        {Array.from({ length: 2 }).map((_, index) => (
+          <Card key={index} className="p-4 sm:p-5 bg-secondary/30 border border-primary/10 space-y-3">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-16 w-full" />
+            <div className="flex gap-3">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-20" />
+            </div>
+            <Skeleton className="h-4 w-32" />
+          </Card>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
+function SkillsSectionSkeleton() {
+  return (
+    <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+      <Skeleton className="h-6 w-40 mb-4 sm:mb-6" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+        {Array.from({ length: 3 }).map((_, columnIndex) => (
+          <div key={columnIndex} className="space-y-3">
+            <Skeleton className="h-4 w-24" />
+            {Array.from({ length: 4 }).map((__, rowIndex) => (
+              <div key={rowIndex} className="flex items-center gap-2">
+                <Skeleton className="h-2 w-2 rounded-full bg-primary/40" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </Card>
   )
 }
