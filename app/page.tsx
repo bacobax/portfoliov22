@@ -648,7 +648,6 @@ export default function TechDashboardPortfolio() {
                 <Skeleton className="h-9 w-9 sm:h-10 sm:w-10 border border-primary/50" />
               ) : (
                 <ColorPicker
-                  key={`${accentColor.h}-${accentColor.s}-${accentColor.l}`}
                   onColorChange={handleColorChange}
                   defaultH={accentColor.h}
                   defaultS={accentColor.s}
