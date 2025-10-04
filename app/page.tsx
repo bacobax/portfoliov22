@@ -60,6 +60,24 @@ const DEFAULT_THEME_COLORS = {
   light: { h: 245, s: 100, l: 37 },
 } as const
 
+const extractStartYear = (yearRange: string): number => {
+  const match = yearRange.match(/\d{4}/)
+  return match ? Number.parseInt(match[0], 10) : Number.NEGATIVE_INFINITY
+}
+
+const sortEducationEntries = (entries: EducationEntry[] | undefined): EducationEntry[] => {
+  if (!entries) {
+    return []
+  }
+
+  return [...entries].sort((first, second) => extractStartYear(second.year) - extractStartYear(first.year))
+}
+
+const withSortedEducationLog = (content: PortfolioContent): PortfolioContent => ({
+  ...content,
+  educationLog: sortEducationEntries(content.educationLog),
+})
+
 type EditingProjectState = { categoryIndex: number; projectIndex: number } | null
 
 type AuthResult = { success: boolean; error?: string }
@@ -113,7 +131,7 @@ export default function TechDashboardPortfolio() {
         if (!previous) {
           return previous
         }
-        const updated = updater(previous)
+        const updated = withSortedEducationLog(updater(previous))
         if (shouldPersist) {
           void persistContent(updated)
         }
@@ -133,14 +151,14 @@ export default function TechDashboardPortfolio() {
       }
       const data = (await response.json()) as { content?: PortfolioContent }
       if (data.content) {
-        setContent(withDefaultCustomColor(data.content))
+        setContent(withSortedEducationLog(withDefaultCustomColor(data.content)))
       } else {
-        setContent(cloneDefaultContent())
+        setContent(withSortedEducationLog(cloneDefaultContent()))
       }
     } catch (error) {
       console.error("Failed to load content", error)
       setContentError("Unable to load portfolio content.")
-      setContent(cloneDefaultContent())
+      setContent(withSortedEducationLog(cloneDefaultContent()))
     } finally {
       setIsContentLoading(false)
     }
@@ -1246,6 +1264,15 @@ function EducationForm({
     setTagInput("")
   }, [education, emptyEducation])
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [])
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
@@ -1276,115 +1303,117 @@ function EducationForm({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-2 border-primary p-4 sm:p-6">
-        <h3 className="text-lg sm:text-xl font-mono text-primary mb-4 sm:mb-6 flex items-center gap-2">
-          <GraduationCap className="w-5 h-5" />
-          {education ? "EDIT_EDUCATION" : "ADD_EDUCATION"}
-        </h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-mono text-muted-foreground mb-2">YEAR_RANGE</label>
-            <input
-              type="text"
-              value={formData.year}
-              onChange={(event) => setFormData({ ...formData, year: event.target.value })}
-              placeholder="e.g., 2018 - 2022"
-              className="w-full bg-background border border-primary/50 px-3 py-2 text-sm font-mono text-foreground focus:border-primary outline-none"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-mono text-muted-foreground mb-2">DEGREE</label>
-            <input
-              type="text"
-              value={formData.degree}
-              onChange={(event) => setFormData({ ...formData, degree: event.target.value })}
-              placeholder="e.g., B.S. COMPUTER_SCIENCE"
-              className="w-full bg-background border border-primary/50 px-3 py-2 text-sm font-mono text-foreground focus:border-primary outline-none"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-mono text-muted-foreground mb-2">INSTITUTION</label>
-            <input
-              type="text"
-              value={formData.institution}
-              onChange={(event) => setFormData({ ...formData, institution: event.target.value })}
-              placeholder="e.g., Tech University"
-              className="w-full bg-background border border-primary/50 px-3 py-2 text-sm font-mono text-foreground focus:border-primary outline-none"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-mono text-muted-foreground mb-2">DESCRIPTION</label>
-            <textarea
-              value={formData.description}
-              onChange={(event) => setFormData({ ...formData, description: event.target.value })}
-              placeholder="Brief description of your education..."
-              className="w-full bg-background border border-primary/50 px-3 py-2 text-sm font-mono text-foreground focus:border-primary outline-none min-h-[100px] resize-y"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-mono text-muted-foreground mb-2">TAGS</label>
-            <div className="flex gap-2 mb-2">
+    <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm overflow-y-auto">
+      <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6">
+        <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-2 border-primary p-4 sm:p-6">
+          <h3 className="text-lg sm:text-xl font-mono text-primary mb-4 sm:mb-6 flex items-center gap-2">
+            <GraduationCap className="w-5 h-5" />
+            {education ? "EDIT_EDUCATION" : "ADD_EDUCATION"}
+          </h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-mono text-muted-foreground mb-2">YEAR_RANGE</label>
               <input
                 type="text"
-                value={tagInput}
-                onChange={(event) => setTagInput(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault()
-                    handleAddTag()
-                  }
-                }}
-                placeholder="Add a tag..."
-                className="flex-1 bg-background border border-primary/50 px-3 py-2 text-sm font-mono text-foreground focus:border-primary outline-none"
+                value={formData.year}
+                onChange={(event) => setFormData({ ...formData, year: event.target.value })}
+                placeholder="e.g., 2018 - 2022"
+                className="w-full bg-background border border-primary/50 px-3 py-2 text-sm font-mono text-foreground focus:border-primary outline-none"
+                required
               />
+            </div>
+            <div>
+              <label className="block text-xs font-mono text-muted-foreground mb-2">DEGREE</label>
+              <input
+                type="text"
+                value={formData.degree}
+                onChange={(event) => setFormData({ ...formData, degree: event.target.value })}
+                placeholder="e.g., B.S. COMPUTER_SCIENCE"
+                className="w-full bg-background border border-primary/50 px-3 py-2 text-sm font-mono text-foreground focus:border-primary outline-none"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-mono text-muted-foreground mb-2">INSTITUTION</label>
+              <input
+                type="text"
+                value={formData.institution}
+                onChange={(event) => setFormData({ ...formData, institution: event.target.value })}
+                placeholder="e.g., Tech University"
+                className="w-full bg-background border border-primary/50 px-3 py-2 text-sm font-mono text-foreground focus:border-primary outline-none"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-mono text-muted-foreground mb-2">DESCRIPTION</label>
+              <textarea
+                value={formData.description}
+                onChange={(event) => setFormData({ ...formData, description: event.target.value })}
+                placeholder="Brief description of your education..."
+                className="w-full bg-background border border-primary/50 px-3 py-2 text-sm font-mono text-foreground focus:border-primary outline-none min-h-[100px] resize-y"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-mono text-muted-foreground mb-2">TAGS</label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={(event) => setTagInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault()
+                      handleAddTag()
+                    }
+                  }}
+                  placeholder="Add a tag..."
+                  className="flex-1 bg-background border border-primary/50 px-3 py-2 text-sm font-mono text-foreground focus:border-primary outline-none"
+                />
+                <Button
+                  type="button"
+                  onClick={handleAddTag}
+                  variant="outline"
+                  className="bg-transparent border-primary/50 hover:border-primary cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {formData.tags.map((tag) => (
+                  <Badge
+                    key={tag}
+                    variant="outline"
+                    className="text-xs font-mono border-primary/50 text-primary flex items-center gap-1"
+                  >
+                    <span>{tag}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveTag(tag)}
+                      className="border border-destructive/50 hover:border-destructive px-1 py-0.5 cursor-pointer text-[10px] sm:text-xs leading-none"
+                      title="Remove Tag"
+                    >
+                      ×
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 pt-4">
+              <Button type="submit" className="flex-1 font-mono cursor-pointer">
+                SAVE
+              </Button>
               <Button
                 type="button"
-                onClick={handleAddTag}
+                onClick={onCancel}
                 variant="outline"
-                className="bg-transparent border-primary/50 hover:border-primary cursor-pointer"
+                className="flex-1 font-mono bg-transparent cursor-pointer"
               >
-                <Plus className="w-4 h-4" />
+                CANCEL
               </Button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {formData.tags.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="outline"
-                  className="text-xs font-mono border-primary/50 text-primary flex items-center gap-1"
-                >
-                  <span>{tag}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveTag(tag)}
-                    className="border border-destructive/50 hover:border-destructive px-1 py-0.5 cursor-pointer text-[10px] sm:text-xs leading-none"
-                    title="Remove Tag"
-                  >
-                    ×
-                  </button>
-                </Badge>
-              ))}
-            </div>
-          </div>
-          <div className="flex gap-2 pt-4">
-            <Button type="submit" className="flex-1 font-mono cursor-pointer">
-              SAVE
-            </Button>
-            <Button
-              type="button"
-              onClick={onCancel}
-              variant="outline"
-              className="flex-1 font-mono bg-transparent cursor-pointer"
-            >
-              CANCEL
-            </Button>
-          </div>
-        </form>
-      </Card>
+          </form>
+        </Card>
+      </div>
     </div>
   )
 }
