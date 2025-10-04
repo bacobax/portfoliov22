@@ -50,7 +50,7 @@ export function ColorPicker({ onColorChange, defaultH = 25, defaultS = 90, defau
       </button>
 
       {isOpen && (
-        <Card className="absolute right-0 top-12 w-72 p-4 bg-card border-primary/50 z-50 shadow-lg">
+        <Card className="glass-card absolute right-0 top-12 w-72 p-4 border-primary/50 z-50 shadow-lg">
           <h4 className="text-sm font-mono text-primary mb-4 flex items-center gap-2">
             <Palette className="w-4 h-4" />
             ACCENT_COLOR
@@ -118,7 +118,7 @@ export function ColorPicker({ onColorChange, defaultH = 25, defaultS = 90, defau
             </div>
 
             {/* Color Preview */}
-            <div className="mt-4 p-3 border border-primary/30 bg-secondary/50">
+            <div className="glass-card mt-4 p-3 border border-primary/30">
               <p className="text-xs font-mono text-muted-foreground mb-2">PREVIEW:</p>
               <div
                 className="h-12 rounded border-2"

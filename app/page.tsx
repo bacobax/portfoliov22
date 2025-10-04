@@ -700,7 +700,7 @@ export default function TechDashboardPortfolio() {
         {shouldShowSection("ABOUT") &&
           (content ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-8">
-              <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20">
+              <Card className="glass-card lg:col-span-2 p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
                   <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0">
                     <Code2 className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
@@ -787,7 +787,7 @@ export default function TechDashboardPortfolio() {
                 </div>
               </Card>
 
-              <Card className="p-4 sm:p-6 bg-card border border-primary/20">
+              <Card className="glass-card p-4 sm:p-6">
                 <h3 className="text-xs sm:text-sm font-mono text-primary mb-3 sm:mb-4 flex items-center gap-2">
                   <Activity className="w-4 h-4 animate-pulse" />
                   SYSTEM_STATUS
@@ -838,7 +838,7 @@ export default function TechDashboardPortfolio() {
 
         {shouldShowSection("EXPERIENCE") &&
           (content ? (
-            <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+            <Card className="glass-card p-4 sm:p-6 mb-4 sm:mb-8">
               <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <h3 className="text-base sm:text-lg font-mono text-primary flex items-center gap-2">
                   <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -878,7 +878,7 @@ export default function TechDashboardPortfolio() {
 
         {shouldShowSection("EDUCATION") &&
           (content ? (
-            <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+            <Card className="glass-card p-4 sm:p-6 mb-4 sm:mb-8">
               <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <h3 className="text-base sm:text-lg font-mono text-primary flex items-center gap-2">
                   <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -918,7 +918,7 @@ export default function TechDashboardPortfolio() {
 
         {shouldShowSection("PROJECTS") &&
           (content && activeCategory ? (
-            <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+            <Card className="glass-card p-4 sm:p-6 mb-4 sm:mb-8">
               <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <div className="flex items-center gap-2 sm:gap-3">
                   <h3 className="text-base sm:text-lg font-mono text-primary">{activeCategory.name}_PROJECTS</h3>
@@ -983,7 +983,7 @@ export default function TechDashboardPortfolio() {
 
         {shouldShowSection("SKILLS") &&
           (content ? (
-            <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+            <Card className="glass-card p-4 sm:p-6 mb-4 sm:mb-8">
               <h3 className="text-base sm:text-lg font-mono text-primary mb-4 sm:mb-6 flex items-center gap-2">
                 <Cpu className="w-4 h-4 sm:w-5 sm:h-5" />
                 SKILLS_MATRIX
@@ -1046,7 +1046,7 @@ function StatCard({
   onValueChange?: (value: string) => void
 }) {
   return (
-    <div className="bg-secondary/50 border border-border p-2 sm:p-3">
+    <div className="glass-card p-2 sm:p-3">
       <div className="flex items-center gap-1 sm:gap-2 mb-1 text-primary">
         {icon}
         <p className="text-[10px] sm:text-xs font-mono">{label}</p>
@@ -1088,8 +1088,8 @@ function StatusBar({
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between gap-2 text-xs font-mono mb-1">
+    <div className="glass-card p-2 sm:p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2 text-xs font-mono">
         <div className="flex items-center gap-2 flex-1">
           {isEditorMode && onLabelChange ? (
             <EditableText
@@ -1124,7 +1124,7 @@ function StatusBar({
           <span className="text-primary">{value}%</span>
         )}
       </div>
-      <div className="h-2 bg-secondary border border-border overflow-hidden">
+      <div className="h-2 bg-background/40 border border-primary/20 overflow-hidden">
         <div className="h-full bg-primary transition-all duration-500" style={{ width: `${value}%` }} />
       </div>
     </div>
@@ -1406,7 +1406,7 @@ function EducationForm({
   return (
     <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm overflow-y-auto">
       <div className="flex min-h-full items-start sm:items-center justify-center p-4 sm:p-6">
-        <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-card border-2 border-primary p-4 sm:p-6">
+        <Card className="glass-card w-full max-w-2xl max-h-[90vh] overflow-y-auto border-2 border-primary p-4 sm:p-6">
           <h3 className="text-lg sm:text-xl font-mono text-primary mb-4 sm:mb-6 flex items-center gap-2">
             <GraduationCap className="w-5 h-5" />
             {education ? "EDIT_EDUCATION" : "ADD_EDUCATION"}
@@ -1540,7 +1540,7 @@ function ProjectCard({
   } as const
 
   return (
-    <Card className="p-3 sm:p-5 bg-card border border-primary/20 hover:border-primary transition-colors relative group">
+    <Card className="glass-card p-3 sm:p-5 hover:border-primary transition-colors relative group">
       {isEditorMode && (
         <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <button
@@ -1674,7 +1674,7 @@ function SkillCategory({
 function AboutSectionSkeleton() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-8">
-      <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20">
+      <Card className="glass-card lg:col-span-2 p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
           <div className="w-16 h-16 sm:w-20 sm:h-20 border-2 border-primary flex items-center justify-center">
             <Skeleton className="h-10 w-10 sm:h-12 sm:w-12 bg-primary/30" />
@@ -1687,7 +1687,7 @@ function AboutSectionSkeleton() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-6">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="bg-secondary/50 border border-border p-2 sm:p-3 space-y-2">
+            <div key={index} className="glass-card p-2 sm:p-3 space-y-2">
               <Skeleton className="h-3 w-20" />
               <Skeleton className="h-6 sm:h-8 w-16" />
             </div>
@@ -1699,7 +1699,7 @@ function AboutSectionSkeleton() {
           <Skeleton className="h-9 sm:h-10 w-full sm:w-32" />
         </div>
       </Card>
-      <Card className="p-4 sm:p-6 bg-card border border-primary/20 space-y-4">
+      <Card className="glass-card p-4 sm:p-6 space-y-4">
         <Skeleton className="h-4 w-32" />
         <div className="space-y-4">
           {Array.from({ length: 4 }).map((_, index) => (
@@ -1722,7 +1722,7 @@ function AboutSectionSkeleton() {
 
 function ExperienceSectionSkeleton() {
   return (
-    <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+    <Card className="glass-card p-4 sm:p-6 mb-4 sm:mb-8">
       <div className="flex items-center justify-between mb-4 sm:mb-6">
         <Skeleton className="h-6 sm:h-7 w-40" />
         <Skeleton className="h-9 w-28" />
@@ -1748,7 +1748,7 @@ function ExperienceSectionSkeleton() {
 
 function EducationSectionSkeleton() {
   return (
-    <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+    <Card className="glass-card p-4 sm:p-6 mb-4 sm:mb-8">
       <div className="flex items-center justify-between mb-4 sm:mb-6">
         <Skeleton className="h-6 sm:h-7 w-48" />
         <Skeleton className="h-9 w-28" />
@@ -1779,7 +1779,7 @@ function EducationSectionSkeleton() {
 
 function ProjectsSectionSkeleton() {
   return (
-    <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8 space-y-4 sm:space-y-6">
+    <Card className="glass-card p-4 sm:p-6 mb-4 sm:mb-8 space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between">
         <div className="space-y-2">
           <Skeleton className="h-5 w-48" />
@@ -1797,7 +1797,7 @@ function ProjectsSectionSkeleton() {
       <Skeleton className="h-48 sm:h-64 w-full border border-primary/20" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
         {Array.from({ length: 2 }).map((_, index) => (
-          <Card key={index} className="p-4 sm:p-5 bg-secondary/30 border border-primary/10 space-y-3">
+          <Card key={index} className="glass-card p-4 sm:p-5 space-y-3">
             <Skeleton className="h-5 w-40" />
             <Skeleton className="h-3 w-24" />
             <Skeleton className="h-16 w-full" />
@@ -1815,7 +1815,7 @@ function ProjectsSectionSkeleton() {
 
 function SkillsSectionSkeleton() {
   return (
-    <Card className="p-4 sm:p-6 bg-card border border-primary/20 mb-4 sm:mb-8">
+    <Card className="glass-card p-4 sm:p-6 mb-4 sm:mb-8">
       <Skeleton className="h-6 w-40 mb-4 sm:mb-6" />
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
         {Array.from({ length: 3 }).map((_, columnIndex) => (

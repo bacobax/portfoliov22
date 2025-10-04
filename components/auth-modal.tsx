@@ -40,7 +40,7 @@ export function AuthModal({ onAuthenticate, onClose }: AuthModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md p-6 bg-card border-2 border-primary/50 relative">
+      <Card className="glass-card w-full max-w-md p-6 border-2 border-primary/50 relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-muted-foreground hover:text-primary transition-colors cursor-pointer"
