@@ -32,12 +32,13 @@ export interface AboutStats {
   efficiency: string
 }
 
-export interface SystemStatus {
-  frontend: number
-  backend: number
-  devops: number
-  database: number
+export interface SystemStatusEntry {
+  id: string
+  label: string
+  value: number
 }
+
+export type SystemStatus = SystemStatusEntry[]
 
 export interface ExperienceEntry {
   year: string
@@ -119,6 +120,45 @@ export interface PortfolioContent {
   customColor: { h: number; s: number; l: number }
 }
 
+const systemStatusEntrySchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  value: z.number().int().min(0).max(100),
+})
+
+const legacySystemStatusSchema = z.object({
+  frontend: z.number().int().min(0).max(100),
+  backend: z.number().int().min(0).max(100),
+  devops: z.number().int().min(0).max(100),
+  database: z.number().int().min(0).max(100),
+})
+
+const defaultSystemStatus: SystemStatus = [
+  { id: "frontend", label: "FRONTEND", value: 95 },
+  { id: "backend", label: "BACKEND", value: 88 },
+  { id: "devops", label: "DEVOPS", value: 82 },
+  { id: "database", label: "DATABASE", value: 90 },
+]
+
+const systemStatusSchema: z.ZodEffects<z.ZodTypeAny, SystemStatus, unknown> = z
+  .union([z.array(systemStatusEntrySchema).min(1), legacySystemStatusSchema, z.undefined()])
+  .transform((status) => {
+    if (!status) {
+      return [...defaultSystemStatus]
+    }
+
+    if (Array.isArray(status)) {
+      return status
+    }
+
+    return [
+      { id: "frontend", label: "FRONTEND", value: status.frontend },
+      { id: "backend", label: "BACKEND", value: status.backend },
+      { id: "devops", label: "DEVOPS", value: status.devops },
+      { id: "database", label: "DATABASE", value: status.database },
+    ]
+  })
+
 export const portfolioContentSchema = z.object({
   profileData: z.object({
     name: z.string(),
@@ -131,12 +171,7 @@ export const portfolioContentSchema = z.object({
     experience: z.string(),
     efficiency: z.string(),
   }),
-  systemStatus: z.object({
-    frontend: z.number().int().min(0).max(100),
-    backend: z.number().int().min(0).max(100),
-    devops: z.number().int().min(0).max(100),
-    database: z.number().int().min(0).max(100),
-  }),
+  systemStatus: systemStatusSchema,
   experienceLog: z
     .array(
       z.object({
@@ -205,6 +240,7 @@ export function withDefaultCustomColor(content: PersistedPortfolioContent): Port
     experienceLog: content.experienceLog ?? defaults.experienceLog,
     educationLog: content.educationLog ?? defaults.educationLog,
     lastDeployment: content.lastDeployment ?? defaults.lastDeployment,
+    systemStatus: content.systemStatus ?? defaults.systemStatus,
     customColor: defaults.customColor,
   }
 }
@@ -221,12 +257,7 @@ export const defaultContent: PortfolioContent = {
     experience: "5Y",
     efficiency: "98%",
   },
-  systemStatus: {
-    frontend: 95,
-    backend: 88,
-    devops: 82,
-    database: 90,
-  },
+  systemStatus: [...defaultSystemStatus],
   lastDeployment: "2024-03-15 14:32:07 UTC",
   experienceLog: defaultExperienceLog,
   educationLog: defaultEducationLog,
