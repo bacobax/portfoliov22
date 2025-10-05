@@ -38,8 +38,17 @@ export function AuthModal({ onAuthenticate, onClose }: AuthModalProps) {
     setError("")
   }
 
+  const handleBackdropClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.target === event.currentTarget) {
+      onClose()
+    }
+  }
+
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+      onClick={handleBackdropClick}
+    >
       <Card className="w-full max-w-md p-6 bg-card border-2 border-primary/50 relative">
         <button
           onClick={onClose}

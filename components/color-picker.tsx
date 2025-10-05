@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
 import { Palette } from "lucide-react"
@@ -17,6 +17,7 @@ export function ColorPicker({ onColorChange, defaultH = 25, defaultS = 90, defau
   const [saturation, setSaturation] = useState(defaultS)
   const [lightness, setLightness] = useState(defaultL)
   const [isOpen, setIsOpen] = useState(false)
+  const pickerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     setHue(defaultH)
@@ -39,8 +40,31 @@ export function ColorPicker({ onColorChange, defaultH = 25, defaultS = 90, defau
     onColorChange(hue, saturation, value[0])
   }
 
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null
+      if (!pickerRef.current || (target && pickerRef.current.contains(target))) {
+        return
+      }
+
+      setIsOpen(false)
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    document.addEventListener("touchstart", handleClickOutside)
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside)
+      document.removeEventListener("touchstart", handleClickOutside)
+    }
+  }, [isOpen])
+
   return (
-    <div className="relative">
+    <div ref={pickerRef} className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="p-2 border border-primary/50 bg-card hover:border-primary transition-colors"
@@ -134,6 +158,7 @@ export function ColorPicker({ onColorChange, defaultH = 25, defaultS = 90, defau
           </div>
         </Card>
       )}
+
     </div>
   )
 }
