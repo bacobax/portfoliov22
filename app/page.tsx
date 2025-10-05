@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { toast } from "sonner"
 
 import { AuthModal } from "@/components/auth-modal"
 import { GridTrails } from "@/components/grid-trails"
@@ -36,6 +37,7 @@ import {
   type ProjectCategory,
   type ProjectVisual,
   type SystemStatus,
+  type ThemeColor,
   withDefaultCustomColor,
 } from "@/lib/default-content"
 import { DEFAULT_THEME_COLORS, type ThemeMode } from "@/lib/theme"
@@ -129,6 +131,7 @@ export default function TechDashboardPortfolio() {
   const [content, setContent] = useState<PortfolioContent | null>(null)
   const [isContentLoading, setIsContentLoading] = useState(true)
   const [contentError, setContentError] = useState<string | null>(null)
+  const [sessionThemeOverrides, setSessionThemeOverrides] = useState<Partial<Record<ThemeMode, ThemeColor>>>({})
 
   const sections: SectionKey[] = ["ALL", "ABOUT", "EXPERIENCE", "EDUCATION", "PROJECTS", "SKILLS"]
 
@@ -195,6 +198,11 @@ export default function TechDashboardPortfolio() {
   }, [])
 
   const accentColor = useMemo(() => {
+    const override = sessionThemeOverrides[theme]
+    if (override) {
+      return override
+    }
+
     if (content) {
       const themeColor = content.themeColors?.[theme]
       if (themeColor) {
@@ -203,7 +211,7 @@ export default function TechDashboardPortfolio() {
     }
 
     return DEFAULT_THEME_COLORS[theme]
-  }, [content, theme])
+  }, [content, sessionThemeOverrides, theme])
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
@@ -215,16 +223,12 @@ export default function TechDashboardPortfolio() {
     const paramTheme = parseThemeParam(paramValue)
 
     if (paramTheme) {
-      if (paramTheme !== theme) {
-        setTheme(paramTheme)
-      }
+      setTheme((previous) => (previous === paramTheme ? previous : paramTheme))
       return
     }
 
     if (paramValue) {
-      if (theme !== "dark") {
-        setTheme("dark")
-      }
+      setTheme((previous) => (previous === "dark" ? previous : "dark"))
 
       const params = new URLSearchParams(searchParams.toString())
       params.set("theme", "dark")
@@ -232,10 +236,8 @@ export default function TechDashboardPortfolio() {
       return
     }
 
-    if (!paramValue && theme !== "dark") {
-      setTheme("dark")
-    }
-  }, [pathname, router, searchParams, theme])
+    setTheme((previous) => (previous === "dark" ? previous : "dark"))
+  }, [pathname, router, searchParams])
 
   useEffect(() => {
     document.documentElement.classList.toggle("light", theme === "light")
@@ -424,13 +426,30 @@ export default function TechDashboardPortfolio() {
 
   const handleColorChange = useCallback(
     (h: number, s: number, l: number) => {
+      setSessionThemeOverrides((previous) => ({
+        ...previous,
+        [theme]: { h, s, l },
+      }))
+    },
+    [theme],
+  )
+
+  const handlePersistAccentColor = useCallback(
+    (color: ThemeColor) => {
       applyContentUpdate((previous) => ({
         ...previous,
         themeColors: {
           ...previous.themeColors,
-          [theme]: { h, s, l },
+          [theme]: color,
         },
       }))
+
+      setSessionThemeOverrides((previous) => {
+        const { [theme]: _removed, ...rest } = previous
+        return rest
+      })
+
+      toast.success(`Saved ${theme.toUpperCase()} theme accent color`)
     },
     [applyContentUpdate, theme],
   )
@@ -632,6 +651,7 @@ export default function TechDashboardPortfolio() {
         onToggleTheme={toggleTheme}
         onLogout={handleLogout}
         onColorChange={handleColorChange}
+        onPersistAccentColor={handlePersistAccentColor}
       />
 
       {isEditorMode && <EditorModeBanner />}

@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Anonymous_Pro } from "next/font/google"
 import "./globals.css"
 import { Suspense } from "react"
+import { Toaster } from "sonner"
 
 const anonymousPro = Anonymous_Pro({
   weight: ["400", "700"],
@@ -24,6 +25,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`font-mono ${anonymousPro.variable} antialiased`}>
         <Suspense fallback={null}>{children}</Suspense>
+        <Toaster richColors position="top-center" />
       </body>
     </html>
   )
