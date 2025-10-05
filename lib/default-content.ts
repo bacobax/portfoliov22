@@ -283,8 +283,11 @@ export function withDefaultCustomColor(
     resolvedThemeColors.dark = providedThemeColors.dark
   } else if (isThemeColor(legacyCustomColor)) {
     resolvedThemeColors.dark = legacyCustomColor
-  } else if (isThemeColor((content as Record<string, unknown>).customColor)) {
-    resolvedThemeColors.dark = (content as Record<string, ThemeColor>).customColor
+  } else {
+    const customColor = (content as Record<string, unknown>).customColor
+    if (isThemeColor(customColor)) {
+      resolvedThemeColors.dark = customColor
+    }
   }
 
   if (isThemeColor(providedThemeColors.light)) {
