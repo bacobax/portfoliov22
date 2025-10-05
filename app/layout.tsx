@@ -11,9 +11,8 @@ const anonymousPro = Anonymous_Pro({
 })
 
 export const metadata: Metadata = {
-  title: "Tech Dashboard Portfolio",
+  title: "Francesco Bassignana - Portfolio",
   description: "Personal portfolio with hyper tech dashboard aesthetic",
-  generator: "v0.app",
 }
 
 export default function RootLayout({

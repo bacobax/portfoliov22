@@ -700,7 +700,7 @@ export default function TechDashboardPortfolio() {
         {shouldShowSection("ABOUT") &&
           (content ? (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-8">
-              <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20">
+              <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20 ">
                 <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
                   <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0">
                     <Code2 className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
