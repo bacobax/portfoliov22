@@ -1,6 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { toast } from "sonner"
 
 import { AuthModal } from "@/components/auth-modal"
 import { GridTrails } from "@/components/grid-trails"
@@ -35,14 +37,23 @@ import {
   type ProjectCategory,
   type ProjectVisual,
   type SystemStatus,
+  type ThemeColor,
   withDefaultCustomColor,
 } from "@/lib/default-content"
-import { DEFAULT_THEME_COLORS } from "@/lib/theme"
+import { DEFAULT_THEME_COLORS, type ThemeMode } from "@/lib/theme"
 
 const projectVisualComponentMap: Record<ProjectVisual, ProjectVisualComponent> = {
   brain: ParticleBrain,
   sphere: ParticleSphere,
   engine: ParticleEngine,
+}
+
+const parseThemeParam = (value: string | null): ThemeMode | null => {
+  if (value === "dark" || value === "light") {
+    return value
+  }
+
+  return null
 }
 
 const extractStartYear = (yearRange: string): number => {
@@ -106,7 +117,10 @@ export default function TechDashboardPortfolio() {
   const [time, setTime] = useState(new Date())
   const [activeSection, setActiveSection] = useState<SectionKey>("ALL")
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0)
-  const [theme, setTheme] = useState<"dark" | "light">("dark")
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [theme, setTheme] = useState<ThemeMode>(() => parseThemeParam(searchParams.get("theme")) ?? "dark")
   const [isEditorMode, setIsEditorMode] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -117,6 +131,7 @@ export default function TechDashboardPortfolio() {
   const [content, setContent] = useState<PortfolioContent | null>(null)
   const [isContentLoading, setIsContentLoading] = useState(true)
   const [contentError, setContentError] = useState<string | null>(null)
+  const [sessionThemeOverrides, setSessionThemeOverrides] = useState<Partial<Record<ThemeMode, ThemeColor>>>({})
 
   const sections: SectionKey[] = ["ALL", "ABOUT", "EXPERIENCE", "EDUCATION", "PROJECTS", "SKILLS"]
 
@@ -127,12 +142,10 @@ export default function TechDashboardPortfolio() {
       }
 
       try {
-        const { customColor: _ignoredCustomColor, ...persistableContent } = data
-
         const response = await fetch("/api/content", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(persistableContent),
+          body: JSON.stringify(data),
         })
 
         if (!response.ok) {
@@ -185,23 +198,46 @@ export default function TechDashboardPortfolio() {
   }, [])
 
   const accentColor = useMemo(() => {
-    if (content) {
-      const defaultDark = DEFAULT_THEME_COLORS.dark
-      const { h, s, l } = content.customColor
-      const isDefaultDarkColor = h === defaultDark.h && s === defaultDark.s && l === defaultDark.l
+    const override = sessionThemeOverrides[theme]
+    if (override) {
+      return override
+    }
 
-      if (!isDefaultDarkColor) {
-        return content.customColor
+    if (content) {
+      const themeColor = content.themeColors?.[theme]
+      if (themeColor) {
+        return themeColor
       }
     }
 
     return DEFAULT_THEME_COLORS[theme]
-  }, [content, theme])
+  }, [content, sessionThemeOverrides, theme])
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    const paramValue = searchParams.get("theme")
+    const paramTheme = parseThemeParam(paramValue)
+
+    if (paramTheme) {
+      setTheme((previous) => (previous === paramTheme ? previous : paramTheme))
+      return
+    }
+
+    if (paramValue) {
+      setTheme((previous) => (previous === "dark" ? previous : "dark"))
+
+      const params = new URLSearchParams(searchParams.toString())
+      params.set("theme", "dark")
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+      return
+    }
+
+    setTheme((previous) => (previous === "dark" ? previous : "dark"))
+  }, [pathname, router, searchParams])
 
   useEffect(() => {
     document.documentElement.classList.toggle("light", theme === "light")
@@ -238,7 +274,12 @@ export default function TechDashboardPortfolio() {
   }, [fetchContent])
 
   const toggleTheme = () => {
-    setTheme((previous) => (previous === "dark" ? "light" : "dark"))
+    const nextTheme: ThemeMode = theme === "dark" ? "light" : "dark"
+    setTheme(nextTheme)
+
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("theme", nextTheme)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
   }
 
   const handleAuthenticate = async (password: string): Promise<AuthResult> => {
@@ -383,15 +424,35 @@ export default function TechDashboardPortfolio() {
     setEditingEducationIndex(null)
   }
 
-  const handleColorChange = (h: number, s: number, l: number) => {
-    applyContentUpdate(
-      (previous) => ({
+  const handleColorChange = useCallback(
+    (h: number, s: number, l: number) => {
+      setSessionThemeOverrides((previous) => ({
         ...previous,
-        customColor: { h, s, l },
-      }),
-      false,
-    )
-  }
+        [theme]: { h, s, l },
+      }))
+    },
+    [theme],
+  )
+
+  const handlePersistAccentColor = useCallback(
+    (color: ThemeColor) => {
+      applyContentUpdate((previous) => ({
+        ...previous,
+        themeColors: {
+          ...previous.themeColors,
+          [theme]: color,
+        },
+      }))
+
+      setSessionThemeOverrides((previous) => {
+        const { [theme]: _removed, ...rest } = previous
+        return rest
+      })
+
+      toast.success(`Saved ${theme.toUpperCase()} theme accent color`)
+    },
+    [applyContentUpdate, theme],
+  )
 
   const updateProfileField = (field: keyof PortfolioContent["profileData"], value: string) => {
     applyContentUpdate((previous) => ({
@@ -590,6 +651,7 @@ export default function TechDashboardPortfolio() {
         onToggleTheme={toggleTheme}
         onLogout={handleLogout}
         onColorChange={handleColorChange}
+        onPersistAccentColor={handlePersistAccentColor}
       />
 
       {isEditorMode && <EditorModeBanner />}

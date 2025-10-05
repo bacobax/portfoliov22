@@ -24,14 +24,16 @@ export async function GET() {
       return NextResponse.json({ content: cloneDefaultContent() })
     }
 
-    const { _id, customColor: _ignoredCustomColor, ...rest } = document
+    const { _id, customColor: legacyCustomColor, ...rest } = document
     const parsed = persistedPortfolioContentSchema.safeParse(rest)
 
     if (!parsed.success) {
       return NextResponse.json({ content: cloneDefaultContent() })
     }
 
-  return NextResponse.json({ content: withDefaultCustomColor(parsed.data as PersistedPortfolioContent) })
+    return NextResponse.json({
+      content: withDefaultCustomColor(parsed.data as PersistedPortfolioContent, legacyCustomColor),
+    })
   } catch (error) {
     console.error("Failed to load portfolio content", error)
     return NextResponse.json({ content: cloneDefaultContent() })
@@ -53,9 +55,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: false, error: "Invalid payload" }, { status: 400 })
   }
 
-  const { customColor: _ignoredCustomColor, ...persistablePayload } = payload as Record<string, unknown>
-
-  const parsed = persistedPortfolioContentSchema.safeParse(persistablePayload)
+  const parsed = persistedPortfolioContentSchema.safeParse(payload)
 
   if (!parsed.success) {
     return NextResponse.json({ success: false, error: "Invalid content" }, { status: 400 })

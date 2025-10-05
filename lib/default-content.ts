@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-import { DEFAULT_THEME_COLORS } from "./theme"
+import { DEFAULT_THEME_COLORS, type ThemeMode } from "./theme"
 
 export type ProjectStatus = "PRODUCTION" | "BETA" | "DEVELOPMENT"
 
@@ -110,6 +110,10 @@ export interface SkillsData {
   devops: string[]
 }
 
+export type ThemeColor = { h: number; s: number; l: number }
+
+export type ThemeColors = Record<ThemeMode, ThemeColor>
+
 export interface PortfolioContent {
   profileData: ProfileData
   aboutStats: AboutStats
@@ -119,7 +123,7 @@ export interface PortfolioContent {
   educationLog: EducationEntry[]
   skillsData: SkillsData
   projectCategories: ProjectCategory[]
-  customColor: { h: number; s: number; l: number }
+  themeColors: ThemeColors
 }
 
 const systemStatusEntrySchema = z.object({
@@ -160,6 +164,12 @@ const systemStatusSchema: z.ZodEffects<z.ZodTypeAny, SystemStatus, unknown> = z
       { id: "database", label: "DATABASE", value: status.database },
     ]
   })
+
+const themeColorSchema = z.object({
+  h: z.number(),
+  s: z.number(),
+  l: z.number(),
+})
 
 export const portfolioContentSchema = z.object({
   profileData: z.object({
@@ -222,28 +232,78 @@ export const portfolioContentSchema = z.object({
     )
     .min(1),
   lastDeployment: z.string(),
-  customColor: z.object({
-    h: z.number(),
-    s: z.number(),
-    l: z.number(),
+  themeColors: z.object({
+    dark: themeColorSchema,
+    light: themeColorSchema,
   }),
 })
 
-export type PersistedPortfolioContent = Omit<PortfolioContent, "customColor">
+const persistedThemeColorsSchema = z
+  .object({
+    dark: themeColorSchema.optional(),
+    light: themeColorSchema.optional(),
+  })
+  .partial()
+  .optional()
 
 export const persistedPortfolioContentSchema = portfolioContentSchema.omit({
-  customColor: true,
+  themeColors: true,
+}).extend({
+  themeColors: persistedThemeColorsSchema,
 })
 
-export function withDefaultCustomColor(content: PersistedPortfolioContent): PortfolioContent {
+export type PersistedPortfolioContent = z.infer<typeof persistedPortfolioContentSchema>
+
+const isThemeColor = (value: unknown): value is ThemeColor => {
+  if (!value || typeof value !== "object") {
+    return false
+  }
+
+  const candidate = value as Partial<ThemeColor>
+  return (
+    typeof candidate.h === "number" &&
+    typeof candidate.s === "number" &&
+    typeof candidate.l === "number"
+  )
+}
+
+export function withDefaultCustomColor(
+  content: PersistedPortfolioContent,
+  legacyCustomColor?: unknown,
+): PortfolioContent {
   const defaults = cloneDefaultContent()
+  const resolvedThemeColors: ThemeColors = {
+    dark: { ...defaults.themeColors.dark },
+    light: { ...defaults.themeColors.light },
+  }
+
+  const providedThemeColors = content.themeColors ?? {}
+
+  if (isThemeColor(providedThemeColors.dark)) {
+    resolvedThemeColors.dark = providedThemeColors.dark
+  } else if (isThemeColor(legacyCustomColor)) {
+    resolvedThemeColors.dark = legacyCustomColor
+  } else {
+    const customColor = (content as Record<string, unknown>).customColor
+    if (isThemeColor(customColor)) {
+      resolvedThemeColors.dark = customColor
+    }
+  }
+
+  if (isThemeColor(providedThemeColors.light)) {
+    resolvedThemeColors.light = providedThemeColors.light
+  }
+
+  const { themeColors: _ignoredThemeColors, customColor: _ignoredCustomColor, ...rest } =
+    content as PersistedPortfolioContent & { customColor?: unknown }
+
   return {
-    ...content,
+    ...rest,
     experienceLog: content.experienceLog ?? defaults.experienceLog,
     educationLog: content.educationLog ?? defaults.educationLog,
     lastDeployment: content.lastDeployment ?? defaults.lastDeployment,
     systemStatus: content.systemStatus ?? defaults.systemStatus,
-    customColor: defaults.customColor,
+    themeColors: resolvedThemeColors,
   }
 }
 
@@ -335,7 +395,10 @@ export const defaultContent: PortfolioContent = {
       ],
     },
   ],
-  customColor: { ...DEFAULT_THEME_COLORS.dark },
+  themeColors: {
+    dark: { ...DEFAULT_THEME_COLORS.dark },
+    light: { ...DEFAULT_THEME_COLORS.light },
+  },
 }
 
 export function cloneDefaultContent(): PortfolioContent {

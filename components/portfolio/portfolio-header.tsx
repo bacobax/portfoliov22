@@ -3,6 +3,7 @@
 import { Activity, Lock, LogOut, Moon, Sun, Terminal } from "lucide-react"
 
 import { ColorPicker } from "@/components/color-picker"
+import type { ThemeColor } from "@/lib/default-content"
 import { Skeleton } from "@/components/ui/skeleton"
 
 export type PortfolioHeaderProps = {
@@ -16,6 +17,7 @@ export type PortfolioHeaderProps = {
   onToggleTheme: () => void
   onLogout: () => void
   onColorChange: (h: number, s: number, l: number) => void
+  onPersistAccentColor: (color: ThemeColor) => void
 }
 
 export function PortfolioHeader({
@@ -29,6 +31,7 @@ export function PortfolioHeader({
   onToggleTheme,
   onLogout,
   onColorChange,
+  onPersistAccentColor,
 }: PortfolioHeaderProps) {
   return (
     <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -89,6 +92,8 @@ export function PortfolioHeader({
                 defaultH={accentColor.h}
                 defaultS={accentColor.s}
                 defaultL={accentColor.l}
+                canPersist={isEditorMode && isAuthenticated}
+                onPersistDefault={onPersistAccentColor}
               />
             )}
           </div>

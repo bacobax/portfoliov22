@@ -10,9 +10,18 @@ interface ColorPickerProps {
   defaultH?: number
   defaultS?: number
   defaultL?: number
+  canPersist?: boolean
+  onPersistDefault?: (color: { h: number; s: number; l: number }) => void
 }
 
-export function ColorPicker({ onColorChange, defaultH = 25, defaultS = 90, defaultL = 68 }: ColorPickerProps) {
+export function ColorPicker({
+  onColorChange,
+  defaultH = 25,
+  defaultS = 90,
+  defaultL = 68,
+  canPersist = false,
+  onPersistDefault,
+}: ColorPickerProps) {
   const [hue, setHue] = useState(defaultH)
   const [saturation, setSaturation] = useState(defaultS)
   const [lightness, setLightness] = useState(defaultL)
@@ -66,6 +75,7 @@ export function ColorPicker({ onColorChange, defaultH = 25, defaultS = 90, defau
   return (
     <div ref={pickerRef} className="relative">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="p-2 border border-primary/50 bg-card hover:border-primary transition-colors"
         title="Color Picker"
@@ -155,6 +165,19 @@ export function ColorPicker({ onColorChange, defaultH = 25, defaultS = 90, defau
                 hsl({hue}, {saturation}%, {lightness}%)
               </p>
             </div>
+
+            {canPersist && onPersistDefault && (
+              <button
+                type="button"
+                onClick={() => {
+                  onPersistDefault({ h: hue, s: saturation, l: lightness })
+                  setIsOpen(false)
+                }}
+                className="w-full px-3 py-2 border border-primary/50 bg-card hover:border-primary transition-colors text-xs font-mono text-primary"
+              >
+                SET AS DEFAULT
+              </button>
+            )}
           </div>
         </Card>
       )}
