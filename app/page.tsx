@@ -37,17 +37,13 @@ import {
   type SystemStatus,
   withDefaultCustomColor,
 } from "@/lib/default-content"
+import { DEFAULT_THEME_COLORS } from "@/lib/theme"
 
 const projectVisualComponentMap: Record<ProjectVisual, ProjectVisualComponent> = {
   brain: ParticleBrain,
   sphere: ParticleSphere,
   engine: ParticleEngine,
 }
-
-const DEFAULT_THEME_COLORS = {
-  dark: { h: 186, s: 100, l: 37 },
-  light: { h: 245, s: 100, l: 37 },
-} as const
 
 const extractStartYear = (yearRange: string): number => {
   const match = yearRange.match(/\d{4}/)

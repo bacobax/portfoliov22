@@ -1,5 +1,7 @@
 import { z } from "zod"
 
+import { DEFAULT_THEME_COLORS } from "./theme"
+
 export type ProjectStatus = "PRODUCTION" | "BETA" | "DEVELOPMENT"
 
 export interface Project {
@@ -333,7 +335,7 @@ export const defaultContent: PortfolioContent = {
       ],
     },
   ],
-  customColor: { h: 186, s: 100, l: 37 },
+  customColor: { ...DEFAULT_THEME_COLORS.dark },
 }
 
 export function cloneDefaultContent(): PortfolioContent {
