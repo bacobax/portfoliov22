@@ -17,7 +17,7 @@ export async function loadPortfolioContent(): Promise<PortfolioContent> {
       .collection(COLLECTION_NAME)
       .findOne<{ _id: string } & Record<string, unknown>>({ _id: DOCUMENT_ID } as any)
 
-    if (!document) {
+    if (!document) {  
       return cloneDefaultContent()
     }
 

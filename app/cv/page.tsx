@@ -372,13 +372,15 @@ export default async function CvPage() {
             <p className="summary-text">{PIVA}</p>
           </div>
           <div className="contact">
-            <p>{DATA.email}</p>
             {DATA.phone ? <p>{DATA.phone}</p> : null}
             <ul className="links-list">
               {DATA.links.map((link) => (
                 <li key={link.url}>
                   <a href={link.url} target="_blank" rel="noreferrer">
                     {link.label}
+                  </a>: 
+                   <a href={link.url} target="_blank" rel="noreferrer">
+                    {" "}{link.label.toLowerCase() == "email" ? link.url.split(":")[1]: link.url.toLowerCase()}
                   </a>
                 </li>
               ))}
