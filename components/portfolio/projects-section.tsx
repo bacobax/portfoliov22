@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { formatMultilineText } from "@/components/editable-text"
-import { Github, ChevronLeft, ChevronRight, Plus, Edit, Trash2 } from "lucide-react"
+import { Github, ChevronLeft, ChevronRight, Plus, Edit, Trash2, Globe } from "lucide-react"
 import { type ProjectCategory, type Project } from "@/lib/default-content"
 
 export type ProjectVisualComponent = React.ComponentType<{
@@ -113,12 +113,14 @@ type ProjectCardProps = {
 }
 
 function ProjectCard({ project, isEditorMode, onEdit, onDelete }: ProjectCardProps) {
-  const { title, description, status, metrics, githubUrl } = project
+  const { title, description, status, metrics, githubUrl, projectUrl } = project
 
   const statusColors = {
     PRODUCTION: "text-primary border-primary",
     BETA: "text-primary/70 border-primary/70",
     DEVELOPMENT: "text-primary/50 border-primary/50",
+    ONGOING: "text-primary/80 border-primary/80",
+    TERMINED: "text-destructive border-destructive/80",
   } as const
 
   return (
@@ -163,17 +165,33 @@ function ProjectCard({ project, isEditorMode, onEdit, onDelete }: ProjectCardPro
           </div>
         ))}
       </div>
-      {githubUrl && (
-        <a
-          href={githubUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 inline-flex items-center gap-2 text-xs sm:text-sm font-mono text-primary hover:text-primary/80 transition-colors"
-          title="View GitHub repository"
-        >
-          <Github className="w-4 h-4" />
-          VIEW_REPOSITORY
-        </a>
+      {(githubUrl || projectUrl) && (
+        <div className="mt-3 flex flex-col gap-2">
+          {githubUrl && (
+            <a
+              href={githubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-xs sm:text-sm font-mono text-primary hover:text-primary/80 transition-colors"
+              title="View GitHub repository"
+            >
+              <Github className="w-4 h-4" />
+              VIEW_REPOSITORY
+            </a>
+          )}
+          {projectUrl && (
+            <a
+              href={projectUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-xs sm:text-sm font-mono text-primary hover:text-primary/80 transition-colors"
+              title="Visit project"
+            >
+              <Globe className="w-4 h-4" />
+              VISIT_PROJECT
+            </a>
+          )}
+        </div>
       )}
     </Card>
   )

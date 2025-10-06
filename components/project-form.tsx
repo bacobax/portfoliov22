@@ -26,6 +26,7 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
           status: "DEVELOPMENT",
           metrics: {},
           githubUrl: undefined,
+          projectUrl: undefined,
         },
   )
 
@@ -39,6 +40,7 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
             status: "DEVELOPMENT",
             metrics: {},
             githubUrl: undefined,
+            projectUrl: undefined,
           },
     )
   }, [project])
@@ -59,9 +61,11 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
     e.preventDefault()
     if (formData.title && formData.description) {
       const trimmedGithub = formData.githubUrl?.trim()
+      const trimmedProjectUrl = formData.projectUrl?.trim()
       const projectToSave: Project = {
         ...formData,
         githubUrl: trimmedGithub ? trimmedGithub : undefined,
+        projectUrl: trimmedProjectUrl ? trimmedProjectUrl : undefined,
       }
 
       onSave(projectToSave)
@@ -141,6 +145,21 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
             </div>
 
             <div>
+              <Label htmlFor="projectUrl" className="text-sm font-mono text-muted-foreground mb-2 block">
+                PROJECT_LINK <span className="text-xs text-muted-foreground">(optional)</span>
+              </Label>
+              <Input
+                id="projectUrl"
+                type="url"
+                value={formData.projectUrl ?? ""}
+                onChange={(e) => setFormData({ ...formData, projectUrl: e.target.value })}
+                className="bg-background border-primary/50 focus:border-primary font-mono"
+                placeholder="https://project.example.com"
+                inputMode="url"
+              />
+            </div>
+
+            <div>
               <Label htmlFor="status" className="text-sm font-mono text-muted-foreground mb-2 block">
                 STATUS
               </Label>
@@ -153,6 +172,8 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
                 <option value="DEVELOPMENT">DEVELOPMENT</option>
                 <option value="BETA">BETA</option>
                 <option value="PRODUCTION">PRODUCTION</option>
+                <option value="ONGOING">ONGOING</option>
+                <option value="TERMINED">TERMINED</option>
               </select>
             </div>
 

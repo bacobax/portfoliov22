@@ -362,6 +362,7 @@ export default function TechDashboardPortfolio() {
     const normalizedProject: Project = {
       ...project,
       githubUrl: project.githubUrl && project.githubUrl.trim().length > 0 ? project.githubUrl.trim() : undefined,
+      projectUrl: project.projectUrl && project.projectUrl.trim().length > 0 ? project.projectUrl.trim() : undefined,
     }
 
     applyContentUpdate((previous) => {
