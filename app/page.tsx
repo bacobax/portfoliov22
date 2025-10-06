@@ -69,12 +69,23 @@ const sortEducationEntries = (entries: EducationEntry[] | undefined): EducationE
   return [...entries].sort((first, second) => extractStartYear(second.year) - extractStartYear(first.year))
 }
 
-const calculateProjectCount = (categories: ProjectCategory[] | undefined): number => {
+const calculateProjectCount = (categories: ProjectCategory[]): number =>
+  categories.reduce((total, category) => total + category.projects.length, 0)
+
+const ensureProjectCvVisibility = (
+  categories: ProjectCategory[] | undefined,
+): ProjectCategory[] => {
   if (!categories) {
-    return 0
+    return []
   }
 
-  return categories.reduce((total, category) => total + category.projects.length, 0)
+  return categories.map((category) => ({
+    ...category,
+    projects: category.projects.map((project) => ({
+      ...project,
+      showInCv: project.showInCv ?? true,
+    })),
+  }))
 }
 
 const generateSystemStatusId = (label?: string) => {
@@ -95,12 +106,14 @@ const ensureSystemStatusEntries = (entries: SystemStatus | undefined): SystemSta
 
 const withDerivedContent = (content: PortfolioContent): PortfolioContent => {
   const educationLog = sortEducationEntries(content.educationLog)
-  const projectsCount = calculateProjectCount(content.projectCategories)
+  const projectCategories = ensureProjectCvVisibility(content.projectCategories)
+  const projectsCount = calculateProjectCount(projectCategories)
   const systemStatus = ensureSystemStatusEntries(content.systemStatus)
 
   return {
     ...content,
     educationLog,
+    projectCategories,
     systemStatus,
     aboutStats: {
       ...content.aboutStats,
