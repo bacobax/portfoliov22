@@ -9,7 +9,7 @@ const ADDRESS = "Via Entracque, 10, Cuneo (12100)"
 const PIVA = "P.IVA: 04081230049 - QuickSolver"
 
 const LINKS = [
-  { label: "Email", url: `mailto:${CONTACT_EMAIL}` },
+  { label: "Email", url: `${CONTACT_EMAIL}` },
   { label: "GitHub", url: "https://github.com/bacobax" },
   { label: "LinkedIn", url: "https://www.linkedin.com/in/francesco-bassignana/" },
 ]
@@ -332,6 +332,7 @@ export default async function CvPage() {
           list-style: none;
           margin: 0;
           padding: 0;
+          
         }
         .links-list li {
           margin-bottom: 4px;
@@ -340,6 +341,7 @@ export default async function CvPage() {
           color: #0f172a;
           text-decoration: none;
           font-size: 9.5pt;
+          text-transform: none; 
         }
         .links-list a:hover {
           text-decoration: underline;
@@ -372,15 +374,19 @@ export default async function CvPage() {
             <p className="summary-text">{PIVA}</p>
           </div>
           <div className="contact">
-            <p>{DATA.email}</p>
+            
             {DATA.phone ? <p>{DATA.phone}</p> : null}
             <ul className="links-list">
               {DATA.links.map((link) => (
                 <li key={link.url}>
                   <a href={link.url} target="_blank" rel="noreferrer">
                     {link.label}
+                  </a>:
+                  <a href={link.url} target="_blank" rel="noreferrer">
+                    {" "}{link.url}
                   </a>
                 </li>
+                
               ))}
             </ul>
           </div>
@@ -477,16 +483,6 @@ export default async function CvPage() {
           ))}
         </section>
 
-        {DATA.additionalExperience.length > 0 ? (
-          <section>
-            <h2>Highlights</h2>
-            <ul className="bullets">
-              {DATA.additionalExperience.map((item, index) => (
-                <li key={index}>{item}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
 
         {DATA.certs.length > 0 ? (
           <section>
