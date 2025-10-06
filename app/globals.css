@@ -202,6 +202,119 @@
     }
   }
 
+  .holo-avatar {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--primary) 60%, transparent);
+    background: radial-gradient(
+      120% 120% at 50% 0%,
+      color-mix(in srgb, var(--primary) 35%, transparent) 0%,
+      transparent 70%
+    );
+    transition: border-color 0.4s ease, box-shadow 0.4s ease;
+    box-shadow: 0 0 0 rgba(56, 189, 248, 0.5);
+    isolation: isolate;
+  }
+
+  .holo-avatar::before {
+    content: "";
+    position: absolute;
+    inset: -40%;
+    background: conic-gradient(
+      from 180deg,
+      transparent 0 25%,
+      rgba(125, 211, 252, 0.4) 35%,
+      rgba(56, 189, 248, 0.7) 40%,
+      transparent 60%
+    );
+    mix-blend-mode: screen;
+    opacity: 0.35;
+    animation: hologramPulse 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .holo-avatar::after {
+    content: "";
+    position: absolute;
+    inset: -150% 0 0 0;
+    background: linear-gradient(
+      180deg,
+      transparent 10%,
+      rgba(56, 189, 248, 0.1) 25%,
+      rgba(125, 211, 252, 0.65) 45%,
+      rgba(14, 165, 233, 0.85) 50%,
+      rgba(125, 211, 252, 0.55) 55%,
+      transparent 70%
+    );
+    animation: hologramScan 4.5s linear infinite;
+    mix-blend-mode: screen;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  .holo-avatar__image {
+    position: absolute !important;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: saturate(1.35) contrast(1.1) hue-rotate(-4deg);
+    mix-blend-mode: screen;
+  }
+
+  .holo-avatar__grid {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(rgba(56, 189, 248, 0.2) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56, 189, 248, 0.2) 1px, transparent 1px);
+    background-size: 12px 12px;
+    mix-blend-mode: screen;
+    opacity: 0.45;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .holo-avatar__line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, transparent, rgba(125, 211, 252, 0.8), transparent);
+    mix-blend-mode: screen;
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .holo-avatar:hover,
+  .holo-avatar:focus-within {
+    border-color: color-mix(in srgb, var(--primary) 80%, transparent);
+    box-shadow: 0 0 24px rgba(56, 189, 248, 0.45);
+  }
+
+  @keyframes hologramScan {
+    0% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(220%);
+    }
+  }
+
+  @keyframes hologramPulse {
+    0%,
+    100% {
+      opacity: 0.25;
+      transform: rotate(0deg) scale(1);
+    }
+    50% {
+      opacity: 0.45;
+      transform: rotate(6deg) scale(1.05);
+    }
+  }
+
   /* Adding cursor pointer styles for interactive elements */
   button,
   a,

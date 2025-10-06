@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import type React from "react"
 
 import {
@@ -14,11 +15,11 @@ import {
   Plus,
 } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { EditableText } from "@/components/editable-text"
 import { type PortfolioContent } from "@/lib/default-content"
+import profilePic from "@/app/prof_pic.jpeg"
 
 export type AboutSectionProps = {
   content: PortfolioContent
@@ -46,9 +47,25 @@ export function AboutSection({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-8">
       <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20 ">
-        <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0">
-            <Code2 className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+        <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-6 mb-4 sm:mb-6">
+          <div className="relative flex-shrink-0">
+            <div className="holo-avatar group w-20 h-20 sm:w-32 sm:h-32">
+              <span className="holo-avatar__grid" aria-hidden="true" />
+              <span className="holo-avatar__line" aria-hidden="true" />
+              <Image
+                src={profilePic}
+                alt={`${content.profileData.name}'s profile portrait`}
+                fill
+                priority
+                sizes="(min-width: 640px) 8rem, 5rem"
+                className="holo-avatar__image"
+              />
+            </div>
+            <div
+              className="absolute -inset-1 hidden sm:block rounded-sm border border-primary/60 opacity-70 blur-[1.5px]"
+              aria-hidden="true"
+            />
+            <div className="absolute -inset-2 hidden sm:block bg-primary/20 opacity-30 blur-lg" aria-hidden="true" />
           </div>
           <div className="flex-1 min-w-0">
             <EditableText
@@ -58,13 +75,16 @@ export function AboutSection({
               as="h2"
               className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2 text-foreground"
             />
-            <EditableText
-              value={`> ${content.profileData.title}`}
-              onChange={(value) => onUpdateProfileField("title", value.replace(/^>\s*/, ""))}
-              isEditorMode={isEditorMode}
-              as="p"
-              className="text-primary font-mono text-xs sm:text-sm mb-1 sm:mb-2"
-            />
+            <div className="flex items-center gap-2 mb-1 sm:mb-2 text-primary font-mono text-[10px] sm:text-sm">
+              <Code2 className="w-4 h-4 sm:w-5 sm:h-5" />
+              <EditableText
+                value={`> ${content.profileData.title}`}
+                onChange={(value) => onUpdateProfileField("title", value.replace(/^>\s*/, ""))}
+                isEditorMode={isEditorMode}
+                as="p"
+                className="flex-1"
+              />
+            </div>
             <EditableText
               value={content.profileData.bio}
               onChange={(value) => onUpdateProfileField("bio", value)}
