@@ -1,7 +1,10 @@
+import Image from "next/image"
+
 import { PrintToolbar } from "@/components/cv/print-toolbar"
 import CvCursorVisibility from "@/components/cv-cursor-visibility"
 import type { PortfolioContent, Project } from "@/lib/default-content"
 import { loadPortfolioContent } from "@/lib/portfolio-content"
+import profilePic from "@/app/prof_pic.jpeg"
 
 const CONTACT_EMAIL = "quicksolver02@gmail.com"
 const CONTACT_PHONE = ""
@@ -221,6 +224,34 @@ export default async function CvPage() {
           border-bottom: 1px solid #cbd5f5;
           padding-bottom: 12px;
           text-transform: uppercase;
+          align-items: flex-start;
+        }
+        .cv-header__identity {
+          flex: 1;
+        }
+        .cv-header__details {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+        }
+        .cv-header__media {
+          position: relative;
+          width: 96px;
+          height: 96px;
+          border: 1px solid #cbd5f5;
+          padding: 4px;
+          background: linear-gradient(135deg, #e2e8f0 0%, #f8fafc 100%);
+          box-shadow: 0 10px 18px rgba(15, 23, 42, 0.12);
+        }
+        .cv-header__media-inner {
+          position: relative;
+          width: 100%;
+          height: 100%;
+          border-radius: 4px;
+          overflow: hidden;
+        }
+        .cv-header__media img {
+          object-fit: cover;
         }
         .cv-header h1 {
           font-size: 20pt;
@@ -369,28 +400,40 @@ export default async function CvPage() {
       <PrintToolbar />
       <article className="cv-document">
         <header className="cv-header">
-          <div>
+          <div className="cv-header__identity">
             <h1>{DATA.name}</h1>
             <p className="title">{DATA.title}</p>
             <p className="summary-text">{DATA.location}</p>
             <p className="summary-text">{PIVA}</p>
           </div>
-          <div className="contact">
-            
-            {DATA.phone ? <p>{DATA.phone}</p> : null}
-            <ul className="links-list">
-              {DATA.links.map((link) => (
-                <li key={link.url}>
-                  <a href={link.url} target="_blank" rel="noreferrer">
-                    {link.label}
-                  </a>:
-                  <a href={link.url} target="_blank" rel="noreferrer">
-                    {" "}{link.url}
-                  </a>
-                </li>
-                
-              ))}
-            </ul>
+          <div className="cv-header__details">
+            <div className="cv-header__media">
+              <div className="cv-header__media-inner">
+                <Image
+                  src={profilePic}
+                  alt={`${DATA.name} portrait`}
+                  fill
+                  sizes="96px"
+                  priority
+                  className="object-cover"
+                />
+              </div>
+            </div>
+            <div className="contact">
+              {DATA.phone ? <p>{DATA.phone}</p> : null}
+              <ul className="links-list">
+                {DATA.links.map((link) => (
+                  <li key={link.url}>
+                    <a href={link.url} target="_blank" rel="noreferrer">
+                      {link.label}
+                    </a>:
+                    <a href={link.url} target="_blank" rel="noreferrer">
+                      {" "}{link.url}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </header>
 

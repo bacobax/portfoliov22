@@ -1,10 +1,10 @@
 "use client"
 
+import Image from "next/image"
 import type React from "react"
 
 import {
   Activity,
-  Code2,
   Cpu,
   Database,
   FileDown,
@@ -14,11 +14,11 @@ import {
   Plus,
 } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { EditableText } from "@/components/editable-text"
 import { type PortfolioContent } from "@/lib/default-content"
+import profilePic from "@/app/prof_pic.jpeg"
 
 export type AboutSectionProps = {
   content: PortfolioContent
@@ -47,8 +47,22 @@ export function AboutSection({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-8">
       <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20 ">
         <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0">
-            <Code2 className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+          <div className="hologram-frame w-20 h-20 sm:w-28 sm:h-28 flex-shrink-0">
+            <Image
+              src={profilePic}
+              alt={`${content.profileData.name || "Portfolio owner"} portrait`}
+              fill
+              className="object-cover opacity-80 saturate-150"
+              sizes="(max-width: 640px) 80px, 112px"
+              priority
+            />
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-cyan-400/35 via-transparent to-fuchsia-500/40 mix-blend-screen" />
+            <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_20%,rgba(34,211,238,0.35),transparent_55%),radial-gradient(circle_at_80%_0%,rgba(192,132,252,0.35),transparent_60%)] mix-blend-screen" />
+            <div className="absolute inset-0 pointer-events-none animate-hologram-glow bg-[linear-gradient(120deg,rgba(15,23,42,0)_0%,rgba(56,189,248,0.5)_45%,rgba(15,23,42,0)_100%)]" />
+            <div className="absolute inset-0 pointer-events-none animate-hologram-scan bg-gradient-to-b from-transparent via-cyan-400/40 to-transparent" />
+            <span className="absolute bottom-2 left-2 text-[10px] font-mono tracking-[0.3em] uppercase text-cyan-100 bg-slate-900/70 border border-cyan-300/40 px-2 py-[2px] backdrop-blur-sm">
+              ONLINE
+            </span>
           </div>
           <div className="flex-1 min-w-0">
             <EditableText
