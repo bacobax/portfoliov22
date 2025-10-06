@@ -1,4 +1,5 @@
 import { PrintToolbar } from "@/components/cv/print-toolbar"
+import CvCursorVisibility from "@/components/cv-cursor-visibility"
 import type { PortfolioContent, Project } from "@/lib/default-content"
 import { loadPortfolioContent } from "@/lib/portfolio-content"
 
@@ -144,6 +145,7 @@ export default async function CvPage() {
 
   return (
     <div className="cv-page">
+      <CvCursorVisibility />
       <style>{`
         :root {
           color-scheme: light;
@@ -154,6 +156,18 @@ export default async function CvPage() {
         }
         body {
           background: #e5e7eb;
+        }
+        @media (pointer: fine) {
+          .cv-page,
+          .cv-page * {
+            cursor: auto !important;
+          }
+        }
+
+        @media (pointer: coarse) {
+          .tech-cursor {
+            display: none !important;
+          }
         }
         .cv-page {
           padding: 24px;
