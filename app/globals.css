@@ -202,6 +202,22 @@
     }
   }
 
+  .animate-hologram-scan {
+    animation: hologram-scan 3.6s linear infinite;
+  }
+
+  @keyframes hologram-scan {
+    0% {
+      transform: translateY(-100%);
+    }
+    50% {
+      transform: translateY(0%);
+    }
+    100% {
+      transform: translateY(100%);
+    }
+  }
+
   /* Adding cursor pointer styles for interactive elements */
   button,
   a,

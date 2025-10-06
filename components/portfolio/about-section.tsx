@@ -2,6 +2,8 @@
 
 import type React from "react"
 
+import Image from "next/image"
+
 import {
   Activity,
   Code2,
@@ -19,6 +21,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { EditableText } from "@/components/editable-text"
 import { type PortfolioContent } from "@/lib/default-content"
+import profilePicture from "@/app/prof_pic.jpeg"
 
 export type AboutSectionProps = {
   content: PortfolioContent
@@ -47,8 +50,25 @@ export function AboutSection({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-8">
       <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20 ">
         <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0">
-            <Code2 className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+          <div className="relative group w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0">
+            <div className="absolute inset-0 rounded-xl border border-primary/60 bg-primary/15 backdrop-blur-sm" />
+            <div className="absolute -inset-[1px] rounded-xl border border-primary/40 opacity-60 blur-[1.5px]" />
+            <div className="absolute inset-0 rounded-xl overflow-hidden">
+              <Image
+                src={profilePicture}
+                alt={`${content.profileData.name || "Portfolio owner"} portrait`}
+                fill
+                sizes="(min-width: 640px) 8rem, 6rem"
+                priority
+                className="object-cover saturate-[1.25] contrast-110"
+              />
+            </div>
+            <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary/50 via-transparent to-primary/40 mix-blend-screen opacity-70 pointer-events-none" />
+            <div className="absolute inset-x-0 top-0 h-full bg-gradient-to-b from-transparent via-primary/50 to-transparent opacity-70 animate-hologram-scan pointer-events-none" />
+            <div className="absolute inset-0 rounded-xl bg-[radial-gradient(circle_at_20%_20%,rgba(56,189,248,0.35),transparent_60%),radial-gradient(circle_at_80%_30%,rgba(56,189,248,0.25),transparent_55%)] mix-blend-screen opacity-70 pointer-events-none" />
+            <div className="absolute top-2 right-2 z-10 rounded-full bg-background/90 border border-primary/60 p-1 shadow-[0_0_12px_rgba(56,189,248,0.45)]">
+              <Code2 className="w-4 h-4 text-primary" />
+            </div>
           </div>
           <div className="flex-1 min-w-0">
             <EditableText
