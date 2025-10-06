@@ -19,7 +19,7 @@ interface ProjectFormProps {
 export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
   const [formData, setFormData] = useState<Project>(() =>
     project
-      ? { ...project, metrics: { ...project.metrics } }
+      ? { ...project, metrics: { ...project.metrics }, showInCv: project.showInCv ?? true }
       : {
           title: "",
           description: "",
@@ -27,13 +27,14 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
           metrics: {},
           githubUrl: undefined,
           projectUrl: undefined,
+          showInCv: true,
         },
   )
 
   useEffect(() => {
     setFormData(
       project
-        ? { ...project, metrics: { ...project.metrics } }
+        ? { ...project, metrics: { ...project.metrics }, showInCv: project.showInCv ?? true }
         : {
             title: "",
             description: "",
@@ -41,6 +42,7 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
             metrics: {},
             githubUrl: undefined,
             projectUrl: undefined,
+            showInCv: true,
           },
     )
   }, [project])
@@ -175,6 +177,31 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
                 <option value="ONGOING">ONGOING</option>
                 <option value="TERMINED">TERMINED</option>
               </select>
+            </div>
+
+            <div className="border border-primary/50 bg-background/70 p-3 flex flex-col gap-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <Label htmlFor="showInCv" className="text-sm font-mono text-muted-foreground">
+                    SHOW_IN_CV
+                  </Label>
+                  <p className="text-xs font-mono text-muted-foreground/80 mt-1">
+                    Toggle to include this project in the generated CV.
+                  </p>
+                </div>
+                <input
+                  id="showInCv"
+                  type="checkbox"
+                  checked={formData.showInCv}
+                  onChange={(event) =>
+                    setFormData({
+                      ...formData,
+                      showInCv: event.target.checked,
+                    })
+                  }
+                  className="mt-1 h-5 w-5 cursor-pointer accent-primary"
+                />
+              </div>
             </div>
 
             <div>

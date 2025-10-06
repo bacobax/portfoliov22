@@ -92,13 +92,15 @@ function createCvData(content: PortfolioContent): CvData {
   }))
 
   const projects = content.projectCategories.flatMap((category) =>
-    category.projects.map((project) => ({
-      name: formatLabel(project.title),
-      role: formatLabel(category.name),
-      date: `STATUS: ${formatLabel(project.status)}`,
-      bullets: [formatLabel(project.description), ...projectMetricsToBullets(project)],
-      link: project.githubUrl,
-    })),
+    category.projects
+      .filter((project) => project.showInCv ?? true)
+      .map((project) => ({
+        name: formatLabel(project.title),
+        role: formatLabel(category.name),
+        date: `STATUS: ${formatLabel(project.status)}`,
+        bullets: [formatLabel(project.description), ...projectMetricsToBullets(project)],
+        link: project.githubUrl,
+      })),
   )
 
   const education = content.educationLog.map((entry) => ({

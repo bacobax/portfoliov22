@@ -16,6 +16,7 @@ export interface Project {
   metrics: Record<string, string>
   githubUrl?: string
   projectUrl?: string
+  showInCv: boolean
 }
 
 export type ProjectVisual = "brain" | "sphere" | "engine"
@@ -239,6 +240,7 @@ export const portfolioContentSchema = z.object({
             metrics: z.record(z.string()),
             githubUrl: z.string().url().optional(),
             projectUrl: z.string().url().optional(),
+            showInCv: z.boolean().default(true),
           }),
         ),
       }),
@@ -354,6 +356,7 @@ export const defaultContent: PortfolioContent = {
           metrics: { users: "15K", uptime: "99.9%" },
           githubUrl: "https://github.com/johndoe/neural-network-dashboard",
           projectUrl: "https://neural-dashboard.example.com",
+          showInCv: true,
         },
         {
           title: "NLP_SENTIMENT_ANALYZER",
@@ -361,6 +364,7 @@ export const defaultContent: PortfolioContent = {
           status: "ONGOING",
           metrics: { accuracy: "94%", speed: "50ms" },
           projectUrl: "https://sentiment-analyzer.example.com",
+          showInCv: true,
         },
       ],
     },
@@ -375,6 +379,7 @@ export const defaultContent: PortfolioContent = {
           status: "PRODUCTION",
           metrics: { transactions: "100K+", revenue: "$2M" },
           projectUrl: "https://commerce-platform.example.com",
+          showInCv: true,
         },
         {
           title: "SOCIAL_MEDIA_APP",
@@ -382,6 +387,7 @@ export const defaultContent: PortfolioContent = {
           status: "BETA",
           metrics: { users: "50K", messages: "1M/day" },
           projectUrl: "https://beta.social-app.example.com",
+          showInCv: true,
         },
       ],
     },
@@ -396,6 +402,7 @@ export const defaultContent: PortfolioContent = {
           status: "PRODUCTION",
           metrics: { requests: "50M/day", latency: "12ms" },
           projectUrl: "https://cache-system.example.com",
+          showInCv: true,
         },
         {
           title: "API_GATEWAY_v3",
@@ -404,6 +411,7 @@ export const defaultContent: PortfolioContent = {
           metrics: { endpoints: "200+", throughput: "10K/s" },
           githubUrl: "https://github.com/johndoe/api-gateway-v3",
           projectUrl: "https://api-gateway.example.com",
+          showInCv: true,
         },
         {
           title: "MONITORING_SUITE",
@@ -411,6 +419,7 @@ export const defaultContent: PortfolioContent = {
           status: "DEVELOPMENT",
           metrics: { services: "45", alerts: "120" },
           projectUrl: "https://monitoring-suite.example.com",
+          showInCv: true,
         },
       ],
     },
