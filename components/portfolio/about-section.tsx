@@ -7,6 +7,7 @@ import {
   Code2,
   Cpu,
   Database,
+  FileDown,
   Github,
   Linkedin,
   Mail,
@@ -117,6 +118,12 @@ export function AboutSection({
             <a href="https://www.linkedin.com/in/francesco-bassignana/" target="_blank" rel="noopener noreferrer">
               <Linkedin className="w-4 h-4 mr-2" />
               LINKEDIN
+            </a>
+          </Button>
+          <Button asChild variant="outline" className="font-mono text-xs bg-transparent w-full sm:w-auto cursor-pointer">
+            <a href="/cv" rel="noopener noreferrer">
+              <FileDown className="w-4 h-4 mr-2" />
+              VIEW & DOWNLOAD CV
             </a>
           </Button>
         </div>
