@@ -321,5 +321,57 @@
     border-right: 1px solid var(--primary);
   }
 
+  .hologram-frame {
+    @apply relative overflow-hidden rounded-xl border border-primary/60 bg-primary/10 backdrop-blur-sm;
+    box-shadow: 0 0 25px rgba(34, 211, 238, 0.25);
+  }
 
+  .hologram-frame::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(
+        rgba(56, 189, 248, 0.12) 1px,
+        transparent 1px
+      ),
+      linear-gradient(90deg, rgba(56, 189, 248, 0.12) 1px, transparent 1px);
+    background-size: 18px 18px;
+    opacity: 0.4;
+    mix-blend-mode: screen;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+
+}
+
+@keyframes hologramGlow {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes hologramScan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.animate-hologram-glow {
+  animation: hologramGlow 4.5s ease-in-out infinite;
+  mix-blend-mode: screen;
+  z-index: 2;
+}
+
+.animate-hologram-scan {
+  animation: hologramScan 3.5s linear infinite;
+  mix-blend-mode: screen;
+  z-index: 3;
 }
