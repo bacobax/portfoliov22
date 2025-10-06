@@ -1,7 +1,10 @@
+import Image from "next/image"
+
 import { PrintToolbar } from "@/components/cv/print-toolbar"
 import CvCursorVisibility from "@/components/cv-cursor-visibility"
 import type { PortfolioContent, Project } from "@/lib/default-content"
 import { loadPortfolioContent } from "@/lib/portfolio-content"
+import profilePicture from "@/app/prof_pic.jpeg"
 
 const CONTACT_EMAIL = "quicksolver02@gmail.com"
 const CONTACT_PHONE = ""
@@ -217,10 +220,28 @@ export default async function CvPage() {
         header.cv-header {
           display: flex;
           justify-content: space-between;
+          align-items: flex-start;
           gap: 16px;
           border-bottom: 1px solid #cbd5f5;
           padding-bottom: 12px;
           text-transform: uppercase;
+        }
+        .cv-header .identity {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
+        .cv-header .profile-photo {
+          position: relative;
+          width: 200px;
+          height: 200px;
+          border-radius: 12px;
+          overflow: hidden;
+          border: 2px solid #0f172a;
+          box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+        }
+        .cv-header .profile-photo img {
+          object-fit: cover;
         }
         .cv-header h1 {
           font-size: 20pt;
@@ -369,14 +390,19 @@ export default async function CvPage() {
       <PrintToolbar />
       <article className="cv-document">
         <header className="cv-header">
-          <div>
-            <h1>{DATA.name}</h1>
-            <p className="title">{DATA.title}</p>
-            <p className="summary-text">{DATA.location}</p>
-            <p className="summary-text">{PIVA}</p>
+          <div className="identity">
+            <div className="profile-photo">
+              <Image src={profilePicture} alt={`${DATA.name} portrait`} fill sizes="84px" priority />
+            </div>
+            <div>
+              <h1>{DATA.name}</h1>
+              <p className="title">{DATA.title}</p>
+              <p className="summary-text">{DATA.location}</p>
+              <p className="summary-text">{PIVA}</p>
+            </div>
           </div>
           <div className="contact">
-            
+
             {DATA.phone ? <p>{DATA.phone}</p> : null}
             <ul className="links-list">
               {DATA.links.map((link) => (
