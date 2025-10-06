@@ -185,13 +185,13 @@ export default async function CvPage() {
           background: #ffffff;
           color: #0f172a;
           box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
-          padding: 24mm 22mm;
+          padding: 10mm 10mm;
           font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
           font-size: 10pt;
           line-height: 1.5;
           display: flex;
           flex-direction: column;
-          gap: 18px;
+          gap: 5px;
         }
         .toolbar {
           width: 210mm;
@@ -230,8 +230,8 @@ export default async function CvPage() {
         }
         .cv-avatar {
           margin: 0;
-          width: 82px;
-          height: 82px;
+          width: 200px;
+          height: 200px;
           border-radius: 8px;
           overflow: hidden;
           border: 1px solid #cbd5f5;
@@ -381,7 +381,7 @@ export default async function CvPage() {
             box-shadow: none;
             width: auto;
             min-height: auto;
-            padding: 18mm 16mm;
+            padding: 10mm 10mm;
           }
           .toolbar {
             display: none;
@@ -393,7 +393,7 @@ export default async function CvPage() {
         <header className="cv-header">
           <div className="cv-header__primary">
             <figure className="cv-avatar">
-              <img src={profilePic.src} alt={`${DATA.name} portrait`} width={164} height={164} />
+              <img src={profilePic.src} alt={`${DATA.name} portrait`} width={400} height={400} />
             </figure>
             <div>
               <h1>{DATA.name}</h1>
@@ -474,19 +474,19 @@ export default async function CvPage() {
               <article key={`${project.name}-${project.role}`} className="project-item">
                 <div>
                   <h3>{project.name}</h3>
-                  <p className="summary-text">{project.role}</p>
+
                   <ul className="bullets">
-                    {project.bullets.map((bullet, index) => (
-                      <li key={index}>{bullet}</li>
-                    ))}
+                    {
+                      project.bullets.map((bullet, index) => {
+                        console.log({bullet, index})
+                        if (bullet.trim().length > 25){
+                          return(
+                            <li key={index}>{bullet}</li>
+                          )
+                        }
+                      })
+                    }
                   </ul>
-                  {project.link ? (
-                    <p className="summary-text">
-                      <a href={project.link} target="_blank" rel="noreferrer">
-                        View Project
-                      </a>
-                    </p>
-                  ) : null}
                 </div>
                 <div className="project-meta">{project.date}</div>
               </article>

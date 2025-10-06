@@ -57,7 +57,7 @@ export function AboutSection({
                 alt={`${content.profileData.name}'s profile portrait`}
                 fill
                 priority
-                sizes="(min-width: 640px) 8rem, 5rem"
+                sizes="(min-width: 640px) 12rem, 5rem"
                 className="holo-avatar__image"
               />
             </div>
