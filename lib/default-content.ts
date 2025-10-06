@@ -2,7 +2,12 @@ import { z } from "zod"
 
 import { DEFAULT_THEME_COLORS, type ThemeMode } from "./theme"
 
-export type ProjectStatus = "PRODUCTION" | "BETA" | "DEVELOPMENT"
+export type ProjectStatus =
+  | "PRODUCTION"
+  | "BETA"
+  | "DEVELOPMENT"
+  | "ONGOING"
+  | "TERMINED"
 
 export interface Project {
   title: string
@@ -10,6 +15,7 @@ export interface Project {
   status: ProjectStatus
   metrics: Record<string, string>
   githubUrl?: string
+  projectUrl?: string
 }
 
 export type ProjectVisual = "brain" | "sphere" | "engine"
@@ -223,9 +229,16 @@ export const portfolioContentSchema = z.object({
           z.object({
             title: z.string(),
             description: z.string(),
-            status: z.union([z.literal("PRODUCTION"), z.literal("BETA"), z.literal("DEVELOPMENT")]),
+            status: z.union([
+              z.literal("PRODUCTION"),
+              z.literal("BETA"),
+              z.literal("DEVELOPMENT"),
+              z.literal("ONGOING"),
+              z.literal("TERMINED"),
+            ]),
             metrics: z.record(z.string()),
             githubUrl: z.string().url().optional(),
+            projectUrl: z.string().url().optional(),
           }),
         ),
       }),
@@ -340,12 +353,14 @@ export const defaultContent: PortfolioContent = {
           status: "PRODUCTION",
           metrics: { users: "15K", uptime: "99.9%" },
           githubUrl: "https://github.com/johndoe/neural-network-dashboard",
+          projectUrl: "https://neural-dashboard.example.com",
         },
         {
           title: "NLP_SENTIMENT_ANALYZER",
           description: "Advanced natural language processing engine for real-time sentiment analysis across multiple languages.",
-          status: "PRODUCTION",
+          status: "ONGOING",
           metrics: { accuracy: "94%", speed: "50ms" },
+          projectUrl: "https://sentiment-analyzer.example.com",
         },
       ],
     },
@@ -359,12 +374,14 @@ export const defaultContent: PortfolioContent = {
           description: "Full-stack e-commerce solution with real-time inventory, payment processing, and analytics dashboard.",
           status: "PRODUCTION",
           metrics: { transactions: "100K+", revenue: "$2M" },
+          projectUrl: "https://commerce-platform.example.com",
         },
         {
           title: "SOCIAL_MEDIA_APP",
           description: "Real-time social networking platform with live messaging, media sharing, and content moderation.",
           status: "BETA",
           metrics: { users: "50K", messages: "1M/day" },
+          projectUrl: "https://beta.social-app.example.com",
         },
       ],
     },
@@ -378,19 +395,22 @@ export const defaultContent: PortfolioContent = {
           description: "High-performance caching layer reducing database load by 85% across microservices.",
           status: "PRODUCTION",
           metrics: { requests: "50M/day", latency: "12ms" },
+          projectUrl: "https://cache-system.example.com",
         },
         {
           title: "API_GATEWAY_v3",
           description: "Scalable API gateway with rate limiting, authentication, and request transformation.",
-          status: "BETA",
+          status: "TERMINED",
           metrics: { endpoints: "200+", throughput: "10K/s" },
           githubUrl: "https://github.com/johndoe/api-gateway-v3",
+          projectUrl: "https://api-gateway.example.com",
         },
         {
           title: "MONITORING_SUITE",
           description: "Comprehensive observability platform with custom metrics, logs, and distributed tracing.",
           status: "DEVELOPMENT",
           metrics: { services: "45", alerts: "120" },
+          projectUrl: "https://monitoring-suite.example.com",
         },
       ],
     },
