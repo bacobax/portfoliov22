@@ -233,8 +233,8 @@ export default async function CvPage() {
         }
         .cv-header .profile-photo {
           position: relative;
-          width: 84px;
-          height: 84px;
+          width: 200px;
+          height: 200px;
           border-radius: 12px;
           overflow: hidden;
           border: 2px solid #0f172a;

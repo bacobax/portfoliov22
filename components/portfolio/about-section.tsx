@@ -50,7 +50,7 @@ export function AboutSection({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-8">
       <Card className="lg:col-span-2 p-4 sm:p-6 bg-card border border-primary/20 ">
         <div className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div className="relative group w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0">
+          <div className="relative group w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0 rounded-xl overflow-hidden">
             <div className="absolute inset-0 rounded-xl border border-primary/60 bg-primary/15 backdrop-blur-sm" />
             <div className="absolute -inset-[1px] rounded-xl border border-primary/40 opacity-60 blur-[1.5px]" />
             <div className="absolute inset-0 rounded-xl overflow-hidden">
