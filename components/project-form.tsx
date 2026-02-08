@@ -6,9 +6,9 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { X } from "lucide-react"
+import { LoaderCircle, X } from "lucide-react"
 
-import type { Project, ProjectStatus } from "@/lib/default-content"
+import type { Project, ProjectImage, ProjectStatus } from "@/lib/default-content"
 
 interface ProjectFormProps {
   project?: Project
@@ -16,34 +16,44 @@ interface ProjectFormProps {
   onCancel: () => void
 }
 
+const createEmptyProject = (): Project => ({
+  title: "",
+  description: "",
+  status: "DEVELOPMENT",
+  metrics: {},
+  githubUrl: undefined,
+  projectUrl: undefined,
+  image: undefined,
+  showInCv: true,
+})
+
 export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
+  const [metricKey, setMetricKey] = useState("")
+  const [metricValue, setMetricValue] = useState("")
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null)
   const [formData, setFormData] = useState<Project>(() =>
     project
-      ? { ...project, metrics: { ...project.metrics }, showInCv: project.showInCv ?? true }
-      : {
-          title: "",
-          description: "",
-          status: "DEVELOPMENT",
-          metrics: {},
-          githubUrl: undefined,
-          projectUrl: undefined,
-          showInCv: true,
-        },
+      ? {
+          ...project,
+          metrics: { ...project.metrics },
+          image: project.image ? { ...project.image } : undefined,
+          showInCv: project.showInCv ?? true,
+        }
+      : createEmptyProject(),
   )
 
   useEffect(() => {
+    setImageUploadError(null)
     setFormData(
       project
-        ? { ...project, metrics: { ...project.metrics }, showInCv: project.showInCv ?? true }
-        : {
-            title: "",
-            description: "",
-            status: "DEVELOPMENT",
-            metrics: {},
-            githubUrl: undefined,
-            projectUrl: undefined,
-            showInCv: true,
-          },
+        ? {
+            ...project,
+            metrics: { ...project.metrics },
+            image: project.image ? { ...project.image } : undefined,
+            showInCv: project.showInCv ?? true,
+          }
+        : createEmptyProject(),
     )
   }, [project])
 
@@ -56,11 +66,53 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
     }
   }, [])
 
-  const [metricKey, setMetricKey] = useState("")
-  const [metricValue, setMetricValue] = useState("")
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+
+    if (!file) {
+      return
+    }
+
+    setImageUploadError(null)
+    setIsUploadingImage(true)
+
+    try {
+      const payload = new FormData()
+      payload.append("file", file)
+
+      const response = await fetch("/api/content/image", {
+        method: "POST",
+        body: payload,
+      })
+
+      const data = (await response.json().catch(() => null)) as
+        | { success?: boolean; image?: ProjectImage; error?: string }
+        | null
+
+      if (!response.ok || !data?.success || !data.image) {
+        throw new Error(data?.error || "Image upload failed")
+      }
+
+      setFormData((previous) => ({
+        ...previous,
+        image: data.image,
+      }))
+    } catch (error) {
+      console.error("Failed to upload project image", error)
+      setImageUploadError(error instanceof Error ? error.message : "Failed to upload image")
+    } finally {
+      setIsUploadingImage(false)
+      event.target.value = ""
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (isUploadingImage) {
+      return
+    }
+
     if (formData.title && formData.description) {
       const trimmedGithub = formData.githubUrl?.trim()
       const trimmedProjectUrl = formData.projectUrl?.trim()
@@ -68,6 +120,7 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
         ...formData,
         githubUrl: trimmedGithub ? trimmedGithub : undefined,
         projectUrl: trimmedProjectUrl ? trimmedProjectUrl : undefined,
+        image: formData.image ? { ...formData.image } : undefined,
       }
 
       onSave(projectToSave)
@@ -162,6 +215,62 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
             </div>
 
             <div>
+              <Label htmlFor="projectImage" className="text-sm font-mono text-muted-foreground mb-2 block">
+                {formData.image ? "REPLACE_PROJECT_IMAGE" : "PROJECT_IMAGE"}{" "}
+                <span className="text-xs text-muted-foreground">(optional)</span>
+              </Label>
+              <div className="border border-primary/50 bg-background/70 p-3 space-y-3">
+                <Input
+                  id="projectImage"
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                  className="bg-background border-primary/50 focus:border-primary font-mono text-sm cursor-pointer"
+                  onChange={handleImageUpload}
+                  disabled={isUploadingImage}
+                />
+                <p className="text-[11px] font-mono text-muted-foreground/80">
+                  You can upload now or later by editing this project again.
+                </p>
+
+                {isUploadingImage && (
+                  <p className="text-xs font-mono text-primary flex items-center gap-2">
+                    <LoaderCircle className="w-4 h-4 animate-spin" />
+                    UPLOADING_IMAGE...
+                  </p>
+                )}
+
+                {imageUploadError && <p className="text-xs font-mono text-destructive">{imageUploadError}</p>}
+
+                {formData.image?.secureUrl && (
+                  <div className="border border-primary/40 bg-card/60 p-2 space-y-2">
+                    <img
+                      src={formData.image.secureUrl}
+                      alt={`${formData.title || "Project"} preview`}
+                      className="w-full max-h-56 object-cover border border-primary/30"
+                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[11px] font-mono text-muted-foreground break-all">
+                        {formData.image.displayName || formData.image.publicId}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((previous) => ({
+                            ...previous,
+                            image: undefined,
+                          }))
+                        }
+                        className="text-xs font-mono px-2 py-1 border border-destructive/50 text-destructive hover:border-destructive cursor-pointer"
+                      >
+                        REMOVE
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
               <Label htmlFor="status" className="text-sm font-mono text-muted-foreground mb-2 block">
                 STATUS
               </Label>
@@ -247,7 +356,7 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit" className="flex-1 font-mono cursor-pointer">
+              <Button type="submit" className="flex-1 font-mono cursor-pointer" disabled={isUploadingImage}>
                 {project ? "UPDATE" : "CREATE"}
               </Button>
               <Button

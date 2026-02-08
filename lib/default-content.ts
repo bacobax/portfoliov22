@@ -9,6 +9,24 @@ export type ProjectStatus =
   | "ONGOING"
   | "TERMINED"
 
+export interface ProjectImage {
+  assetId: string
+  publicId: string
+  version: number
+  versionId?: string
+  format: string
+  resourceType: "image"
+  createdAt: string
+  width: number
+  height: number
+  bytes: number
+  originalFilename?: string
+  originalExtension?: string
+  displayName?: string
+  secureUrl?: string
+  url?: string
+}
+
 export interface Project {
   title: string
   description: string
@@ -16,6 +34,7 @@ export interface Project {
   metrics: Record<string, string>
   githubUrl?: string
   projectUrl?: string
+  image?: ProjectImage
   showInCv: boolean
 }
 
@@ -178,6 +197,24 @@ const themeColorSchema = z.object({
   l: z.number(),
 })
 
+const projectImageSchema = z.object({
+  assetId: z.string(),
+  publicId: z.string(),
+  version: z.number().int().nonnegative(),
+  versionId: z.string().optional(),
+  format: z.string(),
+  resourceType: z.literal("image"),
+  createdAt: z.string(),
+  width: z.number().int().nonnegative(),
+  height: z.number().int().nonnegative(),
+  bytes: z.number().int().nonnegative(),
+  originalFilename: z.string().optional(),
+  originalExtension: z.string().optional(),
+  displayName: z.string().optional(),
+  secureUrl: z.string().url().optional(),
+  url: z.string().url().optional(),
+})
+
 export const portfolioContentSchema = z.object({
   profileData: z.object({
     name: z.string(),
@@ -240,6 +277,7 @@ export const portfolioContentSchema = z.object({
             metrics: z.record(z.string()),
             githubUrl: z.string().url().optional(),
             projectUrl: z.string().url().optional(),
+            image: projectImageSchema.optional(),
             showInCv: z.boolean().default(true),
           }),
         ),

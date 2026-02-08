@@ -5,10 +5,45 @@ import {
   type PortfolioContent,
   withDefaultCustomColor,
 } from "@/lib/default-content"
+import { loadProjectImage } from "@/lib/cloudinary"
 import { getDb } from "@/lib/mongodb"
 
 const COLLECTION_NAME = "portfolio_content"
 const DOCUMENT_ID = "portfolio_content"
+
+const hydrateProjectImages = async (
+  content: PersistedPortfolioContent,
+): Promise<PersistedPortfolioContent> => {
+  const hydratedCategories = await Promise.all(
+    content.projectCategories.map(async (category) => {
+      const projects = await Promise.all(
+        category.projects.map(async (project) => {
+          if (!project.image) {
+            return project
+          }
+
+          const hydratedImage = await loadProjectImage(project.image)
+
+          if (!hydratedImage) {
+            return { ...project, image: undefined }
+          }
+
+          return {
+            ...project,
+            image: hydratedImage,
+          }
+        }),
+      )
+
+      return { ...category, projects }
+    }),
+  )
+
+  return {
+    ...content,
+    projectCategories: hydratedCategories,
+  }
+}
 
 export async function loadPortfolioContent(): Promise<PortfolioContent> {
   try {
@@ -28,7 +63,8 @@ export async function loadPortfolioContent(): Promise<PortfolioContent> {
       return cloneDefaultContent()
     }
 
-    return withDefaultCustomColor(parsed.data as PersistedPortfolioContent, legacyCustomColor)
+    const hydratedContent = await hydrateProjectImages(parsed.data as PersistedPortfolioContent)
+    return withDefaultCustomColor(hydratedContent, legacyCustomColor)
   } catch (error) {
     console.error("Failed to load portfolio content", error)
     return cloneDefaultContent()

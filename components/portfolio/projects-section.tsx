@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { formatMultilineText } from "@/components/editable-text"
-import { Github, ChevronLeft, ChevronRight, Plus, Edit, Trash2, Globe } from "lucide-react"
+import { Github, ChevronLeft, ChevronRight, Plus, Edit, Trash2, Globe, ImagePlus } from "lucide-react"
 import { type ProjectCategory, type Project } from "@/lib/default-content"
 
 export type ProjectVisualComponent = React.ComponentType<{
@@ -113,7 +113,7 @@ type ProjectCardProps = {
 }
 
 function ProjectCard({ project, isEditorMode, onEdit, onDelete }: ProjectCardProps) {
-  const { title, description, status, metrics, githubUrl, projectUrl } = project
+  const { title, description, status, metrics, githubUrl, projectUrl, image } = project
 
   const statusColors = {
     PRODUCTION: "text-primary border-primary",
@@ -144,6 +144,26 @@ function ProjectCard({ project, isEditorMode, onEdit, onDelete }: ProjectCardPro
             <Trash2 className="w-3 h-3 text-destructive" />
           </button>
         </div>
+      )}
+      {image?.secureUrl && (
+        <div className="mb-3 border border-primary/20 bg-background/60 overflow-hidden">
+          <img
+            src={image.secureUrl}
+            alt={`${title} preview`}
+            className="w-full h-44 object-cover"
+            loading="lazy"
+          />
+        </div>
+      )}
+      {isEditorMode && (
+        <button
+          type="button"
+          onClick={onEdit}
+          className="mb-3 inline-flex items-center gap-2 text-[10px] sm:text-xs font-mono px-2 py-1 border border-primary/50 text-primary hover:border-primary cursor-pointer"
+        >
+          <ImagePlus className="w-3 h-3" />
+          {image?.secureUrl ? "CHANGE_IMAGE" : "ADD_IMAGE"}
+        </button>
       )}
       <div className="flex items-start justify-between mb-2 sm:mb-3 gap-2">
         <h4 className="text-sm sm:text-base font-bold text-foreground font-mono leading-tight">{title}</h4>
