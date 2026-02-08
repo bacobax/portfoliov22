@@ -124,6 +124,42 @@ export async function uploadProjectImage(
   return normalizeProjectImage(response)
 }
 
+export async function uploadProjectImageBuffer(
+  fileBuffer: Buffer,
+  options: UploadApiOptions = {},
+): Promise<ProjectImage> {
+  ensureCloudinaryConfigured()
+
+  return new Promise<ProjectImage>((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: "image",
+        ...options,
+      },
+      (error, result) => {
+        if (error) {
+          reject(error)
+          return
+        }
+
+        if (!result) {
+          reject(new Error("Cloudinary upload failed: empty response"))
+          return
+        }
+
+        try {
+          resolve(normalizeProjectImage(result))
+        } catch (normalizationError) {
+          reject(normalizationError)
+        }
+      },
+    )
+
+    stream.on("error", reject)
+    stream.end(fileBuffer)
+  })
+}
+
 export async function loadProjectImage(image: ProjectImage): Promise<ProjectImage | undefined> {
   try {
     ensureCloudinaryConfigured()

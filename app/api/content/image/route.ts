@@ -1,13 +1,44 @@
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
-import { uploadProjectImage } from "@/lib/cloudinary"
+import { uploadProjectImageBuffer } from "@/lib/cloudinary"
 import { SESSION_COOKIE_NAME, validateSession } from "@/lib/session"
 
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024
 const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"])
 
 export const runtime = "nodejs"
+
+const extractUploadErrorMessage = (error: unknown): string => {
+  if (!error) {
+    return "Unknown upload error"
+  }
+
+  if (error instanceof Error) {
+    return error.message
+  }
+
+  if (typeof error === "object") {
+    const candidate = error as {
+      message?: string
+      error?: { message?: string }
+      http_code?: number
+      name?: string
+    }
+
+    const parts = [
+      candidate.name,
+      typeof candidate.http_code === "number" ? `HTTP ${candidate.http_code}` : undefined,
+      candidate.message || candidate.error?.message,
+    ].filter(Boolean)
+
+    if (parts.length > 0) {
+      return parts.join(" - ")
+    }
+  }
+
+  return String(error)
+}
 
 export async function POST(request: Request) {
   const cookieStore = await cookies()
@@ -35,15 +66,17 @@ export async function POST(request: Request) {
 
   try {
     const fileBuffer = Buffer.from(await file.arrayBuffer())
-    const base64 = fileBuffer.toString("base64")
-    const dataUri = `data:${file.type};base64,${base64}`
-    const image = await uploadProjectImage(dataUri, {
+    const image = await uploadProjectImageBuffer(fileBuffer, {
       folder: "portfolio/projects",
+      use_filename: true,
+      unique_filename: true,
+      overwrite: false,
     })
 
     return NextResponse.json({ success: true, image })
   } catch (error) {
+    const errorMessage = extractUploadErrorMessage(error)
     console.error("Failed to upload project image", error)
-    return NextResponse.json({ success: false, error: "Failed to upload image" }, { status: 500 })
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 })
   }
 }
