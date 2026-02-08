@@ -29,6 +29,9 @@ const createEmptyProject = (): Project => ({
 })
 
 export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
+  const getOpenDocumentHref = (document: ProjectDocument) =>
+    `/api/content/document/open?publicId=${encodeURIComponent(document.publicId)}&format=${encodeURIComponent(document.format)}&resourceType=${encodeURIComponent(document.resourceType)}`
+
   const [metricKey, setMetricKey] = useState("")
   const [metricValue, setMetricValue] = useState("")
   const [isUploadingImage, setIsUploadingImage] = useState(false)
@@ -349,7 +352,7 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
                 {formData.document?.secureUrl && (
                   <div className="border border-primary/40 bg-card/60 p-2 space-y-2">
                     <a
-                      href={formData.document.secureUrl}
+                      href={getOpenDocumentHref(formData.document)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs font-mono text-primary hover:text-primary/80 break-all"

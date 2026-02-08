@@ -357,3 +357,13 @@ export async function loadProjectDocument(
     }
   }
 }
+
+export function getProjectDocumentSignedDownloadUrl(document: ProjectDocument): string {
+  ensureCloudinaryConfigured()
+
+  return cloudinary.utils.private_download_url(document.publicId, document.format, {
+    resource_type: document.resourceType,
+    type: "upload",
+    expires_at: Math.floor(Date.now() / 1000) + 60 * 5,
+  } as Record<string, unknown>)
+}

@@ -121,6 +121,9 @@ function ProjectCard({ project, projectPath, isEditorMode, onEdit, onDelete }: P
   const router = useRouter()
   const { title, description, status, metrics, githubUrl, projectUrl, image, document } = project
 
+  const getOpenDocumentHref = (doc: NonNullable<Project["document"]>) =>
+    `/api/content/document/open?publicId=${encodeURIComponent(doc.publicId)}&format=${encodeURIComponent(doc.format)}&resourceType=${encodeURIComponent(doc.resourceType)}`
+
   const handleOpenProject = () => {
     router.push(projectPath)
   }
@@ -245,10 +248,10 @@ function ProjectCard({ project, projectPath, isEditorMode, onEdit, onDelete }: P
           )}
         </div>
       )}
-      {document?.secureUrl && (
+      {document && (
         <div className="mt-3">
           <a
-            href={document.secureUrl}
+            href={getOpenDocumentHref(document)}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(event) => event.stopPropagation()}

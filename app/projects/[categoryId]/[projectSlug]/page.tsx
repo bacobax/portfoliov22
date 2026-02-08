@@ -41,6 +41,9 @@ export default async function ProjectPage({
   }
 
   const { category, project } = data
+  const openDocumentHref = project.document
+    ? `/api/content/document/open?publicId=${encodeURIComponent(project.document.publicId)}&format=${encodeURIComponent(project.document.format)}&resourceType=${encodeURIComponent(project.document.resourceType)}`
+    : null
 
   return (
     <div className="min-h-screen bg-background text-foreground grid-pattern">
@@ -102,12 +105,12 @@ export default async function ProjectPage({
                     LIVE_PROJECT
                   </a>
                 )}
-                {project.document?.secureUrl && (
-                  <a
-                    href={project.document.secureUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 border border-primary/50 bg-card/80 px-3 py-2 text-[11px] sm:text-xs font-mono text-primary hover:border-primary"
+              {project.document && (
+                <a
+                  href={openDocumentHref ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 border border-primary/50 bg-card/80 px-3 py-2 text-[11px] sm:text-xs font-mono text-primary hover:border-primary"
                   >
                     <FileText className="h-4 w-4" />
                     OPEN_PDF
