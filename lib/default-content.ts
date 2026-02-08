@@ -27,6 +27,22 @@ export interface ProjectImage {
   url?: string
 }
 
+export interface ProjectDocument {
+  assetId: string
+  publicId: string
+  version: number
+  versionId?: string
+  format: string
+  resourceType: "image" | "raw"
+  createdAt: string
+  bytes: number
+  originalFilename?: string
+  originalExtension?: string
+  displayName?: string
+  secureUrl?: string
+  url?: string
+}
+
 export interface Project {
   title: string
   description: string
@@ -35,6 +51,7 @@ export interface Project {
   githubUrl?: string
   projectUrl?: string
   image?: ProjectImage
+  document?: ProjectDocument
   showInCv: boolean
 }
 
@@ -215,6 +232,22 @@ const projectImageSchema = z.object({
   url: z.string().url().optional(),
 })
 
+const projectDocumentSchema = z.object({
+  assetId: z.string(),
+  publicId: z.string(),
+  version: z.number().int().nonnegative(),
+  versionId: z.string().optional(),
+  format: z.string(),
+  resourceType: z.union([z.literal("image"), z.literal("raw")]),
+  createdAt: z.string(),
+  bytes: z.number().int().nonnegative(),
+  originalFilename: z.string().optional(),
+  originalExtension: z.string().optional(),
+  displayName: z.string().optional(),
+  secureUrl: z.string().url().optional(),
+  url: z.string().url().optional(),
+})
+
 export const portfolioContentSchema = z.object({
   profileData: z.object({
     name: z.string(),
@@ -278,6 +311,7 @@ export const portfolioContentSchema = z.object({
             githubUrl: z.string().url().optional(),
             projectUrl: z.string().url().optional(),
             image: projectImageSchema.optional(),
+            document: projectDocumentSchema.optional(),
             showInCv: z.boolean().default(true),
           }),
         ),

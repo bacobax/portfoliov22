@@ -2,12 +2,15 @@
 
 import type React from "react"
 
+import { useRouter } from "next/navigation"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { formatMultilineText } from "@/components/editable-text"
-import { Github, ChevronLeft, ChevronRight, Plus, Edit, Trash2, Globe, ImagePlus } from "lucide-react"
+import { Github, ChevronLeft, ChevronRight, Plus, Edit, Trash2, Globe, ImagePlus, FileText } from "lucide-react"
 import { type ProjectCategory, type Project } from "@/lib/default-content"
+import { buildProjectPath } from "@/lib/project-path"
 
 export type ProjectVisualComponent = React.ComponentType<{
   color?: { r: number; g: number; b: number }
@@ -95,6 +98,7 @@ export function ProjectsSection({
           <ProjectCard
             key={`${project.title}-${projectIndex}`}
             project={project}
+            projectPath={buildProjectPath(activeCategory.id, project.title)}
             isEditorMode={isEditorMode}
             onEdit={() => onEditProject(projectIndex)}
             onDelete={() => onDeleteProject(projectIndex)}
@@ -107,13 +111,19 @@ export function ProjectsSection({
 
 type ProjectCardProps = {
   project: Project
+  projectPath: string
   isEditorMode?: boolean
   onEdit?: () => void
   onDelete?: () => void
 }
 
-function ProjectCard({ project, isEditorMode, onEdit, onDelete }: ProjectCardProps) {
-  const { title, description, status, metrics, githubUrl, projectUrl, image } = project
+function ProjectCard({ project, projectPath, isEditorMode, onEdit, onDelete }: ProjectCardProps) {
+  const router = useRouter()
+  const { title, description, status, metrics, githubUrl, projectUrl, image, document } = project
+
+  const handleOpenProject = () => {
+    router.push(projectPath)
+  }
 
   const statusColors = {
     PRODUCTION: "text-primary border-primary",
@@ -124,11 +134,25 @@ function ProjectCard({ project, isEditorMode, onEdit, onDelete }: ProjectCardPro
   } as const
 
   return (
-    <Card className="p-3 sm:p-5 bg-card border border-primary/20 hover:border-primary transition-colors relative group">
+    <Card
+      className="p-3 sm:p-5 bg-card border border-primary/20 hover:border-primary transition-colors relative group cursor-pointer"
+      onClick={handleOpenProject}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault()
+          handleOpenProject()
+        }
+      }}
+    >
       {isEditorMode && (
         <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <button
-            onClick={onEdit}
+            onClick={(event) => {
+              event.stopPropagation()
+              onEdit?.()
+            }}
             className="p-1.5 bg-card border border-primary/50 hover:border-primary cursor-pointer"
             title="Edit Project"
             type="button"
@@ -136,7 +160,10 @@ function ProjectCard({ project, isEditorMode, onEdit, onDelete }: ProjectCardPro
             <Edit className="w-3 h-3 text-primary" />
           </button>
           <button
-            onClick={onDelete}
+            onClick={(event) => {
+              event.stopPropagation()
+              onDelete?.()
+            }}
             className="p-1.5 bg-card border border-destructive/50 hover:border-destructive cursor-pointer"
             title="Delete Project"
             type="button"
@@ -158,7 +185,10 @@ function ProjectCard({ project, isEditorMode, onEdit, onDelete }: ProjectCardPro
       {isEditorMode && (
         <button
           type="button"
-          onClick={onEdit}
+          onClick={(event) => {
+            event.stopPropagation()
+            onEdit?.()
+          }}
           className="mb-3 inline-flex items-center gap-2 text-[10px] sm:text-xs font-mono px-2 py-1 border border-primary/50 text-primary hover:border-primary cursor-pointer"
         >
           <ImagePlus className="w-3 h-3" />
@@ -192,6 +222,7 @@ function ProjectCard({ project, isEditorMode, onEdit, onDelete }: ProjectCardPro
               href={githubUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(event) => event.stopPropagation()}
               className="inline-flex items-center gap-2 text-xs sm:text-sm font-mono text-primary hover:text-primary/80 transition-colors"
               title="View GitHub repository"
             >
@@ -204,6 +235,7 @@ function ProjectCard({ project, isEditorMode, onEdit, onDelete }: ProjectCardPro
               href={projectUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(event) => event.stopPropagation()}
               className="inline-flex items-center gap-2 text-xs sm:text-sm font-mono text-primary hover:text-primary/80 transition-colors"
               title="Visit project"
             >
@@ -211,6 +243,21 @@ function ProjectCard({ project, isEditorMode, onEdit, onDelete }: ProjectCardPro
               VISIT_PROJECT
             </a>
           )}
+        </div>
+      )}
+      {document?.secureUrl && (
+        <div className="mt-3">
+          <a
+            href={document.secureUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex items-center gap-2 text-xs sm:text-sm font-mono text-primary hover:text-primary/80 transition-colors"
+            title="Open project PDF"
+          >
+            <FileText className="w-4 h-4" />
+            OPEN_PDF
+          </a>
         </div>
       )}
     </Card>

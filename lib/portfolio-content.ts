@@ -5,7 +5,7 @@ import {
   type PortfolioContent,
   withDefaultCustomColor,
 } from "@/lib/default-content"
-import { loadProjectImage } from "@/lib/cloudinary"
+import { loadProjectDocument, loadProjectImage } from "@/lib/cloudinary"
 import { getDb } from "@/lib/mongodb"
 
 const COLLECTION_NAME = "portfolio_content"
@@ -18,20 +18,23 @@ const hydrateProjectImages = async (
     content.projectCategories.map(async (category) => {
       const projects = await Promise.all(
         category.projects.map(async (project) => {
-          if (!project.image) {
-            return project
+          let hydratedProject = project
+
+          if (project.image) {
+            const hydratedImage = await loadProjectImage(project.image)
+            hydratedProject = hydratedImage
+              ? { ...hydratedProject, image: hydratedImage }
+              : { ...hydratedProject, image: undefined }
           }
 
-          const hydratedImage = await loadProjectImage(project.image)
-
-          if (!hydratedImage) {
-            return { ...project, image: undefined }
+          if (project.document) {
+            const hydratedDocument = await loadProjectDocument(project.document)
+            hydratedProject = hydratedDocument
+              ? { ...hydratedProject, document: hydratedDocument }
+              : { ...hydratedProject, document: undefined }
           }
 
-          return {
-            ...project,
-            image: hydratedImage,
-          }
+          return hydratedProject
         }),
       )
 

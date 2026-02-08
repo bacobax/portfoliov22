@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { LoaderCircle, X } from "lucide-react"
 
-import type { Project, ProjectImage, ProjectStatus } from "@/lib/default-content"
+import type { Project, ProjectDocument, ProjectImage, ProjectStatus } from "@/lib/default-content"
 
 interface ProjectFormProps {
   project?: Project
@@ -24,6 +24,7 @@ const createEmptyProject = (): Project => ({
   githubUrl: undefined,
   projectUrl: undefined,
   image: undefined,
+  document: undefined,
   showInCv: true,
 })
 
@@ -32,12 +33,15 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
   const [metricValue, setMetricValue] = useState("")
   const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [imageUploadError, setImageUploadError] = useState<string | null>(null)
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false)
+  const [documentUploadError, setDocumentUploadError] = useState<string | null>(null)
   const [formData, setFormData] = useState<Project>(() =>
     project
       ? {
           ...project,
           metrics: { ...project.metrics },
           image: project.image ? { ...project.image } : undefined,
+          document: project.document ? { ...project.document } : undefined,
           showInCv: project.showInCv ?? true,
         }
       : createEmptyProject(),
@@ -45,12 +49,14 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
 
   useEffect(() => {
     setImageUploadError(null)
+    setDocumentUploadError(null)
     setFormData(
       project
         ? {
             ...project,
             metrics: { ...project.metrics },
             image: project.image ? { ...project.image } : undefined,
+            document: project.document ? { ...project.document } : undefined,
             showInCv: project.showInCv ?? true,
           }
         : createEmptyProject(),
@@ -106,10 +112,50 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
     }
   }
 
+  const handleDocumentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+
+    if (!file) {
+      return
+    }
+
+    setDocumentUploadError(null)
+    setIsUploadingDocument(true)
+
+    try {
+      const payload = new FormData()
+      payload.append("file", file)
+
+      const response = await fetch("/api/content/document", {
+        method: "POST",
+        body: payload,
+      })
+
+      const data = (await response.json().catch(() => null)) as
+        | { success?: boolean; document?: ProjectDocument; error?: string }
+        | null
+
+      if (!response.ok || !data?.success || !data.document) {
+        throw new Error(data?.error || "PDF upload failed")
+      }
+
+      setFormData((previous) => ({
+        ...previous,
+        document: data.document,
+      }))
+    } catch (error) {
+      console.error("Failed to upload project PDF", error)
+      setDocumentUploadError(error instanceof Error ? error.message : "Failed to upload PDF")
+    } finally {
+      setIsUploadingDocument(false)
+      event.target.value = ""
+    }
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (isUploadingImage) {
+    if (isUploadingImage || isUploadingDocument) {
       return
     }
 
@@ -121,6 +167,7 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
         githubUrl: trimmedGithub ? trimmedGithub : undefined,
         projectUrl: trimmedProjectUrl ? trimmedProjectUrl : undefined,
         image: formData.image ? { ...formData.image } : undefined,
+        document: formData.document ? { ...formData.document } : undefined,
       }
 
       onSave(projectToSave)
@@ -271,6 +318,64 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
             </div>
 
             <div>
+              <Label htmlFor="projectPdf" className="text-sm font-mono text-muted-foreground mb-2 block">
+                {formData.document ? "REPLACE_PROJECT_PDF" : "PROJECT_PDF"}{" "}
+                <span className="text-xs text-muted-foreground">(optional)</span>
+              </Label>
+              <div className="border border-primary/50 bg-background/70 p-3 space-y-3">
+                <Input
+                  id="projectPdf"
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  className="bg-background border-primary/50 focus:border-primary font-mono text-sm cursor-pointer"
+                  onChange={handleDocumentUpload}
+                  disabled={isUploadingDocument}
+                />
+                <p className="text-[11px] font-mono text-muted-foreground/80">
+                  Upload a PDF now or later by editing this project.
+                </p>
+
+                {isUploadingDocument && (
+                  <p className="text-xs font-mono text-primary flex items-center gap-2">
+                    <LoaderCircle className="w-4 h-4 animate-spin" />
+                    UPLOADING_PDF...
+                  </p>
+                )}
+
+                {documentUploadError && (
+                  <p className="text-xs font-mono text-destructive">{documentUploadError}</p>
+                )}
+
+                {formData.document?.secureUrl && (
+                  <div className="border border-primary/40 bg-card/60 p-2 space-y-2">
+                    <a
+                      href={formData.document.secureUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-mono text-primary hover:text-primary/80 break-all"
+                    >
+                      {formData.document.displayName || formData.document.publicId}.{formData.document.format}
+                    </a>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((previous) => ({
+                            ...previous,
+                            document: undefined,
+                          }))
+                        }
+                        className="text-xs font-mono px-2 py-1 border border-destructive/50 text-destructive hover:border-destructive cursor-pointer"
+                      >
+                        REMOVE_PDF
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
               <Label htmlFor="status" className="text-sm font-mono text-muted-foreground mb-2 block">
                 STATUS
               </Label>
@@ -356,7 +461,11 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="submit" className="flex-1 font-mono cursor-pointer" disabled={isUploadingImage}>
+              <Button
+                type="submit"
+                className="flex-1 font-mono cursor-pointer"
+                disabled={isUploadingImage || isUploadingDocument}
+              >
                 {project ? "UPDATE" : "CREATE"}
               </Button>
               <Button
