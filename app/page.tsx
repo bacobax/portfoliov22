@@ -625,7 +625,7 @@ export default function TechDashboardPortfolio() {
   return (
     <div className="min-h-screen bg-background text-foreground grid-pattern">
       <TechCursor />
-      <div className="scan-line" />
+      {/* <div className="scan-line" /> */}
       <GridTrails color={{ r, g, b }} />
 
       {showAuthModal && <AuthModal onAuthenticate={handleAuthenticate} onClose={() => setShowAuthModal(false)} />}
