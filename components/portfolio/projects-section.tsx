@@ -99,6 +99,7 @@ export function ProjectsSection({
             key={`${project.title}-${projectIndex}`}
             project={project}
             projectPath={buildProjectPath(activeCategory.id, project.title)}
+            theme={theme}
             isEditorMode={isEditorMode}
             onEdit={() => onEditProject(projectIndex)}
             onDelete={() => onDeleteProject(projectIndex)}
@@ -112,12 +113,13 @@ export function ProjectsSection({
 type ProjectCardProps = {
   project: Project
   projectPath: string
+  theme: "dark" | "light"
   isEditorMode?: boolean
   onEdit?: () => void
   onDelete?: () => void
 }
 
-function ProjectCard({ project, projectPath, isEditorMode, onEdit, onDelete }: ProjectCardProps) {
+function ProjectCard({ project, projectPath, theme, isEditorMode, onEdit, onDelete }: ProjectCardProps) {
   const router = useRouter()
   const { title, description, status, metrics, githubUrl, projectUrl, image, document } = project
 
@@ -125,7 +127,7 @@ function ProjectCard({ project, projectPath, isEditorMode, onEdit, onDelete }: P
     `/api/content/document/open?publicId=${encodeURIComponent(doc.publicId)}&format=${encodeURIComponent(doc.format)}&resourceType=${encodeURIComponent(doc.resourceType)}`
 
   const handleOpenProject = () => {
-    router.push(projectPath)
+    router.push(`${projectPath}?theme=${theme}`)
   }
 
   const statusColors = {
