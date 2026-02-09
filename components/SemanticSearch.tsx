@@ -13,6 +13,7 @@ import { rankSemanticResults } from "@/lib/semantic/search"
 import type { SemanticEmbeddingItem, SemanticSearchResult } from "@/lib/semantic/types"
 
 const EMBEDDINGS_URL = "/semantic/embeddings.json"
+const SEARCH_DEBOUNCE_MS = 400
 
 type SemanticSearchProps = {
   theme: "dark" | "light"
@@ -148,34 +149,59 @@ export function SemanticSearch({ theme, className, topK = 8 }: SemanticSearchPro
     })
   }
 
+  const runSearch = useCallback(
+    async (rawQuery: string) => {
+      const normalizedQuery = rawQuery.trim()
+      if (!normalizedQuery) {
+        setResults([])
+        return
+      }
+
+      setError(null)
+      setIsSearching(true)
+
+      try {
+        const [embeddingItems, queryEmbedding] = await Promise.all([
+          loadEmbeddings(),
+          embedSemanticText(normalizedQuery),
+        ])
+
+        const ranked = rankSemanticResults(queryEmbedding, embeddingItems, {
+          topK,
+        })
+        setResults(ranked)
+      } catch (searchError) {
+        setError(searchError instanceof Error ? searchError.message : "Semantic search failed")
+        setResults([])
+      } finally {
+        setIsSearching(false)
+      }
+    },
+    [loadEmbeddings, topK],
+  )
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    await runSearch(query)
+  }
+
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
     const normalizedQuery = query.trim()
     if (!normalizedQuery) {
       setResults([])
       return
     }
 
-    setError(null)
-    setIsSearching(true)
+    const timeout = window.setTimeout(() => {
+      void runSearch(normalizedQuery)
+    }, SEARCH_DEBOUNCE_MS)
 
-    try {
-      const [embeddingItems, queryEmbedding] = await Promise.all([
-        loadEmbeddings(),
-        embedSemanticText(normalizedQuery),
-      ])
-
-      const ranked = rankSemanticResults(queryEmbedding, embeddingItems, {
-        topK,
-      })
-      setResults(ranked)
-    } catch (searchError) {
-      setError(searchError instanceof Error ? searchError.message : "Semantic search failed")
-      setResults([])
-    } finally {
-      setIsSearching(false)
-    }
-  }
+    return () => window.clearTimeout(timeout)
+  }, [isOpen, query, runSearch])
 
   const statusLabel = useMemo(() => {
     if (isSearching) {

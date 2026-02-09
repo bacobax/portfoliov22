@@ -112,13 +112,6 @@ export function AboutSection({
             isEditorMode={isEditorMode}
             onValueChange={(value) => onUpdateAboutStat("experience", value)}
           />
-          <StatCard
-            label="EFFICIENCY"
-            value={content.aboutStats.efficiency}
-            icon={<Activity className="w-4 h-4" />}
-            isEditorMode={isEditorMode}
-            onValueChange={(value) => onUpdateAboutStat("efficiency", value)}
-          />
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
