@@ -218,6 +218,20 @@
     }
   }
 
+  @keyframes semantic-loading {
+    0% {
+      transform: translateX(-120%);
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateX(320%);
+      opacity: 0.5;
+    }
+  }
+
   /* Adding cursor pointer styles for interactive elements */
   button,
   a,
