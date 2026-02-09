@@ -29,7 +29,7 @@ const buildQueryTokens = (query: string): string[] =>
     .map((token) => token.trim())
     .filter((token) => token.length >= 2)
 
-const highlightText = (value: string, tokens: string[]) => {
+const highlightText = (value: string, tokens: string[], markClassName: string) => {
   if (!value || tokens.length === 0) {
     return value
   }
@@ -44,10 +44,7 @@ const highlightText = (value: string, tokens: string[]) => {
     }
 
     return (
-      <mark
-        key={`part-${index}`}
-        className="bg-cyan-300/25 text-cyan-100 border border-cyan-300/35 px-0.5"
-      >
+      <mark key={`part-${index}`} className={markClassName}>
         {part}
       </mark>
     )
@@ -193,6 +190,16 @@ export function SemanticSearch({ theme, className, topK = 8 }: SemanticSearchPro
     return "READY"
   }, [isEmbeddingsLoading, isModelLoading, isSearching])
   const queryTokens = useMemo(() => buildQueryTokens(query), [query])
+  const markClassName = useMemo(
+    () =>
+      cn(
+        "px-0.5 border",
+        theme === "dark"
+          ? "bg-primary/25 text-primary-foreground border-primary/45"
+          : "bg-primary/18 text-foreground border-primary/35",
+      ),
+    [theme],
+  )
 
   useEffect(() => {
     const platform = typeof navigator !== "undefined" ? navigator.platform.toLowerCase() : ""
@@ -258,9 +265,7 @@ export function SemanticSearch({ theme, className, topK = 8 }: SemanticSearchPro
                 isNearBottom ? "bottom-20 sm:bottom-24" : "bottom-4 sm:bottom-6",
               )
             : "h-10 sm:h-11 px-3 sm:px-4 text-xs sm:text-sm",
-          theme === "dark"
-            ? "bg-slate-900/85 border-cyan-300/55 text-cyan-100 shadow-[0_0_0_1px_rgba(103,232,249,0.25),0_8px_22px_rgba(8,47,73,0.45)] hover:bg-cyan-500/12 hover:border-cyan-200"
-            : "bg-white/90 border-primary/50 text-primary shadow-[0_0_0_1px_rgba(14,116,144,0.25),0_8px_18px_rgba(15,23,42,0.14)] hover:bg-primary/10 hover:border-primary",
+          "bg-card/88 border-primary/60 text-primary shadow-lg hover:bg-primary/12 hover:border-primary",
         )}
       >
         <Sparkles className={cn("w-4 h-4", isFloating ? "mr-0" : "mr-2")} />
@@ -271,9 +276,7 @@ export function SemanticSearch({ theme, className, topK = 8 }: SemanticSearchPro
           className={cn(
             "ml-3 px-2 border font-bold tracking-wide",
             isFloating ? "text-[11px] sm:text-[11px]" : "text-[15px] sm:text-[15px]",
-            theme === "dark"
-              ? "border-cyan-300/55 bg-cyan-400/15 text-cyan-100"
-              : "border-primary/45 bg-primary/12 text-primary",
+            "border-primary/45 bg-primary/15 text-primary",
           )}
         >
           {shortcutLabel}
@@ -308,8 +311,8 @@ export function SemanticSearch({ theme, className, topK = 8 }: SemanticSearchPro
                     {statusLabel}
                   </Badge>
                   {(isModelLoading || isEmbeddingsLoading || isSearching) && (
-                    <div className="mt-1 h-1.5 w-full overflow-hidden border border-cyan-300/30 bg-black/30">
-                      <div className="h-full w-1/3 bg-cyan-300/85 animate-[semantic-loading_1.15s_ease-in-out_infinite]" />
+                    <div className="mt-1 h-1.5 w-full overflow-hidden border border-primary/35 bg-background/45">
+                      <div className="h-full w-1/3 bg-primary/90 animate-[semantic-loading_1.15s_ease-in-out_infinite]" />
                     </div>
                   )}
                 </div>
@@ -335,7 +338,7 @@ export function SemanticSearch({ theme, className, topK = 8 }: SemanticSearchPro
                   className={cn(
                     "font-mono h-11 sm:h-12 text-sm sm:text-base",
                     theme === "dark"
-                      ? "bg-black/35 border-cyan-300/35 focus:border-cyan-200 text-slate-100"
+                      ? "bg-black/35 border-primary/35 focus:border-primary text-slate-100"
                       : "bg-white/70 border-slate-400/45 focus:border-primary text-slate-900",
                   )}
                 />
@@ -371,13 +374,13 @@ export function SemanticSearch({ theme, className, topK = 8 }: SemanticSearchPro
                         className={cn(
                           "border p-3",
                           theme === "dark"
-                            ? "border-cyan-300/20 bg-black/25"
+                            ? "border-primary/20 bg-black/25"
                             : "border-slate-300/60 bg-slate-50/70",
                         )}
                       >
                         <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
                           <p className="text-xs sm:text-sm font-mono text-foreground">
-                            {highlightText(title, queryTokens)}
+                            {highlightText(title, queryTokens, markClassName)}
                           </p>
                           <div className="flex items-center gap-2">
                             <Badge variant="outline" className="text-[10px] font-mono border-primary/40 text-primary">
@@ -387,7 +390,7 @@ export function SemanticSearch({ theme, className, topK = 8 }: SemanticSearchPro
                           </div>
                         </div>
                         <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-2">
-                          {highlightText(summary, queryTokens)}
+                          {highlightText(summary, queryTokens, markClassName)}
                         </p>
                         {href && (
                           <div className="mt-2">
