@@ -9,6 +9,7 @@ import { GridTrails } from "@/components/grid-trails"
 import { ParticleBrain } from "@/components/particle-brain"
 import { ParticleEngine } from "@/components/particle-engine"
 import { ParticleSphere } from "@/components/particle-sphere"
+import { SemanticSearch } from "@/components/SemanticSearch"
 import { ProjectForm } from "@/components/project-form"
 import { AboutSection } from "@/components/portfolio/about-section"
 import { EducationForm } from "@/components/portfolio/education-form"
@@ -672,6 +673,7 @@ export default function TechDashboardPortfolio() {
 
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 relative z-10">
         <SectionTabs sections={sections} activeSection={activeSection} onSectionChange={setActiveSection} />
+        <SemanticSearch theme={theme} />
 
         {contentError && !isContentLoading && (
           <div className="mb-4 sm:mb-6">
