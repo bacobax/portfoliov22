@@ -8,6 +8,9 @@ type FeatureExtractor = (
 
 let extractorPromise: Promise<FeatureExtractor> | null = null
 
+const hasBrowserCacheApi = (): boolean =>
+  typeof globalThis !== "undefined" && typeof (globalThis as { caches?: unknown }).caches !== "undefined"
+
 const getExtractor = async (): Promise<FeatureExtractor> => {
   if (typeof window === "undefined") {
     throw new Error("Semantic embedder can only be used in the browser")
@@ -17,14 +20,34 @@ const getExtractor = async (): Promise<FeatureExtractor> => {
     extractorPromise = (async () => {
       const { env, pipeline } = await import("@xenova/transformers")
       env.allowLocalModels = false
-      env.useBrowserCache = true
+      env.useBrowserCache = hasBrowserCacheApi()
 
-      const extractor = await pipeline("feature-extraction", SEMANTIC_MODEL_ID, {
-        quantized: true,
-      })
+      try {
+        const extractor = await pipeline("feature-extraction", SEMANTIC_MODEL_ID, {
+          quantized: true,
+        })
 
-      return extractor as unknown as FeatureExtractor
+        return extractor as unknown as FeatureExtractor
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+
+        if (message.includes("Browser cache is not available in this environment")) {
+          env.useBrowserCache = false
+          const extractor = await pipeline("feature-extraction", SEMANTIC_MODEL_ID, {
+            quantized: true,
+          })
+
+          return extractor as unknown as FeatureExtractor
+        }
+
+        throw error
+      }
     })()
+
+    extractorPromise = extractorPromise.catch((error) => {
+      extractorPromise = null
+      throw error
+    })
   }
 
   return extractorPromise
