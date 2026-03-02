@@ -1,8 +1,121 @@
 import Image, { type StaticImageData } from "next/image"
 
-import type { CvData } from "./cv-types"
+import type { CvData, CvDisplaySection, CvDisplayContent, CvDisplayLogEntry } from "./cv-types"
+
+/* ── Section renderers ── */
+
+function LogSection({ title, entries }: { title: string; entries: CvDisplayLogEntry[] }) {
+  if (entries.length === 0) return null
+  return (
+    <section>
+      <h2>{title}</h2>
+      {entries.map((entry, i) => (
+        <article key={i} className="log-item">
+          <div>
+            <h3>
+              {entry.title}
+              {entry.url && (
+                <a href={entry.url} target="_blank" rel="noreferrer" className="log-link"> ↗</a>
+              )}
+            </h3>
+            {entry.subtitle && <p className="summary-text">{entry.subtitle}</p>}
+            {entry.bullets.length > 0 && (
+              <ul className="bullets">
+                {entry.bullets.map((b, j) => <li key={j}>{b}</li>)}
+              </ul>
+            )}
+            {entry.tags.length > 0 && (
+              <ul className="inline-list">
+                {entry.tags.map((t) => <li key={t}>{t}</li>)}
+              </ul>
+            )}
+          </div>
+          {entry.dates && <div className="log-meta">{entry.dates}</div>}
+        </article>
+      ))}
+    </section>
+  )
+}
+
+function TagsSection({ title, groups }: { title: string; groups: { category: string; items: string[] }[] }) {
+  if (groups.length === 0) return null
+  return (
+    <section>
+      <h2>{title}</h2>
+      <div className="grid-two-column">
+        {groups.map((g) => (
+          <article key={g.category}>
+            <h3>{g.category}</h3>
+            <ul className="skills-list">
+              {g.items.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function TextSection({ title, text }: { title: string; text: string }) {
+  if (!text) return null
+  return (
+    <section className="summary">
+      <h2>{title}</h2>
+      <p>{text}</p>
+    </section>
+  )
+}
+
+function LinksSection({ title, items }: { title: string; items: { label: string; url: string }[] }) {
+  if (items.length === 0) return null
+  return (
+    <section>
+      <h2>{title}</h2>
+      <ul className="links-list">
+        {items.map((link) => (
+          <li key={link.url}>
+            <a href={link.url} target="_blank" rel="noreferrer">{link.label}</a>
+            : <a href={link.url} target="_blank" rel="noreferrer">{link.url}</a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function SimpleListSection({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) return null
+  return (
+    <section>
+      <h2>{title}</h2>
+      <ul className="bullets">
+        {items.map((item) => <li key={item}>{item}</li>)}
+      </ul>
+    </section>
+  )
+}
+
+function RenderSection({ section }: { section: CvDisplaySection }) {
+  const c = section.content
+  switch (c.type) {
+    case "log":        return <LogSection title={section.title} entries={c.entries} />
+    case "tags":       return <TagsSection title={section.title} groups={c.groups} />
+    case "text":       return <TextSection title={section.title} text={c.text} />
+    case "links":      return <LinksSection title={section.title} items={c.items} />
+    case "simple-list": return <SimpleListSection title={section.title} items={c.items} />
+  }
+}
+
+/* ── Main layout ── */
 
 export function ClassicLayout({ data, profilePicture }: { data: CvData; profilePicture: StaticImageData }) {
+  // Find a links section for the header contact
+  const linksSection = data.sections.find((s) => s.content.type === "links")
+  const headerLinks = linksSection?.content.type === "links" ? linksSection.content.items : []
+
+  // All sections except header links (rendered inline in header) — render in array order
+  const bodySections = data.sections.filter((s) => s.id !== linksSection?.id || s.content.type !== "links")
+
   return (
     <>
       <style>{classicStyles}</style>
@@ -21,156 +134,22 @@ export function ClassicLayout({ data, profilePicture }: { data: CvData; profileP
           </div>
           <div className="contact">
             {data.phone ? <p>{data.phone}</p> : null}
-            <ul className="links-list">
-              {data.links.map((link) => (
-                <li key={link.url}>
-                  <a href={link.url} target="_blank" rel="noreferrer">
-                    {link.label}
-                  </a>
-                  :
-                  <a href={link.url} target="_blank" rel="noreferrer">
-                    {" "}{link.url}
-                  </a>
-                </li>
-              ))}
-            </ul>
+            {headerLinks.length > 0 && (
+              <ul className="links-list">
+                {headerLinks.map((link) => (
+                  <li key={link.url}>
+                    <a href={link.url} target="_blank" rel="noreferrer">{link.label}</a>
+                    : <a href={link.url} target="_blank" rel="noreferrer"> {link.url}</a>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </header>
 
-        <section className="summary">
-          <h2>Professional Summary</h2>
-          <p>{data.summary}</p>
-        </section>
-
-        <section>
-          <h2>Skills</h2>
-          <div className="grid-two-column">
-            {Object.entries(data.skills).map(([category, items]) => (
-              <article key={category}>
-                <h3>{category}</h3>
-                <ul className="skills-list">
-                  {items.map((skill) => (
-                    <li key={skill}>{skill}</li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section>
-          <h2>Experience</h2>
-          {data.experience.map((job) => (
-            <article key={`${job.company}-${job.role}-${job.dates}`} className="experience-item">
-              <div>
-                <h3>{job.role}</h3>
-                <p className="summary-text">{job.company} · {job.location}</p>
-                <ul className="bullets">
-                  {job.bullets.map((bullet, index) => (
-                    <li key={index}>{bullet}</li>
-                  ))}
-                </ul>
-                {job.stack.length > 0 ? (
-                  <ul className="inline-list">
-                    {job.stack.map((tech) => (
-                      <li key={tech}>{tech}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-              <div className="experience-meta">{job.dates}</div>
-            </article>
-          ))}
-        </section>
-
-        {data.projects.length > 0 ? (
-          <section>
-            <h2>Projects</h2>
-            {data.projects.map((project) => (
-              <article key={`${project.name}-${project.role}`} className="project-item">
-                <div>
-                  <h3>{project.name}</h3>
-                  <p className="summary-text">{project.role}</p>
-                  <ul className="bullets">
-                    {project.bullets.map((bullet, index) => (
-                      <li key={index}>{bullet}</li>
-                    ))}
-                  </ul>
-                  {project.link ? (
-                    <p className="summary-text">
-                      <a href={project.link} target="_blank" rel="noreferrer">
-                        View Project
-                      </a>
-                    </p>
-                  ) : null}
-                </div>
-                <div className="project-meta">{project.date}</div>
-              </article>
-            ))}
-          </section>
-        ) : null}
-
-        <section>
-          <h2>Education</h2>
-          {data.education.map((item) => (
-            <article key={`${item.degree}-${item.school}`} className="education-item">
-              <div>
-                <h3>{item.degree}</h3>
-                <p className="summary-text">{item.school}</p>
-                <ul className="bullets">
-                  {item.details.map((detail, index) => (
-                    <li key={index}>{detail}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="education-meta">{item.year}</div>
-            </article>
-          ))}
-        </section>
-
-        {data.certs.length > 0 ? (
-          <section>
-            <h2>Certifications</h2>
-            <ul className="bullets">
-              {data.certs.map((cert) => (
-                <li key={cert}>{cert}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        {data.languages.length > 0 ? (
-          <section>
-            <h2>Languages</h2>
-            <ul className="bullets">
-              {data.languages.map((language) => (
-                <li key={language}>{language}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        {data.awards.length > 0 ? (
-          <section>
-            <h2>Awards</h2>
-            <ul className="bullets">
-              {data.awards.map((award) => (
-                <li key={award}>{award}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        {data.publications.length > 0 ? (
-          <section>
-            <h2>Publications</h2>
-            <ul className="bullets">
-              {data.publications.map((publication) => (
-                <li key={publication}>{publication}</li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+        {bodySections.map((section) => (
+          <RenderSection key={section.id} section={section} />
+        ))}
       </article>
     </>
   )
@@ -275,9 +254,7 @@ const classicStyles = `
     font-size: 10pt;
     text-transform: none;
   }
-  .cv-classic .experience-item,
-  .cv-classic .project-item,
-  .cv-classic .education-item {
+  .cv-classic .log-item {
     display: grid;
     grid-template-columns: 1fr auto;
     gap: 12px;
@@ -285,21 +262,22 @@ const classicStyles = `
     break-inside: avoid;
     page-break-inside: avoid;
   }
-  .cv-classic .experience-item h3,
-  .cv-classic .project-item h3,
-  .cv-classic .education-item h3 {
+  .cv-classic .log-item h3 {
     font-size: 10.5pt;
     margin: 0 0 4px;
     letter-spacing: 0.05em;
+  }
+  .cv-classic .log-link {
+    color: #3b82f6;
+    text-decoration: none;
+    font-size: 9pt;
   }
   .cv-classic .summary-text {
     font-size: 9.5pt;
     color: #475569;
     margin: 0 0 6px;
   }
-  .cv-classic .experience-meta,
-  .cv-classic .project-meta,
-  .cv-classic .education-meta {
+  .cv-classic .log-meta {
     font-size: 9.5pt;
     color: #475569;
     white-space: nowrap;
@@ -346,6 +324,59 @@ const classicStyles = `
       width: auto;
       min-height: auto;
       padding: 18mm 16mm;
+      font-size: 10pt;
+      gap: 18px;
+    }
+    .cv-classic header.cv-header {
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .cv-classic .identity {
+      flex-direction: row;
+      align-items: center;
+      text-align: left;
+      gap: 16px;
+    }
+    .cv-classic .profile-photo {
+      width: 200px;
+      height: 200px;
+    }
+    .cv-classic h1 {
+      font-size: 20pt;
+    }
+    .cv-classic .title {
+      font-size: 11pt;
+    }
+    .cv-classic .contact {
+      text-align: right;
+    }
+    .cv-classic .contact p,
+    .cv-classic .contact a {
+      font-size: 9.5pt;
+    }
+    .cv-classic section > h2 {
+      font-size: 11pt;
+    }
+    .cv-classic .log-item {
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+    }
+    .cv-classic .log-meta {
+      white-space: nowrap;
+      font-size: 9.5pt;
+    }
+    .cv-classic .grid-two-column {
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+    .cv-classic ul.inline-list {
+      gap: 8px;
+      font-size: 9.5pt;
+    }
+    .cv-classic .links-list a {
+      font-size: 9.5pt;
+      word-break: normal;
     }
   }
   @media screen and (max-width: 768px) {
@@ -386,15 +417,11 @@ const classicStyles = `
     .cv-classic section > h2 {
       font-size: 10pt;
     }
-    .cv-classic .experience-item,
-    .cv-classic .project-item,
-    .cv-classic .education-item {
+    .cv-classic .log-item {
       grid-template-columns: 1fr;
       gap: 4px;
     }
-    .cv-classic .experience-meta,
-    .cv-classic .project-meta,
-    .cv-classic .education-meta {
+    .cv-classic .log-meta {
       white-space: normal;
       font-size: 8.5pt;
     }

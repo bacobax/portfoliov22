@@ -1,8 +1,120 @@
 import Image, { type StaticImageData } from "next/image"
 
-import type { CvData } from "./cv-types"
+import type { CvData, CvDisplaySection, CvDisplayContent, CvDisplayLogEntry } from "./cv-types"
+
+/* ── Section renderers (résumé-style) ── */
+
+function RLogSection({ title, entries }: { title: string; entries: CvDisplayLogEntry[] }) {
+  if (entries.length === 0) return null
+  return (
+    <section className="r-section">
+      <h2 className="r-section__heading">{title}</h2>
+      {entries.map((entry, i) => (
+        <div key={i} className="r-entry">
+          <div className="r-entry__header">
+            <div>
+              <h3 className="r-entry__title">
+                {entry.title}
+                {entry.url && (
+                  <a href={entry.url} target="_blank" rel="noreferrer" className="r-entry__link"> ↗</a>
+                )}
+              </h3>
+              {entry.subtitle && <p className="r-entry__sub">{entry.subtitle}</p>}
+            </div>
+            {entry.dates && <span className="r-entry__date">{entry.dates}</span>}
+          </div>
+          {entry.bullets.length > 0 && (
+            <ul className="r-entry__bullets">
+              {entry.bullets.map((b, j) => <li key={j}>{b}</li>)}
+            </ul>
+          )}
+          {entry.tags.length > 0 && (
+            <div className="r-entry__stack">
+              {entry.tags.map((t) => <span key={t} className="r-stack-tag">{t}</span>)}
+            </div>
+          )}
+        </div>
+      ))}
+    </section>
+  )
+}
+
+function RTagsSection({ title, groups }: { title: string; groups: { category: string; items: string[] }[] }) {
+  if (groups.length === 0) return null
+  return (
+    <section className="r-section">
+      <h2 className="r-section__heading">{title}</h2>
+      {groups.map((g) => (
+        <div key={g.category} className="r-skill-group">
+          <h3 className="r-skill-group__title">{g.category}</h3>
+          <div className="r-skill-tags">
+            {g.items.map((item) => <span key={item} className="r-skill-tag">{item}</span>)}
+          </div>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+function RTextSection({ title, text }: { title: string; text: string }) {
+  if (!text) return null
+  return (
+    <section className="r-section">
+      <h2 className="r-section__heading">{title}</h2>
+      <p className="r-text">{text}</p>
+    </section>
+  )
+}
+
+function RLinksSection({ title, items }: { title: string; items: { label: string; url: string }[] }) {
+  if (items.length === 0) return null
+  return (
+    <section className="r-section">
+      <h2 className="r-section__heading">{title}</h2>
+      <ul className="r-simple-list">
+        {items.map((link) => (
+          <li key={link.url}>
+            <a href={link.url} target="_blank" rel="noreferrer">{link.label}</a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function RSimpleListSection({ title, items }: { title: string; items: string[] }) {
+  if (items.length === 0) return null
+  return (
+    <section className="r-section">
+      <h2 className="r-section__heading">{title}</h2>
+      <ul className="r-simple-list">
+        {items.map((item) => <li key={item}>{item}</li>)}
+      </ul>
+    </section>
+  )
+}
+
+function RenderResumeSection({ section }: { section: CvDisplaySection }) {
+  const c = section.content
+  switch (c.type) {
+    case "log":        return <RLogSection title={section.title} entries={c.entries} />
+    case "tags":       return <RTagsSection title={section.title} groups={c.groups} />
+    case "text":       return <RTextSection title={section.title} text={c.text} />
+    case "links":      return <RLinksSection title={section.title} items={c.items} />
+    case "simple-list": return <RSimpleListSection title={section.title} items={c.items} />
+  }
+}
+
+/* ── Main resume layout ── */
 
 export function ResumeLayout({ data, profilePicture }: { data: CvData; profilePicture: StaticImageData }) {
+  const sidebarSections = data.sections.filter((s) => s.placement === "sidebar")
+  const mainSections = data.sections.filter((s) => s.placement === "main")
+
+  // For header contact: extract links section
+  const linksSection = data.sections.find((s) => s.content.type === "links")
+  const headerLinks = linksSection?.content.type === "links" ? linksSection.content.items : []
+
   return (
     <>
       <style>{resumeStyles}</style>
@@ -22,10 +134,8 @@ export function ResumeLayout({ data, profilePicture }: { data: CvData; profilePi
             {data.email && <span>{data.email}</span>}
             {data.phone && <span>{data.phone}</span>}
             <span>{data.location}</span>
-            {data.links.map((l) => (
-              <a key={l.url} href={l.url} target="_blank" rel="noreferrer">
-                {l.label}
-              </a>
+            {headerLinks.map((l) => (
+              <a key={l.url} href={l.url} target="_blank" rel="noreferrer">{l.label}</a>
             ))}
           </div>
         </header>
@@ -33,182 +143,23 @@ export function ResumeLayout({ data, profilePicture }: { data: CvData; profilePi
         <div className="r-body">
           {/* ── Left Column ── */}
           <aside className="r-sidebar">
-            {/* Profile */}
-            <section className="r-section">
-              <h2 className="r-section__heading">Profile</h2>
-              <p className="r-text">{data.summary}</p>
-            </section>
-
-            {/* Skills */}
-            <section className="r-section">
-              <h2 className="r-section__heading">Skills</h2>
-              {Object.entries(data.skills).map(([category, items]) => (
-                <div key={category} className="r-skill-group">
-                  <h3 className="r-skill-group__title">{category}</h3>
-                  <div className="r-skill-tags">
-                    {items.map((skill) => (
-                      <span key={skill} className="r-skill-tag">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </section>
-
-            {/* Languages */}
-            {data.languages.length > 0 && (
-              <section className="r-section">
-                <h2 className="r-section__heading">Languages</h2>
-                <ul className="r-simple-list">
-                  {data.languages.map((lang) => (
-                    <li key={lang}>{lang}</li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {/* Certifications */}
-            {data.certs.length > 0 && (
-              <section className="r-section">
-                <h2 className="r-section__heading">Certifications</h2>
-                <ul className="r-simple-list">
-                  {data.certs.map((cert) => (
-                    <li key={cert}>{cert}</li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {/* Links */}
-            <section className="r-section">
-              <h2 className="r-section__heading">Links</h2>
-              <ul className="r-simple-list">
-                {data.links.map((link) => (
-                  <li key={link.url}>
-                    <a href={link.url} target="_blank" rel="noreferrer">
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            {sidebarSections.map((section) => (
+              <RenderResumeSection key={section.id} section={section} />
+            ))}
           </aside>
 
           {/* ── Main Column ── */}
           <main className="r-main">
-            {/* Experience */}
-            <section className="r-section">
-              <h2 className="r-section__heading">Experience</h2>
-              {data.experience.map((job) => (
-                <div key={`${job.company}-${job.role}-${job.dates}`} className="r-entry">
-                  <div className="r-entry__header">
-                    <div>
-                      <h3 className="r-entry__title">{job.role}</h3>
-                      <p className="r-entry__sub">{job.company}</p>
-                    </div>
-                    <span className="r-entry__date">{job.dates}</span>
-                  </div>
-                  <ul className="r-entry__bullets">
-                    {job.bullets.map((b, i) => (
-                      <li key={i}>{b}</li>
-                    ))}
-                  </ul>
-                  {job.stack.length > 0 && (
-                    <div className="r-entry__stack">
-                      {job.stack.map((tech) => (
-                        <span key={tech} className="r-stack-tag">
-                          {tech}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </section>
-
-            {/* Projects */}
-            {data.projects.length > 0 && (
-              <section className="r-section">
-                <h2 className="r-section__heading">Projects</h2>
-                {data.projects.map((project) => (
-                  <div key={`${project.name}-${project.role}`} className="r-entry">
-                    <div className="r-entry__header">
-                      <div>
-                        <h3 className="r-entry__title">
-                          {project.name}
-                          {project.link && (
-                            <a href={project.link} target="_blank" rel="noreferrer" className="r-entry__link">
-                              ↗
-                            </a>
-                          )}
-                        </h3>
-                        <p className="r-entry__sub">{project.role}</p>
-                      </div>
-                      <span className="r-entry__date">{project.date}</span>
-                    </div>
-                    <ul className="r-entry__bullets">
-                      {project.bullets.map((b, i) => (
-                        <li key={i}>{b}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </section>
-            )}
-
-            {/* Education */}
-            <section className="r-section">
-              <h2 className="r-section__heading">Education</h2>
-              {data.education.map((item) => (
-                <div key={`${item.degree}-${item.school}`} className="r-entry">
-                  <div className="r-entry__header">
-                    <div>
-                      <h3 className="r-entry__title">{item.degree}</h3>
-                      <p className="r-entry__sub">{item.school}</p>
-                    </div>
-                    <span className="r-entry__date">{item.year}</span>
-                  </div>
-                  {item.details.length > 0 && (
-                    <ul className="r-entry__bullets">
-                      {item.details.map((d, i) => (
-                        <li key={i}>{d}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              ))}
-            </section>
-
-            {/* Awards */}
-            {data.awards.length > 0 && (
-              <section className="r-section">
-                <h2 className="r-section__heading">Awards</h2>
-                <ul className="r-entry__bullets">
-                  {data.awards.map((a) => (
-                    <li key={a}>{a}</li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {/* Publications */}
-            {data.publications.length > 0 && (
-              <section className="r-section">
-                <h2 className="r-section__heading">Publications</h2>
-                <ul className="r-entry__bullets">
-                  {data.publications.map((p) => (
-                    <li key={p}>{p}</li>
-                  ))}
-                </ul>
-              </section>
-            )}
+            {mainSections.map((section) => (
+              <RenderResumeSection key={section.id} section={section} />
+            ))}
           </main>
         </div>
       </article>
     </>
   )
 }
+
 
 /* ---------- Résumé-specific styles ---------- */
 const resumeStyles = `
@@ -448,6 +399,54 @@ const resumeStyles = `
       box-shadow: none;
       width: auto;
       min-height: auto;
+    }
+    .r-header {
+      flex-direction: row;
+      align-items: flex-start;
+      text-align: left;
+      gap: 0;
+      padding: 16px 22px;
+    }
+    .r-header__info {
+      align-items: flex-start;
+    }
+    .r-header__name {
+      font-size: 18pt;
+    }
+    .r-header__title {
+      font-size: 9pt;
+    }
+    .r-header__contact {
+      align-items: flex-end;
+      white-space: nowrap;
+      text-align: right;
+    }
+    .r-body {
+      grid-template-columns: 190px 1fr;
+    }
+    .r-sidebar {
+      border-right: 1px solid #e2e8f0;
+      border-bottom: none;
+      padding: 14px;
+    }
+    .r-main {
+      padding: 14px 22px;
+    }
+    .r-section__heading {
+      font-size: 8pt;
+    }
+    .r-entry {
+      padding-bottom: 8px;
+    }
+    .r-entry__header {
+      flex-direction: row;
+      gap: 12px;
+    }
+    .r-entry__date {
+      white-space: nowrap;
+    }
+    .r-tag {
+      font-size: 7.5pt;
     }
   }
   @media screen and (max-width: 768px) {

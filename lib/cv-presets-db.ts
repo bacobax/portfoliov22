@@ -6,6 +6,7 @@ import {
   type CvPreset,
   type PersistedCvPresetsDocument,
 } from "@/lib/cv-presets"
+import { migrateCvContent } from "@/lib/cv-content"
 import { cvContentFromPortfolio } from "@/lib/cv-content-db"
 import type { PortfolioContent } from "@/lib/default-content"
 
@@ -14,7 +15,7 @@ const DOCUMENT_ID = "cv_presets"
 
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
-/** Load raw presets from MongoDB */
+/** Load raw presets from MongoDB, migrating old content format if needed */
 export async function loadCvPresets(): Promise<CvPresetsDocument> {
   try {
     const db = await getDb()
@@ -25,6 +26,16 @@ export async function loadCvPresets(): Promise<CvPresetsDocument> {
     if (!doc) return defaultPresetsDocument()
 
     const { _id: _ignoredId, ...rest } = doc
+
+    // Migrate each preset's content from old format if necessary
+    if (Array.isArray(rest.presets)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      rest.presets = rest.presets.map((p: any) => ({
+        ...p,
+        content: p.content ? migrateCvContent(p.content) : p.content,
+      }))
+    }
+
     const parsed = cvPresetsDocumentSchema.safeParse(rest)
 
     if (!parsed.success) {

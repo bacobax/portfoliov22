@@ -1,3 +1,30 @@
+/* ── Section display content (after formatting) ── */
+export type CvDisplayContent =
+  | { type: "log"; entries: CvDisplayLogEntry[] }
+  | { type: "tags"; groups: { category: string; items: string[] }[] }
+  | { type: "text"; text: string }
+  | { type: "links"; items: { label: string; url: string }[] }
+  | { type: "simple-list"; items: string[] }
+
+export interface CvDisplayLogEntry {
+  title: string
+  subtitle: string
+  dates: string
+  bullets: string[]
+  tags: string[]
+  url?: string
+}
+
+export interface CvDisplaySection {
+  id: string
+  title: string
+  type: "log" | "tags" | "text" | "links" | "simple-list"
+  placement: "sidebar" | "main"
+  visible: boolean
+  content: CvDisplayContent
+}
+
+/* ── Top-level CvData passed to layouts ── */
 export type CvData = {
   name: string
   title: string
@@ -5,35 +32,7 @@ export type CvData = {
   piva: string
   email: string
   phone: string
-  links: { label: string; url: string }[]
-  summary: string
-  skills: Record<string, string[]>
-  experience: {
-    role: string
-    company: string
-    location: string
-    dates: string
-    bullets: string[]
-    stack: string[]
-  }[]
-  additionalExperience: string[]
-  projects: {
-    name: string
-    role: string
-    date: string
-    bullets: string[]
-    link?: string
-  }[]
-  education: {
-    degree: string
-    school: string
-    year: string
-    details: string[]
-  }[]
-  certs: string[]
-  publications: string[]
-  languages: string[]
-  awards: string[]
+  sections: CvDisplaySection[]
 }
 
 export type CvLayoutId = "classic" | "resume"

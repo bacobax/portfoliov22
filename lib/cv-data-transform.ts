@@ -1,16 +1,10 @@
-import type { CvContent } from "@/lib/cv-content"
-import type { CvData } from "@/components/cv/cv-types"
+import type { CvContent, CvSection, CvSectionData } from "@/lib/cv-content"
+import type { CvData, CvDisplaySection, CvDisplayContent } from "@/components/cv/cv-types"
 
 const CONTACT_EMAIL = "quicksolver02@gmail.com"
 const CONTACT_PHONE = ""
 const ADDRESS = "Via Entracque, 10, Cuneo (12100)"
 const PIVA = "P.IVA: 04081230049 - QuickSolver"
-
-const LINKS = [
-  { label: "Email", url: `${CONTACT_EMAIL}` },
-  { label: "GitHub", url: "https://github.com/bacobax" },
-  { label: "LinkedIn", url: "https://www.linkedin.com/in/francesco-bassignana/" },
-]
 
 export const splitSentences = (value: string): string[] =>
   value
@@ -38,6 +32,49 @@ export const formatLabel = (value: string): string => {
   return normalized
 }
 
+/** Transform raw section data → display-ready content */
+function transformSectionData(data: CvSectionData): CvDisplayContent {
+  switch (data.type) {
+    case "log":
+      return {
+        type: "log",
+        entries: data.entries.map((e) => ({
+          title: formatLabel(e.title),
+          subtitle: formatLabel(e.subtitle),
+          dates: [e.dateStart, e.dateEnd].filter(Boolean).join(" — "),
+          bullets: splitSentences(e.description),
+          tags: e.tags.map(formatLabel),
+          url: e.url || undefined,
+        })),
+      }
+    case "tags":
+      return {
+        type: "tags",
+        groups: data.groups.map((g) => ({
+          category: formatLabel(g.category),
+          items: g.items.map(formatLabel),
+        })),
+      }
+    case "text":
+      return { type: "text", text: formatLabel(data.content) }
+    case "links":
+      return { type: "links", items: data.items }
+    case "simple-list":
+      return { type: "simple-list", items: data.items.map(formatLabel) }
+  }
+}
+
+function transformSection(section: CvSection): CvDisplaySection {
+  return {
+    id: section.id,
+    title: section.title,
+    type: section.type,
+    placement: section.placement,
+    visible: section.visible,
+    content: transformSectionData(section.data),
+  }
+}
+
 /** Build CvData purely from CV content — no server dependencies */
 export function createCvData(cv: CvContent): CvData {
   return {
@@ -47,42 +84,8 @@ export function createCvData(cv: CvContent): CvData {
     piva: cv.piva || PIVA,
     email: cv.email || CONTACT_EMAIL,
     phone: cv.phone || CONTACT_PHONE,
-    links: cv.links && cv.links.length > 0 ? cv.links : LINKS,
-    summary: formatLabel(cv.summary || ""),
-    skills:
-      cv.skills && Object.keys(cv.skills).length > 0
-        ? Object.fromEntries(Object.entries(cv.skills).map(([k, v]) => [k, v.map(formatLabel)]))
-        : {},
-    experience: cv.experience.map((e) => ({
-      role: formatLabel(e.title),
-      company: formatLabel(e.company),
-      location: cv.location || ADDRESS,
-      dates: e.year,
-      bullets: splitSentences(e.description),
-      stack: e.tags.map(formatLabel),
-    })),
-    additionalExperience: [],
-    projects: cv.projects
-      .filter((p) => p.showInCv)
-      .map((p) => ({
-        name: formatLabel(p.title),
-        role: formatLabel(p.category),
-        date: `STATUS: ${formatLabel(p.status)}`,
-        bullets: [
-          formatLabel(p.description),
-          ...Object.entries(p.metrics).map(([l, m]) => `${l.toUpperCase()}: ${m}`),
-        ],
-        link: p.githubUrl,
-      })),
-    education: cv.education.map((e) => ({
-      degree: formatLabel(e.degree),
-      school: formatLabel(e.institution),
-      year: e.year,
-      details: splitSentences(e.description),
-    })),
-    certs: cv.certs,
-    publications: cv.publications,
-    languages: cv.languages,
-    awards: cv.awards,
+    sections: cv.sections
+      .filter((s) => s.visible)
+      .map(transformSection),
   }
 }

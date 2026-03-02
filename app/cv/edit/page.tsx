@@ -5,29 +5,28 @@ import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
   Check,
-  Copy,
+  ChevronDown,
+  ChevronUp,
   Eye,
-  GraduationCap,
+  EyeOff,
+  GripVertical,
+  LayoutTemplate,
   Loader2,
   Plus,
+  Sparkles,
   Trash2,
   X,
-  Briefcase,
-  Globe,
-  Award,
-  BookOpen,
-  Languages,
-  Terminal,
-  EyeOff,
-  LayoutTemplate,
 } from "lucide-react"
 
 import type { PortfolioContent } from "@/lib/default-content"
 import type {
   CvContent,
-  CvExperienceEntry,
-  CvEducationEntry,
-  CvProjectEntry,
+  CvSection,
+  CvSectionType,
+  CvSectionData,
+  CvLogEntry,
+  CvTagGroup,
+  CvLinkItem,
 } from "@/lib/cv-content"
 import { emptyCvContent } from "@/lib/cv-content"
 import type { CvPreset, CvLayoutId } from "@/lib/cv-presets"
@@ -36,58 +35,60 @@ import { ClassicLayout } from "@/components/cv/classic-layout"
 import { ResumeLayout } from "@/components/cv/resume-layout"
 import profilePicture from "@/app/prof_pic.jpeg"
 
-/* ── tiny id helper ── */
+/* ── helpers ── */
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
-/* ================================================================
-   Main editor page component
-   ================================================================ */
+const SECTION_TYPE_LABELS: Record<CvSectionType, string> = {
+  log: "Timeline",
+  tags: "Tag Groups",
+  text: "Text",
+  links: "Links",
+  "simple-list": "List",
+}
+
+function emptySectionData(type: CvSectionType): CvSectionData {
+  switch (type) {
+    case "log": return { type: "log", entries: [] }
+    case "tags": return { type: "tags", groups: [] }
+    case "text": return { type: "text", content: "" }
+    case "links": return { type: "links", items: [] }
+    case "simple-list": return { type: "simple-list", items: [] }
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   Main Editor Page
+   ════════════════════════════════════════════════════ */
 export default function CvEditorPage() {
   const router = useRouter()
-
-  /* auth state */
   const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [authChecking, setAuthChecking] = useState(true)
-
-  /* data */
+  const [loading, setLoading] = useState(true)
   const [portfolio, setPortfolio] = useState<PortfolioContent | null>(null)
   const [presets, setPresets] = useState<CvPreset[]>([])
-  const [activePresetId, setActivePresetId] = useState<string>("")
-  const [loading, setLoading] = useState(true)
+  const [activePresetId, setActivePresetId] = useState("")
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mobileView, setMobileView] = useState<"editor" | "preview">("editor")
   const [previewZoom, setPreviewZoom] = useState(0.5)
-
-  /* debounce / abort refs */
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
-  /* ── cursor visibility (must run before any early returns) ── */
+  /* ── show default cursor on CV editor ── */
   useEffect(() => {
     document.body.classList.add("cv-cursor-visible")
-    return () => {
-      document.body.classList.remove("cv-cursor-visible")
-    }
+    return () => { document.body.classList.remove("cv-cursor-visible") }
   }, [])
 
   /* ── auth check ── */
   useEffect(() => {
     ;(async () => {
       try {
-        const res = await fetch("/api/auth/session")
-        const data = (await res.json()) as { authenticated?: boolean }
-        if (data.authenticated) {
-          setIsAuthenticated(true)
-        } else {
-          router.replace("/")
-        }
-      } catch {
-        router.replace("/")
-      } finally {
-        setAuthChecking(false)
-      }
+        const r = await fetch("/api/auth/session")
+        const d = (await r.json()) as { authenticated?: boolean }
+        if (!d.authenticated) { router.replace("/"); return }
+        setIsAuthenticated(true)
+      } catch { router.replace("/") }
     })()
   }, [router])
 
@@ -95,40 +96,33 @@ export default function CvEditorPage() {
   useEffect(() => {
     if (!isAuthenticated) return
     ;(async () => {
-      setLoading(true)
       try {
         const [pRes, cRes] = await Promise.all([
-          fetch("/api/content"),
           fetch("/api/cv/presets"),
+          fetch("/api/content"),
         ])
-        const pData = (await pRes.json()) as { content?: PortfolioContent }
-        if (pData.content) setPortfolio(pData.content)
-
-        if (cRes.ok) {
-          const cData = (await cRes.json()) as { presets?: CvPreset[] }
-          if (cData.presets && cData.presets.length > 0) {
-            setPresets(cData.presets)
-            setActivePresetId(cData.presets[0].id)
-          }
-        }
+        const pData = await pRes.json()
+        const cData = await cRes.json()
+        setPortfolio(cData as PortfolioContent)
+        const loaded: CvPreset[] = pData.presets ?? []
+        setPresets(loaded)
+        if (loaded.length > 0) setActivePresetId(loaded[0].id)
       } catch (e) {
+        console.error("Failed to load data", e)
         setError("Failed to load data")
-        console.error(e)
       } finally {
         setLoading(false)
       }
     })()
   }, [isAuthenticated])
 
-  /* ── persist all presets (debounced 600ms, with abort) ── */
+  /* ── debounced persist ── */
   const persist = useCallback((data: CvPreset[]) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     if (abortRef.current) abortRef.current.abort()
-
     setSaving(true)
     setSaved(false)
     setError(null)
-
     saveTimerRef.current = setTimeout(async () => {
       const controller = new AbortController()
       abortRef.current = controller
@@ -158,151 +152,132 @@ export default function CvEditorPage() {
 
   const updatePresets = useCallback(
     (updater: (prev: CvPreset[]) => CvPreset[]) => {
-      setPresets((prev) => {
-        const next = updater(prev)
-        void persist(next)
-        return next
-      })
+      setPresets((prev) => { const next = updater(prev); void persist(next); return next })
     },
     [persist],
   )
 
-  /* Helper: update the active preset's content */
-  const updateContent = useCallback(
-    (updater: (prev: CvContent) => CvContent) => {
+  /* ── profile fields ── */
+  const updateProfile = useCallback(
+    (field: keyof CvContent, value: unknown) => {
       updatePresets((prev) =>
-        prev.map((p) => (p.id === activePresetId ? { ...p, content: updater(p.content) } : p)),
+        prev.map((p) => (p.id === activePresetId ? { ...p, content: { ...p.content, [field]: value } } : p)),
       )
     },
-    [updatePresets, activePresetId],
+    [activePresetId, updatePresets],
   )
 
-  /* Active preset */
-  const activePreset = presets.find((p) => p.id === activePresetId)
-  const cv = activePreset?.content ?? emptyCvContent()
+  /* ── section helpers ── */
+  const updateSections = useCallback(
+    (updater: (s: CvSection[]) => CvSection[]) => {
+      updatePresets((prev) =>
+        prev.map((p) =>
+          p.id === activePresetId
+            ? { ...p, content: { ...p.content, sections: updater(p.content.sections) } }
+            : p,
+        ),
+      )
+    },
+    [activePresetId, updatePresets],
+  )
 
-  /* Live preview data — recomputed on every change */
-  const previewData = activePreset ? createCvData(activePreset.content) : null
+  const updateSectionById = useCallback(
+    (sectionId: string, updater: (s: CvSection) => CvSection) => {
+      updateSections((ss) => ss.map((s) => (s.id === sectionId ? updater(s) : s)))
+    },
+    [updateSections],
+  )
 
-  /* ── import helpers ── */
-  const importAllExperience = () => {
-    if (!portfolio) return
-    updateContent((prev) => ({
-      ...prev,
-      experience: portfolio.experienceLog.map((e, i) => ({
-        id: uid(),
-        year: e.year,
-        title: e.title,
-        company: e.company,
-        description: e.cvDescription?.trim() || e.description,
-        tags: [...e.tags],
-        source: "portfolio" as const,
-        portfolioIndex: i,
-      })),
-    }))
-  }
+  const moveSectionPlacement = useCallback(
+    (sectionId: string, placement: "sidebar" | "main") => {
+      updateSectionById(sectionId, (s) => ({ ...s, placement }))
+    },
+    [updateSectionById],
+  )
 
-  const importAllEducation = () => {
-    if (!portfolio) return
-    updateContent((prev) => ({
-      ...prev,
-      education: portfolio.educationLog.map((e, i) => ({
-        id: uid(),
-        year: e.year,
-        degree: e.degree,
-        institution: e.institution,
-        description: e.cvDescription?.trim() || e.description,
-        tags: [...e.tags],
-        source: "portfolio" as const,
-        portfolioIndex: i,
-      })),
-    }))
-  }
+  const swapSection = useCallback(
+    (sectionId: string, dir: -1 | 1) => {
+      updateSections((ss) => {
+        const idx = ss.findIndex((s) => s.id === sectionId)
+        const target = idx + dir
+        if (idx === -1 || target < 0 || target >= ss.length) return ss
+        const next = [...ss]
+        ;[next[idx], next[target]] = [next[target], next[idx]]
+        return next
+      })
+    },
+    [updateSections],
+  )
 
-  const importAllProjects = () => {
-    if (!portfolio) return
-    updateContent((prev) => ({
-      ...prev,
-      projects: portfolio.projectCategories.flatMap((cat) =>
-        cat.projects
-          .filter((p) => p.showInCv !== false)
-          .map((p, pi) => ({
-            id: uid(),
-            title: p.title,
-            category: cat.name,
-            description: p.cvDescription?.trim() || p.description,
-            status: p.status,
-            metrics: { ...p.metrics },
-            githubUrl: p.githubUrl,
-            showInCv: true,
-            source: "portfolio" as const,
-            portfolioCategoryId: cat.id,
-            portfolioProjectIndex: pi,
-          })),
-      ),
-    }))
-  }
+  const addSection = useCallback(
+    (type: CvSectionType, placement: "sidebar" | "main") => {
+      updateSections((ss) => [
+        ...ss,
+        { id: uid(), title: `New ${SECTION_TYPE_LABELS[type]}`, type, placement, visible: true, data: emptySectionData(type) },
+      ])
+    },
+    [updateSections],
+  )
+
+  const deleteSection = useCallback(
+    (sectionId: string) => { updateSections((ss) => ss.filter((s) => s.id !== sectionId)) },
+    [updateSections],
+  )
+
+  const toggleSectionVisibility = useCallback(
+    (sectionId: string) => { updateSectionById(sectionId, (s) => ({ ...s, visible: !s.visible })) },
+    [updateSectionById],
+  )
+
+  const renameSection = useCallback(
+    (sectionId: string, title: string) => { updateSectionById(sectionId, (s) => ({ ...s, title })) },
+    [updateSectionById],
+  )
 
   /* ── preset CRUD ── */
   const createPreset = () => {
-    const name = `Preset ${presets.length + 1}`
-    const newPreset: CvPreset = {
+    const preset: CvPreset = {
       id: uid(),
-      name,
+      name: `Preset ${presets.length + 1}`,
       layout: "classic",
       visible: true,
       content: emptyCvContent(),
     }
-    updatePresets((prev) => [...prev, newPreset])
-    setActivePresetId(newPreset.id)
+    updatePresets((prev) => [...prev, preset])
+    setActivePresetId(preset.id)
   }
 
   const deletePreset = (id: string) => {
     updatePresets((prev) => {
-      const next = prev.filter((p) => p.id !== id)
-      if (activePresetId === id && next.length > 0) {
-        setActivePresetId(next[0].id)
-      }
-      return next
+      const remaining = prev.filter((p) => p.id !== id)
+      if (activePresetId === id && remaining.length > 0) setActivePresetId(remaining[0].id)
+      return remaining
     })
   }
 
   const toggleVisibility = (id: string) => {
-    updatePresets((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, visible: !p.visible } : p)),
-    )
+    updatePresets((prev) => prev.map((p) => (p.id === id ? { ...p, visible: !p.visible } : p)))
   }
 
   const setPresetLayout = (id: string, layout: CvLayoutId) => {
-    updatePresets((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, layout } : p)),
-    )
+    updatePresets((prev) => prev.map((p) => (p.id === id ? { ...p, layout } : p)))
   }
 
   const renamePreset = (id: string, name: string) => {
-    updatePresets((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, name } : p)),
-    )
+    updatePresets((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)))
   }
 
-  /* ── loading / auth guards ── */
-  if (authChecking) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-      </div>
-    )
-  }
+  /* ── derived ── */
+  const activePreset = presets.find((p) => p.id === activePresetId)
+  const cv = activePreset?.content
+  const previewData = activePreset ? createCvData(activePreset.content) : null
 
+  /* ── guards ── */
   if (!isAuthenticated) return null
-
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <Loader2 className="w-8 h-8 animate-spin text-slate-400 mx-auto" />
-          <p className="text-sm text-slate-500 font-mono">Loading CV data…</p>
-        </div>
+        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
       </div>
     )
   }
@@ -320,30 +295,16 @@ export default function CvEditorPage() {
           <h1 className="cv-editor-bar__title">CV Editor</h1>
         </div>
         <div className="cv-editor-bar__right">
-          {saving && (
-            <span className="cv-editor-bar__status">
-              <Loader2 className="w-3 h-3 animate-spin" /> Saving…
-            </span>
-          )}
-          {saved && (
-            <span className="cv-editor-bar__status cv-editor-bar__status--ok">
-              <Check className="w-3 h-3" /> Saved
-            </span>
-          )}
-          {error && (
-            <span className="cv-editor-bar__status cv-editor-bar__status--err">{error}</span>
-          )}
-          <button
-            onClick={() => router.push("/")}
-            className="cv-editor-bar__btn"
-            type="button"
-          >
+          {saving && <span className="cv-editor-bar__status"><Loader2 className="w-3 h-3 animate-spin" /> Saving…</span>}
+          {saved && <span className="cv-editor-bar__status cv-editor-bar__status--ok"><Check className="w-3 h-3" /> Saved</span>}
+          {error && <span className="cv-editor-bar__status cv-editor-bar__status--err">{error}</span>}
+          <button onClick={() => router.push("/")} className="cv-editor-bar__btn" type="button">
             <ArrowLeft className="w-4 h-4" /> Home
           </button>
         </div>
       </header>
 
-      {/* ── Preset tabs bar ── */}
+      {/* ── Preset tabs ── */}
       <div className="cv-preset-bar">
         <div className="cv-preset-bar__tabs">
           {presets.map((preset) => (
@@ -367,396 +328,123 @@ export default function CvEditorPage() {
       {/* ── Mobile view toggle ── */}
       {activePreset && (
         <div className="cv-editor-mobile-toggle">
-          <button
-            type="button"
-            onClick={() => setMobileView("editor")}
-            className={`cv-editor-mobile-toggle__btn ${mobileView === "editor" ? "cv-editor-mobile-toggle__btn--active" : ""}`}
-          >
+          <button type="button" onClick={() => setMobileView("editor")}
+            className={`cv-editor-mobile-toggle__btn ${mobileView === "editor" ? "cv-editor-mobile-toggle__btn--active" : ""}`}>
             Editor
           </button>
-          <button
-            type="button"
-            onClick={() => setMobileView("preview")}
-            className={`cv-editor-mobile-toggle__btn ${mobileView === "preview" ? "cv-editor-mobile-toggle__btn--active" : ""}`}
-          >
+          <button type="button" onClick={() => setMobileView("preview")}
+            className={`cv-editor-mobile-toggle__btn ${mobileView === "preview" ? "cv-editor-mobile-toggle__btn--active" : ""}`}>
             <Eye className="w-3 h-3" /> Preview
           </button>
         </div>
       )}
 
-      {activePreset ? (
+      {activePreset && cv ? (
         <div className={`cv-editor-split ${mobileView === "preview" ? "cv-editor-split--preview-mode" : ""}`}>
-        <div className="cv-editor-split__editor">
-        <main className="cv-editor-main">
-          {/* ─────────── Preset Settings ─────────── */}
-          <EditorCard title="Preset Settings" icon={<LayoutTemplate className="w-4 h-4" />}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="cv-field">
-                <label className="cv-field__label">Preset Name</label>
-                <input
-                  className="cv-field__input"
-                  value={activePreset.name}
-                  onChange={(e) => renamePreset(activePreset.id, e.target.value)}
+          <div className="cv-editor-split__editor">
+            <main className="cv-editor-main">
+              {/* ─── Preset Settings ─── */}
+              <EditorCard title="Preset Settings" icon={<LayoutTemplate className="w-4 h-4" />}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="cv-field">
+                    <label className="cv-field__label">Preset Name</label>
+                    <input className="cv-field__input" value={activePreset.name}
+                      onChange={(e) => renamePreset(activePreset.id, e.target.value)} />
+                  </div>
+                  <div className="cv-field">
+                    <label className="cv-field__label">Layout</label>
+                    <select className="cv-field__input" value={activePreset.layout}
+                      onChange={(e) => setPresetLayout(activePreset.id, e.target.value as CvLayoutId)}>
+                      <option value="classic">Classic</option>
+                      <option value="resume">Résumé</option>
+                    </select>
+                  </div>
+                  <div className="cv-field">
+                    <label className="cv-field__label">Visible</label>
+                    <button type="button" className="cv-field__input text-left"
+                      onClick={() => toggleVisibility(activePreset.id)}>
+                      {activePreset.visible ? "✓ Visible" : "✗ Hidden"}
+                    </button>
+                  </div>
+                  <div className="cv-field">
+                    <label className="cv-field__label">Actions</label>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <button type="button" className="cv-btn cv-btn--danger" onClick={() => deletePreset(activePreset.id)}>
+                        <Trash2 className="w-3 h-3" /> Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </EditorCard>
+
+              {/* ─── Profile ─── */}
+              <EditorCard title="Profile / Header">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <FieldWithHint label="Full Name" value={cv.name || ""} onChange={(v) => updateProfile("name", v || undefined)} />
+                  <FieldWithHint label="Title / Role" value={cv.title || ""} onChange={(v) => updateProfile("title", v || undefined)} />
+                  <FieldWithHint label="Location" value={cv.location || ""} onChange={(v) => updateProfile("location", v || undefined)} />
+                  <FieldWithHint label="Email" value={cv.email || ""} onChange={(v) => updateProfile("email", v || undefined)} />
+                  <FieldWithHint label="Phone" value={cv.phone || ""} onChange={(v) => updateProfile("phone", v || undefined)} />
+                  <FieldWithHint label="P.IVA" value={cv.piva || ""} onChange={(v) => updateProfile("piva", v || undefined)} />
+                </div>
+              </EditorCard>
+
+              {/* ─── Section Layout Organizer ─── */}
+              <EditorCard title="Section Layout" icon={<GripVertical className="w-4 h-4" />}>
+                <SectionLayoutOrganizer
+                  sections={cv.sections}
+                  onMovePlacement={moveSectionPlacement}
+                  onSwap={swapSection}
+                  onToggleVisibility={toggleSectionVisibility}
+                  onDelete={deleteSection}
+                  onAdd={addSection}
                 />
-              </div>
-              <div className="cv-field">
-                <label className="cv-field__label">Layout</label>
-                <select
-                  className="cv-field__input"
-                  value={activePreset.layout}
-                  onChange={(e) => setPresetLayout(activePreset.id, e.target.value as CvLayoutId)}
+              </EditorCard>
+
+              {/* ─── Section editors ─── */}
+              {cv.sections.map((section) => (
+                <EditorCard
+                  key={section.id}
+                  title={section.title}
+                  badge={SECTION_TYPE_LABELS[section.type]}
+                  titleEditable
+                  onTitleChange={(t) => renameSection(section.id, t)}
+                  muted={!section.visible}
                 >
-                  <option value="classic">Classic</option>
-                  <option value="resume">Résumé</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={activePreset.visible}
-                  onChange={() => toggleVisibility(activePreset.id)}
-                  className="accent-slate-700 w-4 h-4"
-                />
-                Visible in CV preview
-              </label>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm(`Delete preset "${activePreset.name}"?`)) {
-                    deletePreset(activePreset.id)
-                  }
-                }}
-                className="cv-editor-delete-btn"
-              >
-                <Trash2 className="w-3 h-3" /> Delete Preset
-              </button>
-            </div>
-          </EditorCard>
-
-          {/* ─────────── Profile ─────────── */}
-          <EditorCard title="Profile" icon={<Globe className="w-4 h-4" />}>
-            <FieldWithHint
-              label="Full Name"
-              value={cv.name ?? ""}
-              hint={portfolio?.profileData.name}
-              onChange={(v) => updateContent((p) => ({ ...p, name: v || undefined }))}
-            />
-            <FieldWithHint
-              label="Professional Title"
-              value={cv.title ?? ""}
-              hint={portfolio?.profileData.title}
-              onChange={(v) => updateContent((p) => ({ ...p, title: v || undefined }))}
-            />
-            <TextAreaWithHint
-              label="Summary / Bio"
-              value={cv.summary ?? ""}
-              hint={portfolio?.profileData.bio}
-              onChange={(v) => updateContent((p) => ({ ...p, summary: v || undefined }))}
-            />
-            <FieldWithHint
-              label="Location"
-              value={cv.location ?? ""}
-              hint="Via Entracque, 10, Cuneo (12100)"
-              onChange={(v) => updateContent((p) => ({ ...p, location: v || undefined }))}
-            />
-            <FieldWithHint
-              label="Email"
-              value={cv.email ?? ""}
-              hint="quicksolver02@gmail.com"
-              onChange={(v) => updateContent((p) => ({ ...p, email: v || undefined }))}
-            />
-            <FieldWithHint
-              label="Phone"
-              value={cv.phone ?? ""}
-              hint=""
-              onChange={(v) => updateContent((p) => ({ ...p, phone: v || undefined }))}
-            />
-            <FieldWithHint
-              label="P.IVA"
-              value={cv.piva ?? ""}
-              hint="P.IVA: 04081230049 - QuickSolver"
-              onChange={(v) => updateContent((p) => ({ ...p, piva: v || undefined }))}
-            />
-          </EditorCard>
-
-          {/* ─────────── Links ─────────── */}
-          <EditorCard title="Links" icon={<Globe className="w-4 h-4" />}>
-            <LinksEditor
-              links={cv.links ?? []}
-              onChange={(links) => updateContent((p) => ({ ...p, links: links.length > 0 ? links : undefined }))}
-            />
-          </EditorCard>
-
-          {/* ─────────── Skills ─────────── */}
-          <EditorCard title="Skills" icon={<Terminal className="w-4 h-4" />}>
-            <SkillsEditor
-              skills={cv.skills ?? {}}
-              portfolioSkills={portfolio?.skillsData}
-              onChange={(skills) => updateContent((p) => ({ ...p, skills: Object.keys(skills).length > 0 ? skills : undefined }))}
-            />
-          </EditorCard>
-
-          {/* ─────────── Experience ─────────── */}
-          <EditorCard
-            title="Experience"
-            icon={<Briefcase className="w-4 h-4" />}
-            actions={
-              <div className="flex gap-2">
-                {portfolio && (
-                  <button type="button" onClick={importAllExperience} className="cv-editor-action-btn">
-                    <Copy className="w-3 h-3" /> Import from Portfolio
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateContent((p) => ({
-                      ...p,
-                      experience: [
-                        ...p.experience,
-                        { id: uid(), year: "", title: "", company: "", description: "", tags: [], source: "custom" },
-                      ],
-                    }))
-                  }
-                  className="cv-editor-action-btn cv-editor-action-btn--primary"
-                >
-                  <Plus className="w-3 h-3" /> Add Custom
-                </button>
-              </div>
-            }
-          >
-            {cv.experience.length === 0 && (
-              <p className="text-sm text-slate-400 italic">
-                No experience entries yet. Import from portfolio or add custom entries.
-              </p>
-            )}
-            {cv.experience.map((entry, idx) => (
-              <ExperienceEditor
-                key={entry.id}
-                entry={entry}
-                portfolioHint={
-                  entry.source === "portfolio" && entry.portfolioIndex !== undefined
-                    ? portfolio?.experienceLog[entry.portfolioIndex]
-                    : undefined
-                }
-                onChange={(e) =>
-                  updateContent((p) => ({
-                    ...p,
-                    experience: p.experience.map((x, i) => (i === idx ? e : x)),
-                  }))
-                }
-                onDelete={() =>
-                  updateContent((p) => ({
-                    ...p,
-                    experience: p.experience.filter((_, i) => i !== idx),
-                  }))
-                }
-              />
-            ))}
-          </EditorCard>
-
-          {/* ─────────── Education ─────────── */}
-          <EditorCard
-            title="Education"
-            icon={<GraduationCap className="w-4 h-4" />}
-            actions={
-              <div className="flex gap-2">
-                {portfolio && (
-                  <button type="button" onClick={importAllEducation} className="cv-editor-action-btn">
-                    <Copy className="w-3 h-3" /> Import from Portfolio
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateContent((p) => ({
-                      ...p,
-                      education: [
-                        ...p.education,
-                        { id: uid(), year: "", degree: "", institution: "", description: "", tags: [], source: "custom" },
-                      ],
-                    }))
-                  }
-                  className="cv-editor-action-btn cv-editor-action-btn--primary"
-                >
-                  <Plus className="w-3 h-3" /> Add Custom
-                </button>
-              </div>
-            }
-          >
-            {cv.education.length === 0 && (
-              <p className="text-sm text-slate-400 italic">
-                No education entries yet. Import from portfolio or add custom entries.
-              </p>
-            )}
-            {cv.education.map((entry, idx) => (
-              <EducationEditor
-                key={entry.id}
-                entry={entry}
-                portfolioHint={
-                  entry.source === "portfolio" && entry.portfolioIndex !== undefined
-                    ? portfolio?.educationLog[entry.portfolioIndex]
-                    : undefined
-                }
-                onChange={(e) =>
-                  updateContent((p) => ({
-                    ...p,
-                    education: p.education.map((x, i) => (i === idx ? e : x)),
-                  }))
-                }
-                onDelete={() =>
-                  updateContent((p) => ({
-                    ...p,
-                    education: p.education.filter((_, i) => i !== idx),
-                  }))
-                }
-              />
-            ))}
-          </EditorCard>
-
-          {/* ─────────── Projects ─────────── */}
-          <EditorCard
-            title="Projects"
-            icon={<Terminal className="w-4 h-4" />}
-            actions={
-              <div className="flex gap-2">
-                {portfolio && (
-                  <button type="button" onClick={importAllProjects} className="cv-editor-action-btn">
-                    <Copy className="w-3 h-3" /> Import from Portfolio
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    updateContent((p) => ({
-                      ...p,
-                      projects: [
-                        ...p.projects,
-                        {
-                          id: uid(),
-                          title: "",
-                          category: "",
-                          description: "",
-                          status: "DEVELOPMENT",
-                          metrics: {},
-                          showInCv: true,
-                          source: "custom",
-                        },
-                      ],
-                    }))
-                  }
-                  className="cv-editor-action-btn cv-editor-action-btn--primary"
-                >
-                  <Plus className="w-3 h-3" /> Add Custom
-                </button>
-              </div>
-            }
-          >
-            {cv.projects.length === 0 && (
-              <p className="text-sm text-slate-400 italic">
-                No projects yet. Import from portfolio or add custom entries.
-              </p>
-            )}
-            {cv.projects.map((entry, idx) => (
-              <ProjectEditor
-                key={entry.id}
-                entry={entry}
-                onChange={(e) =>
-                  updateContent((p) => ({
-                    ...p,
-                    projects: p.projects.map((x, i) => (i === idx ? e : x)),
-                  }))
-                }
-                onDelete={() =>
-                  updateContent((p) => ({
-                    ...p,
-                    projects: p.projects.filter((_, i) => i !== idx),
-                  }))
-                }
-              />
-            ))}
-          </EditorCard>
-
-          {/* ─────────── Simple lists ─────────── */}
-          <EditorCard title="Certifications" icon={<Award className="w-4 h-4" />}>
-            <StringListEditor
-              items={cv.certs}
-              onChange={(certs) => updateContent((p) => ({ ...p, certs }))}
-              placeholder="e.g. AWS Solutions Architect"
-            />
-          </EditorCard>
-
-          <EditorCard title="Languages" icon={<Languages className="w-4 h-4" />}>
-            <StringListEditor
-              items={cv.languages}
-              onChange={(languages) => updateContent((p) => ({ ...p, languages }))}
-              placeholder="e.g. Italian — Native"
-            />
-          </EditorCard>
-
-          <EditorCard title="Awards" icon={<Award className="w-4 h-4" />}>
-            <StringListEditor
-              items={cv.awards}
-              onChange={(awards) => updateContent((p) => ({ ...p, awards }))}
-              placeholder="e.g. Best Innovation 2024"
-            />
-          </EditorCard>
-
-          <EditorCard title="Publications" icon={<BookOpen className="w-4 h-4" />}>
-            <StringListEditor
-              items={cv.publications}
-              onChange={(publications) => updateContent((p) => ({ ...p, publications }))}
-              placeholder="e.g. Paper title — Journal, Year"
-            />
-          </EditorCard>
-        </main>
-        </div>
-
-        {/* ── Live preview panel ── */}
-        <aside className="cv-editor-split__preview">
-          <div className="cv-editor-preview-header">
-            <span className="cv-editor-preview-header__title">Live Preview</span>
-            <div className="cv-editor-preview-header__controls">
-              <button
-                type="button"
-                onClick={() => setPreviewZoom((z) => Math.max(0.2, z - 0.1))}
-                className="cv-editor-preview-zoom-btn"
-                title="Zoom out"
-              >
-                −
-              </button>
-              <span className="cv-editor-preview-zoom-label">{Math.round(previewZoom * 100)}%</span>
-              <button
-                type="button"
-                onClick={() => setPreviewZoom((z) => Math.min(1, z + 0.1))}
-                className="cv-editor-preview-zoom-btn"
-                title="Zoom in"
-              >
-                +
-              </button>
-              <span className="cv-editor-preview-header__layout">{activePreset.layout}</span>
-            </div>
+                  <SectionDataEditor
+                    section={section}
+                    onChange={(data) => updateSectionById(section.id, (s) => ({ ...s, data }))}
+                  />
+                </EditorCard>
+              ))}
+            </main>
           </div>
-          <div className="cv-editor-preview-scaler" style={{ zoom: previewZoom } as React.CSSProperties}>
-            {previewData && activePreset.layout === "classic" && (
-              <ClassicLayout data={previewData} profilePicture={profilePicture} />
-            )}
-            {previewData && activePreset.layout === "resume" && (
-              <ResumeLayout data={previewData} profilePicture={profilePicture} />
-            )}
-          </div>
-        </aside>
+
+          {/* ── Live preview ── */}
+          <aside className="cv-editor-split__preview">
+            <div className="cv-editor-preview-header">
+              <span className="cv-editor-preview-header__title">Live Preview</span>
+              <div className="cv-editor-preview-header__controls">
+                <button type="button" className="cv-editor-preview-zoom-btn"
+                  onClick={() => setPreviewZoom((z) => Math.max(0.2, z - 0.1))}>−</button>
+                <span className="cv-editor-preview-zoom-label">{Math.round(previewZoom * 100)}%</span>
+                <button type="button" className="cv-editor-preview-zoom-btn"
+                  onClick={() => setPreviewZoom((z) => Math.min(1, z + 0.1))}>+</button>
+                <span className="cv-editor-preview-header__layout">{activePreset.layout}</span>
+              </div>
+            </div>
+            <div className="cv-editor-preview-scaler" style={{ zoom: previewZoom } as React.CSSProperties}>
+              {previewData && activePreset.layout === "classic" && <ClassicLayout data={previewData} profilePicture={profilePicture} />}
+              {previewData && activePreset.layout === "resume" && <ResumeLayout data={previewData} profilePicture={profilePicture} />}
+            </div>
+          </aside>
         </div>
       ) : (
         <main className="cv-editor-main">
-          <div className="text-center py-16 text-slate-400">
-            <LayoutTemplate className="w-12 h-12 mx-auto mb-3 opacity-40" />
-            <p className="text-lg font-medium">No presets yet</p>
-            <p className="text-sm mt-1">Create your first CV preset to get started.</p>
-            <button type="button" onClick={createPreset} className="cv-editor-action-btn cv-editor-action-btn--primary mt-4">
-              <Plus className="w-3 h-3" /> Create Preset
+          <div className="cv-editor-empty">
+            <p>No presets yet.</p>
+            <button type="button" className="cv-btn" onClick={createPreset}>
+              <Plus className="w-4 h-4" /> Create First Preset
             </button>
           </div>
         </main>
@@ -765,45 +453,55 @@ export default function CvEditorPage() {
   )
 }
 
-/* ================================================================
+/* ════════════════════════════════════════════════════
    Sub-components
-   ================================================================ */
+   ════════════════════════════════════════════════════ */
 
+/* ── EditorCard ── */
 function EditorCard({
-  title,
-  icon,
-  actions,
-  children,
+  title, icon, badge, children, titleEditable, onTitleChange, muted,
 }: {
   title: string
-  icon: React.ReactNode
-  actions?: React.ReactNode
+  icon?: React.ReactNode
+  badge?: string
   children: React.ReactNode
+  titleEditable?: boolean
+  onTitleChange?: (v: string) => void
+  muted?: boolean
 }) {
+  const [open, setOpen] = useState(true)
   return (
-    <section className="cv-editor-card">
-      <div className="cv-editor-card__header">
-        <h2 className="cv-editor-card__title">
-          {icon} {title}
-        </h2>
-        {actions}
+    <div className={`cv-editor-card ${muted ? "cv-editor-card--muted" : ""}`}>
+      <div className="cv-editor-card__header" onClick={() => setOpen(!open)} role="button" tabIndex={0}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+          {icon}
+          {titleEditable ? (
+            <input
+              className="cv-editor-card__title-input"
+              value={title}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => onTitleChange?.(e.target.value)}
+            />
+          ) : (
+            <span className="cv-editor-card__title">{title}</span>
+          )}
+          {badge && <span className="cv-editor-card__badge">{badge}</span>}
+        </div>
+        {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
       </div>
-      <div className="cv-editor-card__body">{children}</div>
-    </section>
+      {open && <div className="cv-editor-card__body">{children}</div>}
+    </div>
   )
 }
 
-/* ── Field with portfolio hint ── */
+/* ── FieldWithHint ── */
 function FieldWithHint({
-  label,
-  value,
-  hint,
-  onChange,
+  label, value, onChange, placeholder,
 }: {
   label: string
   value: string
-  hint?: string
   onChange: (v: string) => void
+  placeholder?: string
 }) {
   return (
     <div className="cv-field">
@@ -812,522 +510,487 @@ function FieldWithHint({
         className="cv-field__input"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={hint ? `Portfolio: ${hint}` : `Enter ${label.toLowerCase()}…`}
+        placeholder={placeholder}
       />
-      {hint && value !== hint && (
-        <button
-          type="button"
-          className="cv-field__hint-btn"
-          onClick={() => onChange(hint)}
-          title="Use portfolio value"
-        >
-          <Copy className="w-3 h-3" /> Use portfolio value
-        </button>
-      )}
     </div>
   )
 }
 
+/* ── TextAreaWithHint ── */
 function TextAreaWithHint({
-  label,
-  value,
-  hint,
-  onChange,
+  label, value, onChange, rows = 3, ai = false,
 }: {
   label: string
   value: string
-  hint?: string
   onChange: (v: string) => void
+  rows?: number
+  ai?: boolean
 }) {
   return (
     <div className="cv-field">
-      <label className="cv-field__label">{label}</label>
+      <div className="cv-field__label-row">
+        <label className="cv-field__label">{label}</label>
+        {ai && value.trim().length > 0 && (
+          <AiTextAssistant text={value} onResult={onChange} />
+        )}
+      </div>
       <textarea
-        className="cv-field__textarea"
+        className="cv-field__input cv-field__textarea"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={hint ? `Portfolio: ${hint}` : `Enter ${label.toLowerCase()}…`}
-        rows={3}
+        rows={rows}
       />
-      {hint && value !== hint && (
-        <button
-          type="button"
-          className="cv-field__hint-btn"
-          onClick={() => onChange(hint)}
-          title="Use portfolio value"
-        >
-          <Copy className="w-3 h-3" /> Use portfolio value
-        </button>
+    </div>
+  )
+}
+
+/* ── AI text assistant ── */
+function AiTextAssistant({ text, onResult }: { text: string; onResult: (v: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [customOpen, setCustomOpen] = useState(false)
+  const [customPrompt, setCustomPrompt] = useState("")
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [open])
+
+  const run = async (action: string, prompt?: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/ai/rewrite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, action, customPrompt: prompt }),
+      })
+      const data = await res.json()
+      if (data.text) onResult(data.text)
+      else if (data.error) console.error("AI error:", data.error)
+    } catch (e) {
+      console.error("AI request failed", e)
+    } finally {
+      setLoading(false)
+      setOpen(false)
+      setCustomOpen(false)
+      setCustomPrompt("")
+    }
+  }
+
+  return (
+    <div className="ai-assist" ref={menuRef}>
+      <button
+        type="button"
+        className={`ai-assist__trigger ${loading ? "ai-assist__trigger--loading" : ""}`}
+        onClick={() => { if (!loading) setOpen(!open) }}
+        title="AI Assistant"
+      >
+        {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+        <span>AI</span>
+      </button>
+      {open && !loading && (
+        <div className="ai-assist__menu">
+          <button type="button" className="ai-assist__item" onClick={() => run("summarize")}>
+            Summarize
+          </button>
+          <button type="button" className="ai-assist__item" onClick={() => run("formalize")}>
+            Formalize
+          </button>
+          <button type="button" className="ai-assist__item" onClick={() => run("shorten")}>
+            Shorten
+          </button>
+          <button type="button" className="ai-assist__item" onClick={() => run("expand")}>
+            Expand
+          </button>
+          <div className="ai-assist__divider" />
+          {!customOpen ? (
+            <button type="button" className="ai-assist__item" onClick={() => setCustomOpen(true)}>
+              Custom…
+            </button>
+          ) : (
+            <div className="ai-assist__custom">
+              <input
+                className="ai-assist__custom-input"
+                placeholder="Your instruction…"
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && customPrompt.trim()) run("custom", customPrompt.trim()) }}
+                autoFocus
+              />
+              <button type="button" className="ai-assist__custom-go"
+                disabled={!customPrompt.trim()}
+                onClick={() => customPrompt.trim() && run("custom", customPrompt.trim())}>
+                Go
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
 }
 
-/* ── Links editor ── */
-function LinksEditor({
-  links,
-  onChange,
+/* ═══════════════════════════════════════
+   Section Layout Organizer (drag & drop)
+   ═══════════════════════════════════════ */
+function SectionLayoutOrganizer({
+  sections,
+  onMovePlacement,
+  onSwap,
+  onToggleVisibility,
+  onDelete,
+  onAdd,
 }: {
-  links: { label: string; url: string }[]
-  onChange: (links: { label: string; url: string }[]) => void
+  sections: CvSection[]
+  onMovePlacement: (id: string, placement: "sidebar" | "main") => void
+  onSwap: (id: string, dir: -1 | 1) => void
+  onToggleVisibility: (id: string) => void
+  onDelete: (id: string) => void
+  onAdd: (type: CvSectionType, placement: "sidebar" | "main") => void
 }) {
-  return (
-    <div className="space-y-2">
-      {links.map((link, i) => (
-        <div key={i} className="flex gap-2 items-center">
-          <input
-            className="cv-field__input flex-1"
-            value={link.label}
-            onChange={(e) => {
-              const updated = [...links]
-              updated[i] = { ...updated[i], label: e.target.value }
-              onChange(updated)
-            }}
-            placeholder="Label"
-          />
-          <input
-            className="cv-field__input flex-[2]"
-            value={link.url}
-            onChange={(e) => {
-              const updated = [...links]
-              updated[i] = { ...updated[i], url: e.target.value }
-              onChange(updated)
-            }}
-            placeholder="URL"
-          />
-          <button
-            type="button"
-            onClick={() => onChange(links.filter((_, j) => j !== i))}
-            className="cv-editor-delete-btn"
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [dragOverZone, setDragOverZone] = useState<"sidebar" | "main" | null>(null)
+  const [addMenuPlacement, setAddMenuPlacement] = useState<"sidebar" | "main" | null>(null)
+
+  const sidebarSections = sections.filter((s) => s.placement === "sidebar")
+  const mainSections = sections.filter((s) => s.placement === "main")
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDragId(id)
+    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("text/plain", id)
+  }
+
+  const handleDragOver = (e: React.DragEvent, zone: "sidebar" | "main") => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    setDragOverZone(zone)
+  }
+
+  const handleDrop = (e: React.DragEvent, zone: "sidebar" | "main") => {
+    e.preventDefault()
+    const id = e.dataTransfer.getData("text/plain")
+    if (id) onMovePlacement(id, zone)
+    setDragId(null)
+    setDragOverZone(null)
+  }
+
+  const handleDragEnd = () => { setDragId(null); setDragOverZone(null) }
+
+  const renderZone = (label: string, placement: "sidebar" | "main", items: CvSection[]) => (
+    <div
+      className={`section-zone ${dragOverZone === placement ? "section-zone--drag-over" : ""}`}
+      onDragOver={(e) => handleDragOver(e, placement)}
+      onDragLeave={() => setDragOverZone(null)}
+      onDrop={(e) => handleDrop(e, placement)}
+    >
+      <div className="section-zone__label">{label}</div>
+      <div className="section-zone__chips">
+        {items.map((s, i) => (
+          <div
+            key={s.id}
+            className={`section-chip ${dragId === s.id ? "section-chip--dragging" : ""} ${!s.visible ? "section-chip--hidden" : ""}`}
+            draggable
+            onDragStart={(e) => handleDragStart(e, s.id)}
+            onDragEnd={handleDragEnd}
           >
+            <GripVertical className="w-3 h-3 text-slate-400 flex-shrink-0 cursor-grab" />
+            <span className="section-chip__title">{s.title}</span>
+            <span className="section-chip__type">{SECTION_TYPE_LABELS[s.type]}</span>
+            <div className="section-chip__actions">
+              {i > 0 && (
+                <button type="button" className="section-chip__btn" onClick={() => onSwap(s.id, -1)} title="Move up">
+                  <ChevronUp className="w-3 h-3" />
+                </button>
+              )}
+              {i < items.length - 1 && (
+                <button type="button" className="section-chip__btn" onClick={() => onSwap(s.id, 1)} title="Move down">
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              )}
+              <button type="button" className="section-chip__btn" onClick={() => onToggleVisibility(s.id)}
+                title={s.visible ? "Hide" : "Show"}>
+                {s.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+              </button>
+              <button type="button" className="section-chip__btn section-chip__btn--danger"
+                onClick={() => onDelete(s.id)} title="Delete">
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        ))}
+        {items.length === 0 && (
+          <div className="section-zone__empty">Drop sections here</div>
+        )}
+      </div>
+      <button
+        type="button"
+        className="section-zone__add"
+        onClick={() => setAddMenuPlacement(addMenuPlacement === placement ? null : placement)}
+      >
+        <Plus className="w-3 h-3" /> Add Section
+      </button>
+      {addMenuPlacement === placement && (
+        <div className="section-zone__menu">
+          {(["log", "tags", "text", "links", "simple-list"] as CvSectionType[]).map((t) => (
+            <button key={t} type="button" className="section-zone__menu-item"
+              onClick={() => { onAdd(t, placement); setAddMenuPlacement(null) }}>
+              {SECTION_TYPE_LABELS[t]}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <div className="section-organizer">
+      {renderZone("Sidebar", "sidebar", sidebarSections)}
+      {renderZone("Main Content", "main", mainSections)}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════
+   Section Data Editors (per type)
+   ═══════════════════════════════════════ */
+function SectionDataEditor({ section, onChange }: { section: CvSection; onChange: (d: CvSectionData) => void }) {
+  const d = section.data
+  switch (d.type) {
+    case "log":
+      return <LogSectionEditor entries={d.entries} onChange={(entries) => onChange({ type: "log", entries })} />
+    case "tags":
+      return <TagsSectionEditor groups={d.groups} onChange={(groups) => onChange({ type: "tags", groups })} />
+    case "text":
+      return <TextSectionEditor content={d.content} onChange={(content) => onChange({ type: "text", content })} />
+    case "links":
+      return <LinksSectionEditor items={d.items} onChange={(items) => onChange({ type: "links", items })} />
+    case "simple-list":
+      return <SimpleListSectionEditor items={d.items} onChange={(items) => onChange({ type: "simple-list", items })} />
+  }
+}
+
+/* ── Log (timeline) editor ── */
+function LogSectionEditor({
+  entries, onChange,
+}: {
+  entries: CvLogEntry[]
+  onChange: (e: CvLogEntry[]) => void
+}) {
+  const update = (idx: number, patch: Partial<CvLogEntry>) =>
+    onChange(entries.map((e, i) => (i === idx ? { ...e, ...patch } : e)))
+
+  const add = () =>
+    onChange([...entries, { id: uid(), title: "", subtitle: "", dateStart: "", dateEnd: "", description: "", tags: [] }])
+
+  const remove = (idx: number) => onChange(entries.filter((_, i) => i !== idx))
+
+  return (
+    <div className="cv-section-editor">
+      {entries.map((entry, i) => (
+        <div key={entry.id} className="cv-entry-card">
+          <div className="cv-entry-card__header">
+            <span className="cv-entry-card__num">#{i + 1}</span>
+            <button type="button" className="cv-btn cv-btn--sm cv-btn--danger" onClick={() => remove(i)}>
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <FieldWithHint label="Title" value={entry.title} onChange={(v) => update(i, { title: v })} />
+            <FieldWithHint label="Subtitle" value={entry.subtitle} onChange={(v) => update(i, { subtitle: v })} placeholder="e.g. Company, Institution" />
+            <FieldWithHint label="Start Date" value={entry.dateStart} onChange={(v) => update(i, { dateStart: v })} placeholder="e.g. 2022" />
+            <FieldWithHint label="End Date" value={entry.dateEnd} onChange={(v) => update(i, { dateEnd: v })} placeholder="e.g. Present" />
+            <FieldWithHint label="URL" value={entry.url || ""} onChange={(v) => update(i, { url: v || undefined })} placeholder="Optional link" />
+          </div>
+          <TextAreaWithHint label="Description" value={entry.description} onChange={(v) => update(i, { description: v })} rows={2} ai />
+          <InlineTagsEditor label="Tags" items={entry.tags} onChange={(tags) => update(i, { tags })} />
+        </div>
+      ))}
+      <button type="button" className="cv-btn cv-btn--sm" onClick={add}>
+        <Plus className="w-3 h-3" /> Add Entry
+      </button>
+    </div>
+  )
+}
+
+/* ── Tags/groups editor ── */
+function TagsSectionEditor({
+  groups, onChange,
+}: {
+  groups: CvTagGroup[]
+  onChange: (g: CvTagGroup[]) => void
+}) {
+  const update = (idx: number, patch: Partial<CvTagGroup>) =>
+    onChange(groups.map((g, i) => (i === idx ? { ...g, ...patch } : g)))
+
+  const add = () => onChange([...groups, { category: "", items: [] }])
+  const remove = (idx: number) => onChange(groups.filter((_, i) => i !== idx))
+
+  return (
+    <div className="cv-section-editor">
+      {groups.map((group, i) => (
+        <div key={i} className="cv-entry-card">
+          <div className="cv-entry-card__header">
+            <FieldWithHint label="Category" value={group.category} onChange={(v) => update(i, { category: v })} />
+            <button type="button" className="cv-btn cv-btn--sm cv-btn--danger" onClick={() => remove(i)}>
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+          <InlineTagsEditor label="Items" items={group.items} onChange={(items) => update(i, { items })} />
+        </div>
+      ))}
+      <button type="button" className="cv-btn cv-btn--sm" onClick={add}>
+        <Plus className="w-3 h-3" /> Add Group
+      </button>
+    </div>
+  )
+}
+
+/* ── Text editor ── */
+function TextSectionEditor({ content, onChange }: { content: string; onChange: (v: string) => void }) {
+  return <TextAreaWithHint label="Content" value={content} onChange={onChange} rows={4} ai />
+}
+
+/* ── Links editor ── */
+function LinksSectionEditor({
+  items, onChange,
+}: {
+  items: CvLinkItem[]
+  onChange: (items: CvLinkItem[]) => void
+}) {
+  const update = (idx: number, patch: Partial<CvLinkItem>) =>
+    onChange(items.map((item, i) => (i === idx ? { ...item, ...patch } : item)))
+
+  const add = () => onChange([...items, { label: "", url: "" }])
+  const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx))
+
+  return (
+    <div className="cv-section-editor">
+      {items.map((item, i) => (
+        <div key={i} className="cv-entry-row">
+          <input className="cv-field__input" value={item.label} placeholder="Label"
+            onChange={(e) => update(i, { label: e.target.value })} />
+          <input className="cv-field__input" value={item.url} placeholder="URL"
+            onChange={(e) => update(i, { url: e.target.value })} />
+          <button type="button" className="cv-btn cv-btn--sm cv-btn--danger" onClick={() => remove(i)}>
             <X className="w-3 h-3" />
           </button>
         </div>
       ))}
-      <button
-        type="button"
-        onClick={() => onChange([...links, { label: "", url: "" }])}
-        className="cv-editor-action-btn"
-      >
+      <button type="button" className="cv-btn cv-btn--sm" onClick={add}>
         <Plus className="w-3 h-3" /> Add Link
       </button>
     </div>
   )
 }
 
-/* ── Skills editor ── */
-function SkillsEditor({
-  skills,
-  portfolioSkills,
-  onChange,
-}: {
-  skills: Record<string, string[]>
-  portfolioSkills?: { frontend: string[]; backend: string[]; devops: string[] }
-  onChange: (skills: Record<string, string[]>) => void
-}) {
-  const [newCat, setNewCat] = useState("")
-  const categories = Object.keys(skills).length > 0 ? Object.keys(skills) : []
-
-  const importPortfolioSkills = () => {
-    if (!portfolioSkills) return
-    onChange({
-      FRONTEND: [...portfolioSkills.frontend],
-      BACKEND: [...portfolioSkills.backend],
-      DEVOPS: [...portfolioSkills.devops],
-    })
-  }
-
-  return (
-    <div className="space-y-4">
-      {portfolioSkills && Object.keys(skills).length === 0 && (
-        <button type="button" onClick={importPortfolioSkills} className="cv-editor-action-btn">
-          <Copy className="w-3 h-3" /> Import Skills from Portfolio
-        </button>
-      )}
-      {categories.map((cat) => (
-        <div key={cat} className="border border-slate-200 rounded p-3">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">{cat}</span>
-            <button
-              type="button"
-              onClick={() => {
-                const updated = { ...skills }
-                delete updated[cat]
-                onChange(updated)
-              }}
-              className="cv-editor-delete-btn"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-1 mb-2">
-            {skills[cat].map((skill, i) => (
-              <span key={i} className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs rounded">
-                {skill}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const updated = { ...skills, [cat]: skills[cat].filter((_, j) => j !== i) }
-                    onChange(updated)
-                  }}
-                  className="text-slate-400 hover:text-red-500"
-                >
-                  <X className="w-2.5 h-2.5" />
-                </button>
-              </span>
-            ))}
-          </div>
-          <AddInlineInput
-            placeholder="Add skill…"
-            onAdd={(v) => onChange({ ...skills, [cat]: [...skills[cat], v] })}
-          />
-        </div>
-      ))}
-      <div className="flex gap-2">
-        <input
-          className="cv-field__input flex-1"
-          value={newCat}
-          onChange={(e) => setNewCat(e.target.value)}
-          placeholder="New category name…"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && newCat.trim()) {
-              onChange({ ...skills, [newCat.trim().toUpperCase()]: [] })
-              setNewCat("")
-            }
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => {
-            if (newCat.trim()) {
-              onChange({ ...skills, [newCat.trim().toUpperCase()]: [] })
-              setNewCat("")
-            }
-          }}
-          className="cv-editor-action-btn"
-        >
-          <Plus className="w-3 h-3" /> Add Category
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/* ── Experience editor ── */
-function ExperienceEditor({
-  entry,
-  portfolioHint,
-  onChange,
-  onDelete,
-}: {
-  entry: CvExperienceEntry
-  portfolioHint?: { year: string; title: string; company: string; description: string; tags: string[] }
-  onChange: (e: CvExperienceEntry) => void
-  onDelete: () => void
-}) {
-  return (
-    <div className="cv-editor-entry">
-      <div className="cv-editor-entry__header">
-        <span className={`cv-editor-entry__badge ${entry.source === "portfolio" ? "cv-editor-entry__badge--portfolio" : "cv-editor-entry__badge--custom"}`}>
-          {entry.source === "portfolio" ? "From Portfolio" : "Custom"}
-        </span>
-        <button type="button" onClick={onDelete} className="cv-editor-delete-btn">
-          <Trash2 className="w-3 h-3" /> Remove
-        </button>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FieldWithHint label="Job Title" value={entry.title} hint={portfolioHint?.title} onChange={(v) => onChange({ ...entry, title: v })} />
-        <FieldWithHint label="Company" value={entry.company} hint={portfolioHint?.company} onChange={(v) => onChange({ ...entry, company: v })} />
-      </div>
-      <FieldWithHint label="Period" value={entry.year} hint={portfolioHint?.year} onChange={(v) => onChange({ ...entry, year: v })} />
-      <TextAreaWithHint
-        label="Description"
-        value={entry.description}
-        hint={portfolioHint?.description}
-        onChange={(v) => onChange({ ...entry, description: v })}
-      />
-      <TagsEditor tags={entry.tags} hintTags={portfolioHint?.tags} onChange={(tags) => onChange({ ...entry, tags })} />
-    </div>
-  )
-}
-
-/* ── Education editor ── */
-function EducationEditor({
-  entry,
-  portfolioHint,
-  onChange,
-  onDelete,
-}: {
-  entry: CvEducationEntry
-  portfolioHint?: { year: string; degree: string; institution: string; description: string; tags: string[] }
-  onChange: (e: CvEducationEntry) => void
-  onDelete: () => void
-}) {
-  return (
-    <div className="cv-editor-entry">
-      <div className="cv-editor-entry__header">
-        <span className={`cv-editor-entry__badge ${entry.source === "portfolio" ? "cv-editor-entry__badge--portfolio" : "cv-editor-entry__badge--custom"}`}>
-          {entry.source === "portfolio" ? "From Portfolio" : "Custom"}
-        </span>
-        <button type="button" onClick={onDelete} className="cv-editor-delete-btn">
-          <Trash2 className="w-3 h-3" /> Remove
-        </button>
-      </div>
-      <FieldWithHint label="Degree" value={entry.degree} hint={portfolioHint?.degree} onChange={(v) => onChange({ ...entry, degree: v })} />
-      <FieldWithHint label="Institution" value={entry.institution} hint={portfolioHint?.institution} onChange={(v) => onChange({ ...entry, institution: v })} />
-      <FieldWithHint label="Period" value={entry.year} hint={portfolioHint?.year} onChange={(v) => onChange({ ...entry, year: v })} />
-      <TextAreaWithHint
-        label="Description"
-        value={entry.description}
-        hint={portfolioHint?.description}
-        onChange={(v) => onChange({ ...entry, description: v })}
-      />
-      <TagsEditor tags={entry.tags} hintTags={portfolioHint?.tags} onChange={(tags) => onChange({ ...entry, tags })} />
-    </div>
-  )
-}
-
-/* ── Project editor ── */
-function ProjectEditor({
-  entry,
-  onChange,
-  onDelete,
-}: {
-  entry: CvProjectEntry
-  onChange: (e: CvProjectEntry) => void
-  onDelete: () => void
-}) {
-  const [mKey, setMKey] = useState("")
-  const [mVal, setMVal] = useState("")
-
-  return (
-    <div className="cv-editor-entry">
-      <div className="cv-editor-entry__header">
-        <span className={`cv-editor-entry__badge ${entry.source === "portfolio" ? "cv-editor-entry__badge--portfolio" : "cv-editor-entry__badge--custom"}`}>
-          {entry.source === "portfolio" ? "From Portfolio" : "Custom"}
-        </span>
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1 text-xs text-slate-500">
-            <input
-              type="checkbox"
-              checked={entry.showInCv}
-              onChange={(e) => onChange({ ...entry, showInCv: e.target.checked })}
-              className="accent-slate-700"
-            />
-            Show in CV
-          </label>
-          <button type="button" onClick={onDelete} className="cv-editor-delete-btn">
-            <Trash2 className="w-3 h-3" /> Remove
-          </button>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="cv-field">
-          <label className="cv-field__label">Title</label>
-          <input className="cv-field__input" value={entry.title} onChange={(e) => onChange({ ...entry, title: e.target.value })} />
-        </div>
-        <div className="cv-field">
-          <label className="cv-field__label">Category</label>
-          <input className="cv-field__input" value={entry.category} onChange={(e) => onChange({ ...entry, category: e.target.value })} />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="cv-field">
-          <label className="cv-field__label">Status</label>
-          <select
-            className="cv-field__input"
-            value={entry.status}
-            onChange={(e) => onChange({ ...entry, status: e.target.value })}
-          >
-            <option>PRODUCTION</option>
-            <option>BETA</option>
-            <option>DEVELOPMENT</option>
-            <option>ONGOING</option>
-            <option>TERMINED</option>
-          </select>
-        </div>
-        <div className="cv-field">
-          <label className="cv-field__label">GitHub URL</label>
-          <input
-            className="cv-field__input"
-            value={entry.githubUrl ?? ""}
-            onChange={(e) => onChange({ ...entry, githubUrl: e.target.value || undefined })}
-            placeholder="https://github.com/…"
-          />
-        </div>
-      </div>
-      <div className="cv-field">
-        <label className="cv-field__label">Description</label>
-        <textarea
-          className="cv-field__textarea"
-          value={entry.description}
-          onChange={(e) => onChange({ ...entry, description: e.target.value })}
-          rows={2}
-        />
-      </div>
-      {/* Metrics */}
-      <div className="cv-field">
-        <label className="cv-field__label">Metrics</label>
-        <div className="flex flex-wrap gap-1 mb-2">
-          {Object.entries(entry.metrics).map(([k, v]) => (
-            <span key={k} className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs rounded">
-              {k}: {v}
-              <button
-                type="button"
-                onClick={() => {
-                  const m = { ...entry.metrics }
-                  delete m[k]
-                  onChange({ ...entry, metrics: m })
-                }}
-                className="text-slate-400 hover:text-red-500"
-              >
-                <X className="w-2.5 h-2.5" />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <input className="cv-field__input flex-1" value={mKey} onChange={(e) => setMKey(e.target.value)} placeholder="Key" />
-          <input className="cv-field__input flex-1" value={mVal} onChange={(e) => setMVal(e.target.value)} placeholder="Value" />
-          <button
-            type="button"
-            className="cv-editor-action-btn"
-            onClick={() => {
-              if (mKey.trim() && mVal.trim()) {
-                onChange({ ...entry, metrics: { ...entry.metrics, [mKey.trim()]: mVal.trim() } })
-                setMKey("")
-                setMVal("")
-              }
-            }}
-          >
-            Add
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ── Tags editor ── */
-function TagsEditor({
-  tags,
-  hintTags,
-  onChange,
-}: {
-  tags: string[]
-  hintTags?: string[]
-  onChange: (tags: string[]) => void
-}) {
-  return (
-    <div className="cv-field">
-      <label className="cv-field__label">Tags</label>
-      <div className="flex flex-wrap gap-1 mb-2">
-        {tags.map((tag, i) => (
-          <span key={i} className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 px-2 py-0.5 text-xs rounded">
-            {tag}
-            <button
-              type="button"
-              onClick={() => onChange(tags.filter((_, j) => j !== i))}
-              className="text-slate-400 hover:text-red-500"
-            >
-              <X className="w-2.5 h-2.5" />
-            </button>
-          </span>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <AddInlineInput placeholder="Add tag…" onAdd={(v) => onChange([...tags, v])} />
-        {hintTags && hintTags.length > 0 && tags.length === 0 && (
-          <button type="button" className="cv-field__hint-btn" onClick={() => onChange([...hintTags])}>
-            <Copy className="w-3 h-3" /> Use portfolio tags
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/* ── String list editor (certs, languages, awards, publications) ── */
-function StringListEditor({
-  items,
-  onChange,
-  placeholder,
+/* ── Simple list editor ── */
+function SimpleListSectionEditor({
+  items, onChange,
 }: {
   items: string[]
   onChange: (items: string[]) => void
-  placeholder: string
 }) {
+  const [draft, setDraft] = useState("")
+
+  const add = () => {
+    const v = draft.trim()
+    if (!v) return
+    onChange([...items, v])
+    setDraft("")
+  }
+
+  const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx))
+
   return (
-    <div className="space-y-2">
-      {items.map((item, i) => (
-        <div key={i} className="flex gap-2 items-center">
-          <input
-            className="cv-field__input flex-1"
-            value={item}
-            onChange={(e) => {
-              const updated = [...items]
-              updated[i] = e.target.value
-              onChange(updated)
-            }}
-          />
-          <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="cv-editor-delete-btn">
-            <X className="w-3 h-3" />
-          </button>
-        </div>
-      ))}
-      <AddInlineInput placeholder={placeholder} onAdd={(v) => onChange([...items, v])} />
+    <div className="cv-section-editor">
+      <div className="cv-list-items">
+        {items.map((item, i) => (
+          <div key={i} className="cv-list-item">
+            <input className="cv-field__input" value={item}
+              onChange={(e) => onChange(items.map((it, idx) => (idx === i ? e.target.value : it)))} />
+            <button type="button" className="cv-btn cv-btn--sm cv-btn--danger" onClick={() => remove(i)}>
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="cv-entry-row">
+        <input className="cv-field__input" value={draft} placeholder="Add item…"
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add() } }} />
+        <button type="button" className="cv-btn cv-btn--sm" onClick={add}>
+          <Plus className="w-3 h-3" />
+        </button>
+      </div>
     </div>
   )
 }
 
-/* ── Tiny add-inline input ── */
-function AddInlineInput({ placeholder, onAdd }: { placeholder: string; onAdd: (v: string) => void }) {
-  const [val, setVal] = useState("")
+/* ── Inline tags editor (for within log entries) ── */
+function InlineTagsEditor({
+  label, items, onChange,
+}: {
+  label: string
+  items: string[]
+  onChange: (items: string[]) => void
+}) {
+  const [draft, setDraft] = useState("")
+
+  const add = () => {
+    const v = draft.trim()
+    if (!v || items.includes(v)) return
+    onChange([...items, v])
+    setDraft("")
+  }
+
+  const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx))
+
   return (
-    <div className="flex gap-2">
-      <input
-        className="cv-field__input flex-1"
-        value={val}
-        onChange={(e) => setVal(e.target.value)}
-        placeholder={placeholder}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && val.trim()) {
-            onAdd(val.trim())
-            setVal("")
-          }
-        }}
-      />
-      <button
-        type="button"
-        className="cv-editor-action-btn"
-        onClick={() => {
-          if (val.trim()) {
-            onAdd(val.trim())
-            setVal("")
-          }
-        }}
-      >
-        <Plus className="w-3 h-3" />
-      </button>
+    <div className="cv-field">
+      <label className="cv-field__label">{label}</label>
+      <div className="cv-tags-wrap">
+        {items.map((tag, i) => (
+          <span key={i} className="cv-tag">
+            {tag}
+            <button type="button" className="cv-tag__remove" onClick={() => remove(i)}>×</button>
+          </span>
+        ))}
+        <input
+          className="cv-tags-input"
+          value={draft}
+          placeholder="Add tag…"
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); add() }
+            if (e.key === "Backspace" && !draft && items.length > 0) remove(items.length - 1)
+          }}
+        />
+      </div>
     </div>
   )
 }
 
-/* ================================================================
+/* ════════════════════════════════════════════════════
    Styles
-   ================================================================ */
+   ════════════════════════════════════════════════════ */
 const editorStyles = `
+  /* ── Top bar ── */
   .cv-editor-bar {
     position: sticky;
     top: 0;
-    z-index: 40;
+    z-index: 50;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 10px 20px;
     background: #0f172a;
     color: #f8fafc;
-    padding: 12px 24px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     font-family: var(--font-open-sans), "Open Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   }
   .cv-editor-bar__left,
@@ -1341,33 +1004,18 @@ const editorStyles = `
     align-items: center;
     gap: 4px;
     background: none;
-    border: 1px solid rgba(255,255,255,0.2);
-    color: #cbd5e1;
-    padding: 6px 12px;
+    border: none;
+    color: #94a3b8;
     font-size: 12px;
     cursor: pointer;
-    border-radius: 4px;
+    font-family: inherit;
   }
-  .cv-editor-bar__back:hover { background: rgba(255,255,255,0.1); }
+  .cv-editor-bar__back:hover { color: #f8fafc; }
   .cv-editor-bar__title {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
     letter-spacing: 0.04em;
   }
-  .cv-editor-bar__btn {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: #3b82f6;
-    color: white;
-    border: none;
-    padding: 6px 14px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    border-radius: 4px;
-  }
-  .cv-editor-bar__btn:hover { background: #2563eb; }
   .cv-editor-bar__status {
     display: flex;
     align-items: center;
@@ -1377,64 +1025,70 @@ const editorStyles = `
   }
   .cv-editor-bar__status--ok { color: #4ade80; }
   .cv-editor-bar__status--err { color: #f87171; }
+  .cv-editor-bar__btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #f8fafc;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .cv-editor-bar__btn:hover { background: #334155; }
 
-  /* ── Preset bar ── */
+  /* ── Preset tabs ── */
   .cv-preset-bar {
     position: sticky;
-    top: 49px;
-    z-index: 39;
+    top: 44px;
+    z-index: 49;
     background: #1e293b;
-    padding: 0 24px;
+    padding: 0 20px;
+    overflow-x: auto;
     border-bottom: 1px solid #334155;
-    font-family: var(--font-open-sans), "Open Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   }
   .cv-preset-bar__tabs {
     display: flex;
     gap: 0;
-    overflow-x: auto;
   }
   .cv-preset-tab {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 18px;
-    font-size: 12px;
-    font-weight: 500;
+    padding: 10px 16px;
     color: #94a3b8;
-    background: transparent;
+    background: none;
     border: none;
     border-bottom: 2px solid transparent;
+    font-size: 12px;
     cursor: pointer;
     white-space: nowrap;
-    transition: color 0.15s, border-color 0.15s;
+    font-family: inherit;
+    font-weight: 500;
   }
-  .cv-preset-tab:hover {
-    color: #e2e8f0;
-  }
+  .cv-preset-tab:hover { color: #e2e8f0; }
   .cv-preset-tab--active {
     color: #f8fafc;
     border-bottom-color: #3b82f6;
     font-weight: 600;
   }
-  .cv-preset-tab--hidden {
-    opacity: 0.5;
-  }
-  .cv-preset-tab--add {
-    color: #64748b;
-    font-style: italic;
-  }
-  .cv-preset-tab--add:hover {
-    color: #3b82f6;
-  }
+  .cv-preset-tab--hidden { opacity: 0.5; }
+  .cv-preset-tab--add { color: #64748b; }
+  .cv-preset-tab--add:hover { color: #94a3b8; }
   .cv-preset-tab__layout {
-    font-size: 10px;
-    background: rgba(255,255,255,0.1);
+    font-size: 9px;
+    background: #334155;
+    color: #94a3b8;
     padding: 1px 6px;
     border-radius: 3px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }
 
+  /* ── Main editor area ── */
   .cv-editor-main {
     max-width: 860px;
     width: 100%;
@@ -1449,6 +1103,7 @@ const editorStyles = `
     max-width: none;
   }
 
+  /* ── Card ── */
   .cv-editor-card {
     background: white;
     border: 1px solid #e2e8f0;
@@ -1456,160 +1111,403 @@ const editorStyles = `
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   }
+  .cv-editor-card--muted { opacity: 0.5; }
   .cv-editor-card__header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px 18px;
-    border-bottom: 1px solid #e2e8f0;
+    padding: 12px 16px;
     background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    cursor: pointer;
+    user-select: none;
   }
   .cv-editor-card__title {
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 600;
     color: #0f172a;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    letter-spacing: 0.02em;
   }
-  .cv-editor-card__body {
-    padding: 16px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  .cv-editor-card__title-input {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    border: 1px solid transparent;
+    background: transparent;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: inherit;
+    min-width: 0;
   }
+  .cv-editor-card__title-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background: white;
+  }
+  .cv-editor-card__badge {
+    font-size: 9px;
+    background: #e0e7ff;
+    color: #4338ca;
+    padding: 1px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .cv-editor-card__body { padding: 16px; }
 
-  .cv-field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
+  /* ── Fields ── */
+  .cv-field { display: flex; flex-direction: column; gap: 4px; }
   .cv-field__label {
     font-size: 11px;
     font-weight: 600;
     color: #64748b;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
   }
   .cv-field__input {
     border: 1px solid #e2e8f0;
     border-radius: 4px;
     padding: 7px 10px;
     font-size: 13px;
-    color: #1e293b;
-    background: #fff;
-    outline: none;
-    transition: border-color 0.15s;
+    font-family: inherit;
+    color: #0f172a;
+    background: #ffffff;
   }
-  .cv-field__input:focus { border-color: #3b82f6; }
-  .cv-field__input::placeholder { color: #94a3b8; }
-  .cv-field__textarea {
+  .cv-field__input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+  }
+  .cv-field__textarea { resize: vertical; min-height: 48px; }
+  .cv-field__label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  /* ── AI assistant ── */
+  .ai-assist { position: relative; }
+  .ai-assist__trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border: 1px solid #c7d2fe;
+    border-radius: 4px;
+    background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+    color: #4338ca;
+    font-size: 10px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .ai-assist__trigger:hover { background: linear-gradient(135deg, #e0e7ff, #c7d2fe); }
+  .ai-assist__trigger--loading {
+    opacity: 0.7;
+    cursor: wait;
+  }
+  .ai-assist__menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    z-index: 20;
+    overflow: hidden;
+    min-width: 160px;
+  }
+  .ai-assist__item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-family: inherit;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #334155;
+  }
+  .ai-assist__item:hover { background: #f1f5f9; }
+  .ai-assist__divider {
+    height: 1px;
+    background: #e2e8f0;
+    margin: 2px 0;
+  }
+  .ai-assist__custom {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+  }
+  .ai-assist__custom-input {
+    flex: 1;
     border: 1px solid #e2e8f0;
     border-radius: 4px;
-    padding: 7px 10px;
-    font-size: 13px;
-    color: #1e293b;
-    background: #fff;
-    outline: none;
-    resize: vertical;
-    min-height: 60px;
-    transition: border-color 0.15s;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-family: inherit;
+    min-width: 0;
   }
-  .cv-field__textarea:focus { border-color: #3b82f6; }
-  .cv-field__textarea::placeholder { color: #94a3b8; }
-  .cv-field__hint-btn {
+  .ai-assist__custom-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+  }
+  .ai-assist__custom-go {
+    padding: 4px 10px;
+    border: none;
+    border-radius: 4px;
+    background: #4338ca;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .ai-assist__custom-go:hover { background: #3730a3; }
+  .ai-assist__custom-go:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Buttons ── */
+  .cv-btn {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    background: none;
-    border: 1px dashed #cbd5e1;
-    color: #64748b;
-    font-size: 11px;
-    padding: 3px 8px;
-    border-radius: 3px;
-    cursor: pointer;
-    align-self: flex-start;
-    margin-top: 2px;
-  }
-  .cv-field__hint-btn:hover {
-    border-color: #3b82f6;
-    color: #3b82f6;
-  }
-
-  .cv-editor-entry {
+    padding: 6px 12px;
     border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: 14px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    background: #f8fafc;
+    color: #334155;
+  }
+  .cv-btn:hover { background: #e2e8f0; }
+  .cv-btn--sm { padding: 4px 8px; font-size: 11px; }
+  .cv-btn--danger { color: #dc2626; border-color: #fecaca; }
+  .cv-btn--danger:hover { background: #fef2f2; }
+
+  /* ── Section organizer ── */
+  .section-organizer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .section-zone {
+    border: 2px dashed #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 80px;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+  }
+  .section-zone--drag-over {
+    border-color: #3b82f6;
+    background: #eff6ff;
+  }
+  .section-zone__label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #64748b;
+    margin-bottom: 8px;
+  }
+  .section-zone__chips {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    background: #fafbfc;
+    gap: 4px;
   }
-  .cv-editor-entry__header {
+  .section-zone__empty {
+    font-size: 11px;
+    color: #94a3b8;
+    text-align: center;
+    padding: 16px 0;
+  }
+  .section-zone__add {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 8px;
+    background: none;
+    border: 1px dashed #cbd5e1;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: #64748b;
+    cursor: pointer;
+    font-family: inherit;
+    width: 100%;
+    justify-content: center;
+  }
+  .section-zone__add:hover { border-color: #3b82f6; color: #3b82f6; }
+  .section-zone__menu {
+    position: absolute;
+    bottom: -4px;
+    left: 12px;
+    transform: translateY(100%);
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 10;
+    overflow: hidden;
+  }
+  .section-zone__menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-family: inherit;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #334155;
+  }
+  .section-zone__menu-item:hover { background: #f1f5f9; }
+
+  /* ── Section chip ── */
+  .section-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 5px;
+    font-size: 12px;
+    cursor: grab;
+    transition: opacity 0.15s, box-shadow 0.15s;
+  }
+  .section-chip:active { cursor: grabbing; }
+  .section-chip--dragging { opacity: 0.4; }
+  .section-chip--hidden { opacity: 0.45; }
+  .section-chip__title {
+    font-weight: 500;
+    color: #0f172a;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .section-chip__type {
+    font-size: 9px;
+    background: #e0e7ff;
+    color: #4338ca;
+    padding: 1px 5px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .section-chip__actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .section-chip__btn {
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: #94a3b8;
+    display: flex;
+    border-radius: 3px;
+  }
+  .section-chip__btn:hover { color: #0f172a; background: #e2e8f0; }
+  .section-chip__btn--danger:hover { color: #dc2626; background: #fef2f2; }
+
+  /* ── Entry card (for log/tag editors) ── */
+  .cv-section-editor { display: flex; flex-direction: column; gap: 12px; }
+  .cv-entry-card {
+    border: 1px solid #f1f5f9;
+    background: #fafbfc;
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .cv-entry-card__header {
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-  .cv-editor-entry__badge {
+  .cv-entry-card__num {
     font-size: 10px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 3px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .cv-editor-entry__badge--portfolio {
-    background: #dbeafe;
-    color: #2563eb;
-  }
-  .cv-editor-entry__badge--custom {
-    background: #f0fdf4;
-    color: #16a34a;
+    font-weight: 700;
+    color: #94a3b8;
   }
 
-  .cv-editor-action-btn {
-    display: inline-flex;
+  /* ── Entry row (links, list items) ── */
+  .cv-entry-row {
+    display: flex;
+    gap: 6px;
     align-items: center;
+  }
+  .cv-entry-row .cv-field__input { flex: 1; }
+  .cv-list-items { display: flex; flex-direction: column; gap: 4px; }
+  .cv-list-item { display: flex; gap: 6px; align-items: center; }
+  .cv-list-item .cv-field__input { flex: 1; }
+
+  /* ── Tags inline ── */
+  .cv-tags-wrap {
+    display: flex;
+    flex-wrap: wrap;
     gap: 4px;
-    border: 1px solid #cbd5e1;
-    background: white;
-    color: #475569;
-    font-size: 11px;
-    font-weight: 500;
-    padding: 5px 10px;
+    border: 1px solid #e2e8f0;
     border-radius: 4px;
-    cursor: pointer;
-    white-space: nowrap;
+    padding: 5px 8px;
+    background: #ffffff;
+    min-height: 36px;
+    align-items: center;
   }
-  .cv-editor-action-btn:hover {
-    border-color: #94a3b8;
-    background: #f8fafc;
-  }
-  .cv-editor-action-btn--primary {
-    background: #0f172a;
-    color: white;
-    border-color: #0f172a;
-  }
-  .cv-editor-action-btn--primary:hover {
-    background: #1e293b;
-  }
-
-  .cv-editor-delete-btn {
+  .cv-tag {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    background: none;
-    border: 1px solid #fecaca;
-    color: #ef4444;
-    font-size: 11px;
-    padding: 3px 8px;
+    gap: 2px;
+    background: #e0e7ff;
+    color: #3730a3;
+    padding: 1px 6px;
     border-radius: 3px;
-    cursor: pointer;
+    font-size: 11px;
   }
-  .cv-editor-delete-btn:hover {
-    background: #fef2f2;
-    border-color: #ef4444;
+  .cv-tag__remove {
+    background: none;
+    border: none;
+    color: #6366f1;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0 0 0 2px;
+    line-height: 1;
+  }
+  .cv-tag__remove:hover { color: #dc2626; }
+  .cv-tags-input {
+    border: none;
+    outline: none;
+    font-size: 12px;
+    min-width: 80px;
+    flex: 1;
+    font-family: inherit;
+    background: transparent;
+  }
+
+  /* ── Empty state ── */
+  .cv-editor-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 80px 0;
+    color: #64748b;
+    font-size: 14px;
   }
 
   /* ── Split layout ── */
@@ -1649,25 +1547,19 @@ const editorStyles = `
     text-transform: uppercase;
     letter-spacing: 0.1em;
   }
-  .cv-editor-preview-header__layout {
-    font-size: 10px;
-    background: rgba(255,255,255,0.15);
-    padding: 2px 8px;
-    border-radius: 3px;
-    text-transform: uppercase;
-  }
-  .cv-editor-preview-scaler {
-    flex: 1;
-    overflow: auto;
-    padding: 16px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-  }
   .cv-editor-preview-header__controls {
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+  .cv-editor-preview-header__layout {
+    font-size: 10px;
+    background: #334155;
+    color: #94a3b8;
+    padding: 1px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
   }
   .cv-editor-preview-zoom-btn {
     background: rgba(255,255,255,0.15);
@@ -1684,62 +1576,61 @@ const editorStyles = `
     font-weight: 700;
     line-height: 1;
   }
-  .cv-editor-preview-zoom-btn:hover {
-    background: rgba(255,255,255,0.25);
-  }
+  .cv-editor-preview-zoom-btn:hover { background: rgba(255,255,255,0.25); }
   .cv-editor-preview-zoom-label {
     font-size: 10px;
     color: #94a3b8;
     min-width: 32px;
     text-align: center;
   }
-
-  /* ── Mobile toggle ── */
-  .cv-editor-mobile-toggle {
-    display: none;
+  .cv-editor-preview-scaler {
+    flex: 1;
+    overflow: auto;
+    padding: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
   }
 
-  /* ── Mobile responsive ── */
+  /* ── Mobile toggle ── */
+  .cv-editor-mobile-toggle { display: none; }
+
+  /* ── Responsive ── */
   @media screen and (max-width: 1024px) {
     .cv-editor-split {
       grid-template-columns: 1fr;
     }
     .cv-editor-split__editor {
-      max-height: none;
-    }
-    .cv-editor-split__preview {
-      display: none;
-      position: relative;
-      top: 0;
+      display: block;
       height: auto;
-      min-height: calc(100vh - 140px);
     }
-    .cv-editor-split--preview-mode .cv-editor-split__editor {
-      display: none;
-    }
+    .cv-editor-split__preview { display: none; }
+    .cv-editor-split--preview-mode .cv-editor-split__editor { display: none; }
     .cv-editor-split--preview-mode .cv-editor-split__preview {
       display: flex;
+      position: static;
+      height: auto;
+      min-height: calc(100vh - 130px);
     }
     .cv-editor-mobile-toggle {
       display: flex;
       justify-content: center;
       gap: 0;
-      padding: 0 16px;
-      background: #0f172a;
+      background: #1e293b;
       border-bottom: 1px solid #334155;
-      font-family: var(--font-open-sans), "Open Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      padding: 0 20px;
     }
     .cv-editor-mobile-toggle__btn {
       display: flex;
       align-items: center;
       gap: 4px;
-      padding: 10px 24px;
-      font-size: 12px;
-      font-weight: 500;
-      background: transparent;
+      padding: 8px 20px;
+      background: none;
       border: none;
       border-bottom: 2px solid transparent;
-      color: #94a3b8;
+      color: #64748b;
+      font-size: 12px;
+      font-family: inherit;
       cursor: pointer;
     }
     .cv-editor-mobile-toggle__btn--active {
@@ -1747,6 +1638,7 @@ const editorStyles = `
       border-bottom-color: #3b82f6;
       font-weight: 600;
     }
+    .section-organizer { grid-template-columns: 1fr; }
   }
   @media screen and (max-width: 768px) {
     .cv-editor-bar {
@@ -1758,43 +1650,6 @@ const editorStyles = `
     .cv-editor-bar__right {
       width: 100%;
       justify-content: space-between;
-    }
-    .cv-editor-bar__title {
-      font-size: 14px;
-    }
-    .cv-preset-bar {
-      top: auto;
-      position: relative;
-      padding: 0 8px;
-    }
-    .cv-preset-bar__tabs {
-      -webkit-overflow-scrolling: touch;
-    }
-    .cv-preset-tab {
-      padding: 8px 12px;
-      font-size: 11px;
-    }
-    .cv-editor-main {
-      padding: 0 8px 32px;
-      margin: 16px auto;
-      gap: 14px;
-    }
-    .cv-editor-card__header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
-      padding: 10px 12px;
-    }
-    .cv-editor-card__body {
-      padding: 12px;
-    }
-    .cv-editor-entry {
-      padding: 10px;
-    }
-    .cv-editor-entry__header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 6px;
     }
   }
 `
