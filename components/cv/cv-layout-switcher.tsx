@@ -58,6 +58,14 @@ export function CvLayoutSwitcher({
           ))}
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+          <button
+            type="button"
+            onClick={() => router.push("/")}
+            className="toolbar__button"
+            style={{ background: "transparent", color: "#0f172a", borderColor: "#0f172a" }}
+          >
+            ← HOME
+          </button>
           {isAuthenticated && (
             <button
               type="button"

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -31,6 +31,10 @@ import type {
 } from "@/lib/cv-content"
 import { emptyCvContent } from "@/lib/cv-content"
 import type { CvPreset, CvLayoutId } from "@/lib/cv-presets"
+import { createCvData } from "@/lib/cv-data-transform"
+import { ClassicLayout } from "@/components/cv/classic-layout"
+import { ResumeLayout } from "@/components/cv/resume-layout"
+import profilePicture from "@/app/prof_pic.jpeg"
 
 /* ── tiny id helper ── */
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -53,6 +57,12 @@ export default function CvEditorPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mobileView, setMobileView] = useState<"editor" | "preview">("editor")
+  const [previewZoom, setPreviewZoom] = useState(0.5)
+
+  /* debounce / abort refs */
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   /* ── cursor visibility (must run before any early returns) ── */
   useEffect(() => {
@@ -110,25 +120,40 @@ export default function CvEditorPage() {
     })()
   }, [isAuthenticated])
 
-  /* ── persist all presets ── */
-  const persist = useCallback(async (data: CvPreset[]) => {
+  /* ── persist all presets (debounced 600ms, with abort) ── */
+  const persist = useCallback((data: CvPreset[]) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    if (abortRef.current) abortRef.current.abort()
+
     setSaving(true)
     setSaved(false)
-    try {
-      const res = await fetch("/api/cv/presets", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ presets: data }),
-      })
-      if (!res.ok) throw new Error("Save failed")
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2000)
-    } catch (e) {
-      console.error(e)
-      setError("Failed to save")
-    } finally {
-      setSaving(false)
-    }
+    setError(null)
+
+    saveTimerRef.current = setTimeout(async () => {
+      const controller = new AbortController()
+      abortRef.current = controller
+      try {
+        const res = await fetch("/api/cv/presets", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ presets: data }),
+          signal: controller.signal,
+        })
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}))
+          console.error("Save response:", res.status, errBody)
+          throw new Error(`Save failed: ${res.status}`)
+        }
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name === "AbortError") return
+        console.error(e)
+        setError("Failed to save")
+      } finally {
+        setSaving(false)
+      }
+    }, 600)
   }, [])
 
   const updatePresets = useCallback(
@@ -155,6 +180,9 @@ export default function CvEditorPage() {
   /* Active preset */
   const activePreset = presets.find((p) => p.id === activePresetId)
   const cv = activePreset?.content ?? emptyCvContent()
+
+  /* Live preview data — recomputed on every change */
+  const previewData = activePreset ? createCvData(activePreset.content) : null
 
   /* ── import helpers ── */
   const importAllExperience = () => {
@@ -306,11 +334,11 @@ export default function CvEditorPage() {
             <span className="cv-editor-bar__status cv-editor-bar__status--err">{error}</span>
           )}
           <button
-            onClick={() => router.push("/cv")}
+            onClick={() => router.push("/")}
             className="cv-editor-bar__btn"
             type="button"
           >
-            <Eye className="w-4 h-4" /> Preview CV
+            <ArrowLeft className="w-4 h-4" /> Home
           </button>
         </div>
       </header>
@@ -336,7 +364,29 @@ export default function CvEditorPage() {
         </div>
       </div>
 
+      {/* ── Mobile view toggle ── */}
+      {activePreset && (
+        <div className="cv-editor-mobile-toggle">
+          <button
+            type="button"
+            onClick={() => setMobileView("editor")}
+            className={`cv-editor-mobile-toggle__btn ${mobileView === "editor" ? "cv-editor-mobile-toggle__btn--active" : ""}`}
+          >
+            Editor
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileView("preview")}
+            className={`cv-editor-mobile-toggle__btn ${mobileView === "preview" ? "cv-editor-mobile-toggle__btn--active" : ""}`}
+          >
+            <Eye className="w-3 h-3" /> Preview
+          </button>
+        </div>
+      )}
+
       {activePreset ? (
+        <div className={`cv-editor-split ${mobileView === "preview" ? "cv-editor-split--preview-mode" : ""}`}>
+        <div className="cv-editor-split__editor">
         <main className="cv-editor-main">
           {/* ─────────── Preset Settings ─────────── */}
           <EditorCard title="Preset Settings" icon={<LayoutTemplate className="w-4 h-4" />}>
@@ -662,6 +712,43 @@ export default function CvEditorPage() {
             />
           </EditorCard>
         </main>
+        </div>
+
+        {/* ── Live preview panel ── */}
+        <aside className="cv-editor-split__preview">
+          <div className="cv-editor-preview-header">
+            <span className="cv-editor-preview-header__title">Live Preview</span>
+            <div className="cv-editor-preview-header__controls">
+              <button
+                type="button"
+                onClick={() => setPreviewZoom((z) => Math.max(0.2, z - 0.1))}
+                className="cv-editor-preview-zoom-btn"
+                title="Zoom out"
+              >
+                −
+              </button>
+              <span className="cv-editor-preview-zoom-label">{Math.round(previewZoom * 100)}%</span>
+              <button
+                type="button"
+                onClick={() => setPreviewZoom((z) => Math.min(1, z + 0.1))}
+                className="cv-editor-preview-zoom-btn"
+                title="Zoom in"
+              >
+                +
+              </button>
+              <span className="cv-editor-preview-header__layout">{activePreset.layout}</span>
+            </div>
+          </div>
+          <div className="cv-editor-preview-scaler" style={{ zoom: previewZoom } as React.CSSProperties}>
+            {previewData && activePreset.layout === "classic" && (
+              <ClassicLayout data={previewData} profilePicture={profilePicture} />
+            )}
+            {previewData && activePreset.layout === "resume" && (
+              <ResumeLayout data={previewData} profilePicture={profilePicture} />
+            )}
+          </div>
+        </aside>
+        </div>
       ) : (
         <main className="cv-editor-main">
           <div className="text-center py-16 text-slate-400">
@@ -1350,12 +1437,16 @@ const editorStyles = `
 
   .cv-editor-main {
     max-width: 860px;
+    width: 100%;
     margin: 24px auto;
     padding: 0 16px 48px;
     display: flex;
     flex-direction: column;
     gap: 20px;
     font-family: var(--font-open-sans), "Open Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+  .cv-editor-split__editor .cv-editor-main {
+    max-width: none;
   }
 
   .cv-editor-card {
@@ -1521,7 +1612,142 @@ const editorStyles = `
     border-color: #ef4444;
   }
 
+  /* ── Split layout ── */
+  .cv-editor-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-height: calc(100vh - 90px);
+  }
+  .cv-editor-split__editor {
+    overflow-y: auto;
+    height: calc(100vh - 90px);
+    min-height: 0;
+  }
+  .cv-editor-split__preview {
+    position: sticky;
+    top: 90px;
+    height: calc(100vh - 90px);
+    overflow-y: auto;
+    background: #d1d5db;
+    border-left: 1px solid #cbd5e1;
+    display: flex;
+    flex-direction: column;
+  }
+  .cv-editor-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: #1e293b;
+    color: #f8fafc;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    font-family: var(--font-open-sans), "Open Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+  .cv-editor-preview-header__title {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .cv-editor-preview-header__layout {
+    font-size: 10px;
+    background: rgba(255,255,255,0.15);
+    padding: 2px 8px;
+    border-radius: 3px;
+    text-transform: uppercase;
+  }
+  .cv-editor-preview-scaler {
+    flex: 1;
+    overflow: auto;
+    padding: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .cv-editor-preview-header__controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cv-editor-preview-zoom-btn {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #f8fafc;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .cv-editor-preview-zoom-btn:hover {
+    background: rgba(255,255,255,0.25);
+  }
+  .cv-editor-preview-zoom-label {
+    font-size: 10px;
+    color: #94a3b8;
+    min-width: 32px;
+    text-align: center;
+  }
+
+  /* ── Mobile toggle ── */
+  .cv-editor-mobile-toggle {
+    display: none;
+  }
+
   /* ── Mobile responsive ── */
+  @media screen and (max-width: 1024px) {
+    .cv-editor-split {
+      grid-template-columns: 1fr;
+    }
+    .cv-editor-split__editor {
+      max-height: none;
+    }
+    .cv-editor-split__preview {
+      display: none;
+      position: relative;
+      top: 0;
+      height: auto;
+      min-height: calc(100vh - 140px);
+    }
+    .cv-editor-split--preview-mode .cv-editor-split__editor {
+      display: none;
+    }
+    .cv-editor-split--preview-mode .cv-editor-split__preview {
+      display: flex;
+    }
+    .cv-editor-mobile-toggle {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      padding: 0 16px;
+      background: #0f172a;
+      border-bottom: 1px solid #334155;
+      font-family: var(--font-open-sans), "Open Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    }
+    .cv-editor-mobile-toggle__btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 10px 24px;
+      font-size: 12px;
+      font-weight: 500;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #94a3b8;
+      cursor: pointer;
+    }
+    .cv-editor-mobile-toggle__btn--active {
+      color: #f8fafc;
+      border-bottom-color: #3b82f6;
+      font-weight: 600;
+    }
+  }
   @media screen and (max-width: 768px) {
     .cv-editor-bar {
       flex-direction: column;
