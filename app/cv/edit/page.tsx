@@ -195,6 +195,38 @@ export default function CvEditorPage() {
     [updateSectionById],
   )
 
+  /** Move a section to a given placement and insert it at a specific
+    * position among the sections in that zone. */
+  const moveSection = useCallback(
+    (sectionId: string, placement: "sidebar" | "main", zoneIndex: number) => {
+      updateSections((ss) => {
+        const srcIdx = ss.findIndex((s) => s.id === sectionId)
+        if (srcIdx === -1) return ss
+
+        // Remove from current position
+        const next = [...ss]
+        const [moved] = next.splice(srcIdx, 1)
+        moved.placement = placement
+
+        // Find the absolute index to insert at based on the zone position
+        const zoneItems = next.filter((s) => s.placement === placement)
+        if (zoneIndex >= zoneItems.length) {
+          // Append at end — find last item of this zone and insert after it
+          let lastZoneIdx = -1
+          next.forEach((s, i) => { if (s.placement === placement) lastZoneIdx = i })
+          next.splice(lastZoneIdx + 1, 0, moved)
+        } else {
+          // Insert before the item currently at zoneIndex
+          const targetId = zoneItems[zoneIndex].id
+          const absIdx = next.findIndex((s) => s.id === targetId)
+          next.splice(absIdx, 0, moved)
+        }
+        return next
+      })
+    },
+    [updateSections],
+  )
+
   const swapSection = useCallback(
     (sectionId: string, dir: -1 | 1) => {
       updateSections((ss) => {
@@ -393,7 +425,7 @@ export default function CvEditorPage() {
               <EditorCard title="Section Layout" icon={<GripVertical className="w-4 h-4" />}>
                 <SectionLayoutOrganizer
                   sections={cv.sections}
-                  onMovePlacement={moveSectionPlacement}
+                  onMove={moveSection}
                   onSwap={swapSection}
                   onToggleVisibility={toggleSectionVisibility}
                   onDelete={deleteSection}
@@ -640,21 +672,21 @@ function AiTextAssistant({ text, onResult }: { text: string; onResult: (v: strin
    ═══════════════════════════════════════ */
 function SectionLayoutOrganizer({
   sections,
-  onMovePlacement,
+  onMove,
   onSwap,
   onToggleVisibility,
   onDelete,
   onAdd,
 }: {
   sections: CvSection[]
-  onMovePlacement: (id: string, placement: "sidebar" | "main") => void
+  onMove: (id: string, placement: "sidebar" | "main", zoneIndex: number) => void
   onSwap: (id: string, dir: -1 | 1) => void
   onToggleVisibility: (id: string) => void
   onDelete: (id: string) => void
   onAdd: (type: CvSectionType, placement: "sidebar" | "main") => void
 }) {
   const [dragId, setDragId] = useState<string | null>(null)
-  const [dragOverZone, setDragOverZone] = useState<"sidebar" | "main" | null>(null)
+  const [dropTarget, setDropTarget] = useState<{ zone: "sidebar" | "main"; index: number } | null>(null)
   const [addMenuPlacement, setAddMenuPlacement] = useState<"sidebar" | "main" | null>(null)
 
   const sidebarSections = sections.filter((s) => s.placement === "sidebar")
@@ -666,87 +698,119 @@ function SectionLayoutOrganizer({
     e.dataTransfer.setData("text/plain", id)
   }
 
-  const handleDragOver = (e: React.DragEvent, zone: "sidebar" | "main") => {
+  const handleDragEnd = () => { setDragId(null); setDropTarget(null) }
+
+  /** Determine drop index from mouse position relative to chip elements */
+  const handleChipDragOver = (e: React.DragEvent, zone: "sidebar" | "main", idx: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = "move"
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const midY = rect.top + rect.height / 2
+    const insertIdx = e.clientY < midY ? idx : idx + 1
+    setDropTarget({ zone, index: insertIdx })
+  }
+
+  const handleZoneDragOver = (e: React.DragEvent, zone: "sidebar" | "main", count: number) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = "move"
-    setDragOverZone(zone)
+    // Only set dropTarget to end if we're not already over a chip
+    if (!dropTarget || dropTarget.zone !== zone) {
+      setDropTarget({ zone, index: count })
+    }
   }
 
-  const handleDrop = (e: React.DragEvent, zone: "sidebar" | "main") => {
+  const handleDrop = (e: React.DragEvent, zone: "sidebar" | "main", fallbackIndex: number) => {
     e.preventDefault()
     const id = e.dataTransfer.getData("text/plain")
-    if (id) onMovePlacement(id, zone)
+    if (!id) return
+    const idx = dropTarget && dropTarget.zone === zone ? dropTarget.index : fallbackIndex
+    onMove(id, zone, idx)
     setDragId(null)
-    setDragOverZone(null)
+    setDropTarget(null)
   }
 
-  const handleDragEnd = () => { setDragId(null); setDragOverZone(null) }
-
-  const renderZone = (label: string, placement: "sidebar" | "main", items: CvSection[]) => (
-    <div
-      className={`section-zone ${dragOverZone === placement ? "section-zone--drag-over" : ""}`}
-      onDragOver={(e) => handleDragOver(e, placement)}
-      onDragLeave={() => setDragOverZone(null)}
-      onDrop={(e) => handleDrop(e, placement)}
-    >
-      <div className="section-zone__label">{label}</div>
-      <div className="section-zone__chips">
-        {items.map((s, i) => (
-          <div
-            key={s.id}
-            className={`section-chip ${dragId === s.id ? "section-chip--dragging" : ""} ${!s.visible ? "section-chip--hidden" : ""}`}
-            draggable
-            onDragStart={(e) => handleDragStart(e, s.id)}
-            onDragEnd={handleDragEnd}
-          >
-            <GripVertical className="w-3 h-3 text-slate-400 flex-shrink-0 cursor-grab" />
-            <span className="section-chip__title">{s.title}</span>
-            <span className="section-chip__type">{SECTION_TYPE_LABELS[s.type]}</span>
-            <div className="section-chip__actions">
-              {i > 0 && (
-                <button type="button" className="section-chip__btn" onClick={() => onSwap(s.id, -1)} title="Move up">
-                  <ChevronUp className="w-3 h-3" />
-                </button>
+  const renderZone = (label: string, placement: "sidebar" | "main", items: CvSection[]) => {
+    const isOver = dropTarget?.zone === placement
+    return (
+      <div
+        className={`section-zone ${isOver ? "section-zone--drag-over" : ""}`}
+        onDragOver={(e) => handleZoneDragOver(e, placement, items.length)}
+        onDragLeave={(e) => {
+          // Only clear if leaving the zone itself
+          if (e.currentTarget === e.target) setDropTarget(null)
+        }}
+        onDrop={(e) => handleDrop(e, placement, items.length)}
+      >
+        <div className="section-zone__label">{label}</div>
+        <div className="section-zone__chips">
+          {items.map((s, i) => (
+            <div key={s.id} style={{ position: "relative" }}>
+              {/* Drop indicator above this chip */}
+              {isOver && dropTarget.index === i && dragId !== s.id && (
+                <div className="section-drop-indicator" />
               )}
-              {i < items.length - 1 && (
-                <button type="button" className="section-chip__btn" onClick={() => onSwap(s.id, 1)} title="Move down">
-                  <ChevronDown className="w-3 h-3" />
-                </button>
-              )}
-              <button type="button" className="section-chip__btn" onClick={() => onToggleVisibility(s.id)}
-                title={s.visible ? "Hide" : "Show"}>
-                {s.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-              </button>
-              <button type="button" className="section-chip__btn section-chip__btn--danger"
-                onClick={() => onDelete(s.id)} title="Delete">
-                <X className="w-3 h-3" />
-              </button>
+              <div
+                className={`section-chip ${dragId === s.id ? "section-chip--dragging" : ""} ${!s.visible ? "section-chip--hidden" : ""}`}
+                draggable
+                onDragStart={(e) => handleDragStart(e, s.id)}
+                onDragEnd={handleDragEnd}
+                onDragOver={(e) => handleChipDragOver(e, placement, i)}
+              >
+                <GripVertical className="w-3 h-3 text-slate-400 flex-shrink-0 cursor-grab" />
+                <span className="section-chip__title">{s.title}</span>
+                <span className="section-chip__type">{SECTION_TYPE_LABELS[s.type]}</span>
+                <div className="section-chip__actions">
+                  {i > 0 && (
+                    <button type="button" className="section-chip__btn" onClick={() => onSwap(s.id, -1)} title="Move up">
+                      <ChevronUp className="w-3 h-3" />
+                    </button>
+                  )}
+                  {i < items.length - 1 && (
+                    <button type="button" className="section-chip__btn" onClick={() => onSwap(s.id, 1)} title="Move down">
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
+                  )}
+                  <button type="button" className="section-chip__btn" onClick={() => onToggleVisibility(s.id)}
+                    title={s.visible ? "Hide" : "Show"}>
+                    {s.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                  </button>
+                  <button type="button" className="section-chip__btn section-chip__btn--danger"
+                    onClick={() => onDelete(s.id)} title="Delete">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
             </div>
+          ))}
+          {/* Drop indicator at end */}
+          {isOver && dropTarget.index === items.length && (
+            <div className="section-drop-indicator" />
+          )}
+          {items.length === 0 && !isOver && (
+            <div className="section-zone__empty">Drop sections here</div>
+          )}
+        </div>
+        <button
+          type="button"
+          className="section-zone__add"
+          onClick={() => setAddMenuPlacement(addMenuPlacement === placement ? null : placement)}
+        >
+          <Plus className="w-3 h-3" /> Add Section
+        </button>
+        {addMenuPlacement === placement && (
+          <div className="section-zone__menu">
+            {(["log", "tags", "text", "links", "simple-list"] as CvSectionType[]).map((t) => (
+              <button key={t} type="button" className="section-zone__menu-item"
+                onClick={() => { onAdd(t, placement); setAddMenuPlacement(null) }}>
+                {SECTION_TYPE_LABELS[t]}
+              </button>
+            ))}
           </div>
-        ))}
-        {items.length === 0 && (
-          <div className="section-zone__empty">Drop sections here</div>
         )}
       </div>
-      <button
-        type="button"
-        className="section-zone__add"
-        onClick={() => setAddMenuPlacement(addMenuPlacement === placement ? null : placement)}
-      >
-        <Plus className="w-3 h-3" /> Add Section
-      </button>
-      {addMenuPlacement === placement && (
-        <div className="section-zone__menu">
-          {(["log", "tags", "text", "links", "simple-list"] as CvSectionType[]).map((t) => (
-            <button key={t} type="button" className="section-zone__menu-item"
-              onClick={() => { onAdd(t, placement); setAddMenuPlacement(null) }}>
-              {SECTION_TYPE_LABELS[t]}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+    )
+  }
 
   return (
     <div className="section-organizer">
@@ -1387,6 +1451,12 @@ const editorStyles = `
   .section-chip:active { cursor: grabbing; }
   .section-chip--dragging { opacity: 0.4; }
   .section-chip--hidden { opacity: 0.45; }
+  .section-drop-indicator {
+    height: 2px;
+    background: #3b82f6;
+    border-radius: 1px;
+    margin: 2px 0;
+  }
   .section-chip__title {
     font-weight: 500;
     color: #0f172a;
