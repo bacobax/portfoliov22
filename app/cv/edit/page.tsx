@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Download,
   Eye,
   EyeOff,
   GripVertical,
@@ -17,6 +18,7 @@ import {
   Trash2,
   X,
 } from "lucide-react"
+import type { ExperienceEntry, EducationEntry, Project } from "@/lib/default-content"
 
 import type { PortfolioContent } from "@/lib/default-content"
 import type {
@@ -103,7 +105,7 @@ export default function CvEditorPage() {
         ])
         const pData = await pRes.json()
         const cData = await cRes.json()
-        setPortfolio(cData as PortfolioContent)
+        setPortfolio((cData.content ?? cData) as PortfolioContent)
         const loaded: CvPreset[] = pData.presets ?? []
         setPresets(loaded)
         if (loaded.length > 0) setActivePresetId(loaded[0].id)
@@ -446,6 +448,7 @@ export default function CvEditorPage() {
                   <SectionDataEditor
                     section={section}
                     onChange={(data) => updateSectionById(section.id, (s) => ({ ...s, data }))}
+                    portfolio={portfolio}
                   />
                 </EditorCard>
               ))}
@@ -823,11 +826,15 @@ function SectionLayoutOrganizer({
 /* ═══════════════════════════════════════
    Section Data Editors (per type)
    ═══════════════════════════════════════ */
-function SectionDataEditor({ section, onChange }: { section: CvSection; onChange: (d: CvSectionData) => void }) {
+function SectionDataEditor({ section, onChange, portfolio }: {
+  section: CvSection
+  onChange: (d: CvSectionData) => void
+  portfolio?: PortfolioContent | null
+}) {
   const d = section.data
   switch (d.type) {
     case "log":
-      return <LogSectionEditor entries={d.entries} onChange={(entries) => onChange({ type: "log", entries })} />
+      return <LogSectionEditor entries={d.entries} onChange={(entries) => onChange({ type: "log", entries })} portfolio={portfolio} />
     case "tags":
       return <TagsSectionEditor groups={d.groups} onChange={(groups) => onChange({ type: "tags", groups })} />
     case "text":
@@ -839,12 +846,164 @@ function SectionDataEditor({ section, onChange }: { section: CvSection; onChange
   }
 }
 
+/* ══════════════════════════════════════
+   Portfolio Importer
+   ══════════════════════════════════════ */
+
+function parseYearRange(year: string): { dateStart: string; dateEnd: string } {
+  const parts = year.split(/\s*[-–]\s*/)
+  return { dateStart: parts[0]?.trim() ?? year, dateEnd: parts[1]?.trim() ?? "" }
+}
+
+function experienceToEntry(e: ExperienceEntry): CvLogEntry {
+  const { dateStart, dateEnd } = parseYearRange(e.year)
+  return { id: uid(), title: e.title, subtitle: e.company, dateStart, dateEnd, description: e.cvDescription || e.description, tags: [...e.tags] }
+}
+
+function educationToEntry(e: EducationEntry): CvLogEntry {
+  const { dateStart, dateEnd } = parseYearRange(e.year)
+  return { id: uid(), title: e.degree, subtitle: e.institution, dateStart, dateEnd, description: e.cvDescription || e.description, tags: [...e.tags] }
+}
+
+function projectToEntry(p: Project, categoryName?: string): CvLogEntry {
+  return {
+    id: uid(),
+    title: p.title,
+    subtitle: categoryName ?? "",
+    dateStart: "",
+    dateEnd: "",
+    description: p.cvDescription || p.description,
+    tags: [],
+    url: p.projectUrl || p.githubUrl || undefined,
+  }
+}
+
+type ImportTab = "experiences" | "education" | "projects"
+
+function PortfolioImporter({ portfolio, onImport }: { portfolio: PortfolioContent; onImport: (e: CvLogEntry) => void }) {
+  const [open, setOpen] = useState(false)
+  const [tab, setTab] = useState<ImportTab>("experiences")
+  const [justAdded, setJustAdded] = useState<Set<string>>(new Set())
+
+  const handleImport = (entry: CvLogEntry, key: string) => {
+    onImport(entry)
+    setJustAdded((prev) => new Set([...prev, key]))
+    setTimeout(() => setJustAdded((prev) => { const next = new Set(prev); next.delete(key); return next }), 1500)
+  }
+
+  const allProjects = (portfolio.projectCategories ?? []).flatMap((cat) =>
+    cat.projects.map((p) => ({ p, catName: cat.name })),
+  )
+
+  return (
+    <div className="portfolio-importer">
+      <button
+        type="button"
+        className={`portfolio-importer__toggle ${open ? "portfolio-importer__toggle--open" : ""}`}
+        onClick={() => setOpen(!open)}
+      >
+        <Download className="w-3 h-3" />
+        Import from Portfolio
+        {open ? <ChevronUp className="w-3 h-3 ml-auto" /> : <ChevronDown className="w-3 h-3 ml-auto" />}
+      </button>
+
+      {open && (
+        <div className="portfolio-importer__panel">
+          {/* Tabs */}
+          <div className="portfolio-importer__tabs">
+            {(["experiences", "education", "projects"] as ImportTab[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                className={`portfolio-importer__tab ${tab === t ? "portfolio-importer__tab--active" : ""}`}
+                onClick={() => setTab(t)}
+              >
+                {t === "experiences" ? "Experiences" : t === "education" ? "Education" : "Projects"}
+                <span className="portfolio-importer__tab-count">
+                  {t === "experiences" ? (portfolio.experienceLog ?? []).length
+                    : t === "education" ? (portfolio.educationLog ?? []).length
+                    : allProjects.length}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Items */}
+          <div className="portfolio-importer__items">
+            {tab === "experiences" && (portfolio.experienceLog ?? []).map((exp, i) => {
+              const key = `exp-${i}`
+              return (
+                <div key={key} className="portfolio-importer__item">
+                  <div className="portfolio-importer__item-info">
+                    <span className="portfolio-importer__item-title">{exp.title}</span>
+                    <span className="portfolio-importer__item-sub">{exp.company} — {exp.year}</span>
+                  </div>
+                  <button type="button"
+                    className={`portfolio-importer__add ${justAdded.has(key) ? "portfolio-importer__add--done" : ""}`}
+                    onClick={() => handleImport(experienceToEntry(exp), key)}>
+                    {justAdded.has(key) ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                  </button>
+                </div>
+              )
+            })}
+
+            {tab === "education" && (portfolio.educationLog ?? []).map((edu, i) => {
+              const key = `edu-${i}`
+              return (
+                <div key={key} className="portfolio-importer__item">
+                  <div className="portfolio-importer__item-info">
+                    <span className="portfolio-importer__item-title">{edu.degree}</span>
+                    <span className="portfolio-importer__item-sub">{edu.institution} — {edu.year}</span>
+                  </div>
+                  <button type="button"
+                    className={`portfolio-importer__add ${justAdded.has(key) ? "portfolio-importer__add--done" : ""}`}
+                    onClick={() => handleImport(educationToEntry(edu), key)}>
+                    {justAdded.has(key) ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                  </button>
+                </div>
+              )
+            })}
+
+            {tab === "projects" && allProjects.map(({ p, catName }, i) => {
+              const key = `proj-${i}`
+              return (
+                <div key={key} className="portfolio-importer__item">
+                  <div className="portfolio-importer__item-info">
+                    <span className="portfolio-importer__item-title">{p.title}</span>
+                    <span className="portfolio-importer__item-sub">{catName}{p.status ? ` — ${p.status}` : ""}</span>
+                  </div>
+                  <button type="button"
+                    className={`portfolio-importer__add ${justAdded.has(key) ? "portfolio-importer__add--done" : ""}`}
+                    onClick={() => handleImport(projectToEntry(p, catName), key)}>
+                    {justAdded.has(key) ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                  </button>
+                </div>
+              )
+            })}
+
+            {tab === "experiences" && (portfolio.experienceLog ?? []).length === 0 && (
+              <p className="portfolio-importer__empty">No experience entries in portfolio.</p>
+            )}
+            {tab === "education" && (portfolio.educationLog ?? []).length === 0 && (
+              <p className="portfolio-importer__empty">No education entries in portfolio.</p>
+            )}
+            {tab === "projects" && allProjects.length === 0 && (
+              <p className="portfolio-importer__empty">No projects in portfolio.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ── Log (timeline) editor ── */
 function LogSectionEditor({
-  entries, onChange,
+  entries, onChange, portfolio,
 }: {
   entries: CvLogEntry[]
   onChange: (e: CvLogEntry[]) => void
+  portfolio?: PortfolioContent | null
 }) {
   const update = (idx: number, patch: Partial<CvLogEntry>) =>
     onChange(entries.map((e, i) => (i === idx ? { ...e, ...patch } : e)))
@@ -854,8 +1013,15 @@ function LogSectionEditor({
 
   const remove = (idx: number) => onChange(entries.filter((_, i) => i !== idx))
 
+  const appendEntry = (entry: CvLogEntry) => onChange([...entries, entry])
+
   return (
     <div className="cv-section-editor">
+      {/* Portfolio import helper */}
+      {portfolio && (
+        <PortfolioImporter portfolio={portfolio} onImport={appendEntry} />
+      )}
+
       {entries.map((entry, i) => (
         <div key={entry.id} className="cv-entry-card">
           <div className="cv-entry-card__header">
@@ -1567,6 +1733,128 @@ const editorStyles = `
     flex: 1;
     font-family: inherit;
     background: transparent;
+  }
+
+  /* ── Portfolio importer ── */
+  .portfolio-importer {
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #f8fafc;
+  }
+  .portfolio-importer__toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    font-size: 12px;
+    font-family: inherit;
+    font-weight: 500;
+    color: #334155;
+    cursor: pointer;
+    text-align: left;
+  }
+  .portfolio-importer__toggle:hover { background: #f1f5f9; }
+  .portfolio-importer__toggle--open {
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .portfolio-importer__panel { padding: 0; }
+  .portfolio-importer__tabs {
+    display: flex;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .portfolio-importer__tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 12px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font-size: 11px;
+    font-family: inherit;
+    font-weight: 500;
+    color: #64748b;
+    cursor: pointer;
+  }
+  .portfolio-importer__tab:hover { color: #334155; }
+  .portfolio-importer__tab--active {
+    color: #0f172a;
+    border-bottom-color: #3b82f6;
+    font-weight: 600;
+  }
+  .portfolio-importer__tab-count {
+    background: #e2e8f0;
+    color: #64748b;
+    font-size: 9px;
+    padding: 0 5px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+  .portfolio-importer__items {
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .portfolio-importer__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .portfolio-importer__item:last-child { border-bottom: none; }
+  .portfolio-importer__item:hover { background: #f8fafc; }
+  .portfolio-importer__item-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .portfolio-importer__item-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #0f172a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .portfolio-importer__item-sub {
+    font-size: 10px;
+    color: #64748b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .portfolio-importer__add {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e0e7ff;
+    border: none;
+    border-radius: 4px;
+    color: #4338ca;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .portfolio-importer__add:hover { background: #c7d2fe; }
+  .portfolio-importer__add--done {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+  .portfolio-importer__empty {
+    padding: 12px 16px;
+    font-size: 11px;
+    color: #94a3b8;
+    margin: 0;
   }
 
   /* ── Empty state ── */
