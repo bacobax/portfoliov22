@@ -1,4 +1,5 @@
 import CvCursorVisibility from "@/components/cv-cursor-visibility"
+import PrintViewportFix from "@/components/cv/print-viewport-fix"
 import { CvLayoutSwitcher, type PresetView } from "@/components/cv/cv-layout-switcher"
 import { createCvData } from "@/lib/cv-data-transform"
 import { loadCvPresetsWithFallback } from "@/lib/cv-presets-db"
@@ -24,6 +25,7 @@ export default async function CvPage() {
   return (
     <div className="cv-page">
       <CvCursorVisibility />
+      <PrintViewportFix />
       <style>{`
         :root {
           color-scheme: light;

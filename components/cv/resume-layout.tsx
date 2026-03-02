@@ -398,9 +398,10 @@ const resumeStyles = `
     .cv-resume {
       box-shadow: none;
       width: 210mm;
+      max-width: none !important;   /* override the screen max-width: 100% */
       min-height: auto;
-      overflow: visible;       /* KEY: was overflow:hidden — removes content clipping */
-      display: block;          /* allow natural page-break fragmentation */
+      overflow: visible;            /* was overflow:hidden — removes content clipping */
+      display: block;               /* allow natural page-break fragmentation */
     }
     .r-header {
       display: flex !important;

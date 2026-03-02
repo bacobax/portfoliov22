@@ -322,8 +322,10 @@ const classicStyles = `
     .cv-classic {
       box-shadow: none;
       width: 210mm;
+      max-width: none !important;   /* override the screen max-width: 100% */
       min-height: auto;
-      display: block;          /* allow natural page-break fragmentation */
+      overflow: visible;
+      display: block;               /* allow natural page-break fragmentation */
       padding: 18mm 16mm;
       font-size: 10pt;
     }
