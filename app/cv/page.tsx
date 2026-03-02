@@ -132,6 +132,8 @@ export default async function CvPage() {
           }
           .cv-page {
             padding: 0;
+            display: block; /* allow natural multi-page flow */
+            min-height: 0;
           }
           .toolbar {
             display: none;

@@ -397,15 +397,18 @@ const resumeStyles = `
   @media print {
     .cv-resume {
       box-shadow: none;
-      width: auto;
+      width: 210mm;
       min-height: auto;
+      overflow: visible;       /* KEY: was overflow:hidden — removes content clipping */
+      display: block;          /* allow natural page-break fragmentation */
     }
     .r-header {
-      flex-direction: row;
+      display: flex !important;
+      flex-direction: row !important;
       align-items: flex-start;
       text-align: left;
-      gap: 0;
-      padding: 16px 22px;
+      gap: 16px;
+      padding: 16px 24px;
     }
     .r-header__info {
       align-items: flex-start;
@@ -422,11 +425,12 @@ const resumeStyles = `
       text-align: right;
     }
     .r-body {
-      grid-template-columns: 190px 1fr;
+      display: grid !important;              /* override mobile single-column */
+      grid-template-columns: 190px 1fr !important;
     }
     .r-sidebar {
-      border-right: 1px solid #e2e8f0;
-      border-bottom: none;
+      border-right: 1px solid #e2e8f0 !important;
+      border-bottom: none !important;
       padding: 14px;
     }
     .r-main {

@@ -321,11 +321,14 @@ const classicStyles = `
   @media print {
     .cv-classic {
       box-shadow: none;
-      width: auto;
+      width: 210mm;
       min-height: auto;
+      display: block;          /* allow natural page-break fragmentation */
       padding: 18mm 16mm;
       font-size: 10pt;
-      gap: 18px;
+    }
+    .cv-classic > * + * {
+      margin-top: 18px;        /* replaces gap: 18px for display:block */
     }
     .cv-classic header.cv-header {
       flex-direction: row;
