@@ -54,6 +54,7 @@ export function EducationForm({ education, onSave, onCancel }: EducationFormProp
         degree: formData.degree.trim(),
         institution: formData.institution.trim(),
         description: formData.description.trim(),
+        cvDescription: formData.cvDescription?.trim() || undefined,
         tags: formData.tags.map((tag) => tag.trim()).filter((tag) => tag.length > 0),
       })
     }
@@ -122,6 +123,17 @@ export function EducationForm({ education, onSave, onCancel }: EducationFormProp
                 onChange={(event) => setFormData({ ...formData, description: event.target.value })}
                 placeholder="Brief description of your education..."
                 className="w-full bg-background border border-primary/50 px-3 py-2 text-sm font-mono text-foreground focus:border-primary outline-none min-h-[100px] resize-y"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-mono text-muted-foreground mb-2">
+                CV_DESCRIPTION <span className="text-muted-foreground/60 text-[10px]">(optional — shown in CV instead of main description)</span>
+              </label>
+              <textarea
+                value={formData.cvDescription ?? ""}
+                onChange={(event) => setFormData({ ...formData, cvDescription: event.target.value })}
+                placeholder="If provided, this description will be used in the CV preview instead of the main description..."
+                className="w-full bg-background border border-primary/50 px-3 py-2 text-sm font-mono text-foreground focus:border-primary outline-none min-h-[80px] resize-y"
               />
             </div>
             <div>

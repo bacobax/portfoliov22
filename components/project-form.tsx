@@ -19,6 +19,7 @@ interface ProjectFormProps {
 const createEmptyProject = (): Project => ({
   title: "",
   description: "",
+  cvDescription: undefined,
   status: "DEVELOPMENT",
   metrics: {},
   githubUrl: undefined,
@@ -46,6 +47,7 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
           image: project.image ? { ...project.image } : undefined,
           document: project.document ? { ...project.document } : undefined,
           showInCv: project.showInCv ?? true,
+          cvDescription: project.cvDescription,
         }
       : createEmptyProject(),
   )
@@ -61,6 +63,7 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
             image: project.image ? { ...project.image } : undefined,
             document: project.document ? { ...project.document } : undefined,
             showInCv: project.showInCv ?? true,
+            cvDescription: project.cvDescription,
           }
         : createEmptyProject(),
     )
@@ -165,10 +168,12 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
     if (formData.title && formData.description) {
       const trimmedGithub = formData.githubUrl?.trim()
       const trimmedProjectUrl = formData.projectUrl?.trim()
+      const trimmedCvDescription = formData.cvDescription?.trim()
       const projectToSave: Project = {
         ...formData,
         githubUrl: trimmedGithub ? trimmedGithub : undefined,
         projectUrl: trimmedProjectUrl ? trimmedProjectUrl : undefined,
+        cvDescription: trimmedCvDescription ? trimmedCvDescription : undefined,
         image: formData.image ? { ...formData.image } : undefined,
         document: formData.document ? { ...formData.document } : undefined,
       }
@@ -231,6 +236,19 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
                 className="w-full bg-background border border-primary/50 focus:border-primary font-mono p-2 min-h-[100px] text-sm"
                 placeholder="Describe your project..."
                 required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="cvDescription" className="text-sm font-mono text-muted-foreground mb-2 block">
+                CV_DESCRIPTION <span className="text-xs text-muted-foreground">(optional — shown in CV instead of main description)</span>
+              </Label>
+              <textarea
+                id="cvDescription"
+                value={formData.cvDescription ?? ""}
+                onChange={(e) => setFormData({ ...formData, cvDescription: e.target.value })}
+                className="w-full bg-background border border-primary/50 focus:border-primary font-mono p-2 min-h-[80px] text-sm"
+                placeholder="If provided, this description will appear in the CV preview instead..."
               />
             </div>
 

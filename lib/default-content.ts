@@ -46,6 +46,7 @@ export interface ProjectDocument {
 export interface Project {
   title: string
   description: string
+  cvDescription?: string
   status: ProjectStatus
   metrics: Record<string, string>
   githubUrl?: string
@@ -90,6 +91,7 @@ export interface ExperienceEntry {
   title: string
   company: string
   description: string
+  cvDescription?: string
   tags: string[]
 }
 
@@ -98,6 +100,7 @@ export interface EducationEntry {
   degree: string
   institution: string
   description: string
+  cvDescription?: string
   tags: string[]
 }
 
@@ -248,6 +251,49 @@ const projectDocumentSchema = z.object({
   url: z.string().url().optional(),
 })
 
+const coerceCvVisibility = (value: unknown): boolean | undefined => {
+  if (typeof value === "boolean") {
+    return value
+  }
+
+  if (typeof value === "number") {
+    return value !== 0
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase()
+
+    if (normalized === "true" || normalized === "1") {
+      return true
+    }
+
+    if (normalized === "false" || normalized === "0") {
+      return false
+    }
+  }
+
+  return undefined
+}
+
+const normalizeProjectCvVisibility = (value: unknown): unknown => {
+  if (!value || typeof value !== "object") {
+    return value
+  }
+
+  const project = value as Record<string, unknown>
+  const legacyVisibility = coerceCvVisibility(project.show_on_cv)
+  if (legacyVisibility !== undefined) {
+    return { ...project, showInCv: legacyVisibility }
+  }
+
+  const camelCaseVisibility = coerceCvVisibility(project.showInCv)
+  if (camelCaseVisibility !== undefined) {
+    return { ...project, showInCv: camelCaseVisibility }
+  }
+
+  return value
+}
+
 export const portfolioContentSchema = z.object({
   profileData: z.object({
     name: z.string(),
@@ -268,6 +314,7 @@ export const portfolioContentSchema = z.object({
         title: z.string(),
         company: z.string(),
         description: z.string(),
+        cvDescription: z.string().optional(),
         tags: z.array(z.string()),
       }),
     )
@@ -280,6 +327,7 @@ export const portfolioContentSchema = z.object({
         degree: z.string(),
         institution: z.string(),
         description: z.string(),
+        cvDescription: z.string().optional(),
         tags: z.array(z.string()),
       }),
     )
@@ -297,23 +345,27 @@ export const portfolioContentSchema = z.object({
         name: z.string(),
         visual: z.union([z.literal("brain"), z.literal("sphere"), z.literal("engine")]),
         projects: z.array(
-          z.object({
-            title: z.string(),
-            description: z.string(),
-            status: z.union([
-              z.literal("PRODUCTION"),
-              z.literal("BETA"),
-              z.literal("DEVELOPMENT"),
-              z.literal("ONGOING"),
-              z.literal("TERMINED"),
-            ]),
-            metrics: z.record(z.string()),
-            githubUrl: z.string().url().optional(),
-            projectUrl: z.string().url().optional(),
-            image: projectImageSchema.optional(),
-            document: projectDocumentSchema.optional(),
-            showInCv: z.boolean().default(true),
-          }),
+          z.preprocess(
+            normalizeProjectCvVisibility,
+            z.object({
+              title: z.string(),
+              description: z.string(),
+              cvDescription: z.string().optional(),
+              status: z.union([
+                z.literal("PRODUCTION"),
+                z.literal("BETA"),
+                z.literal("DEVELOPMENT"),
+                z.literal("ONGOING"),
+                z.literal("TERMINED"),
+              ]),
+              metrics: z.record(z.string()),
+              githubUrl: z.string().url().optional(),
+              projectUrl: z.string().url().optional(),
+              image: projectImageSchema.optional(),
+              document: projectDocumentSchema.optional(),
+              showInCv: z.boolean().default(true),
+            }),
+          ),
         ),
       }),
     )

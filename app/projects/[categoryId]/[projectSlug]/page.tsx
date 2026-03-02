@@ -45,84 +45,120 @@ export default async function ProjectPage({
 
   const { category, project } = data
   const activeTheme = resolvedSearchParams.theme === "light" ? "light" : "dark"
+  const metricEntries = Object.entries(project.metrics)
   const openDocumentHref = project.document
     ? `/api/content/document/open?publicId=${encodeURIComponent(project.document.publicId)}&format=${encodeURIComponent(project.document.format)}&resourceType=${encodeURIComponent(project.document.resourceType)}`
     : null
 
   return (
-    <div className={`min-h-screen bg-background text-foreground grid-pattern ${activeTheme}`}>
+    <div className={`min-h-screen bg-background text-foreground ${activeTheme}`}>
       <TechCursor />
-      <main className="relative z-10 mx-auto max-w-7xl px-3 sm:px-6 py-4 sm:py-8">
-        <div className="mb-4 sm:mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-20 -left-24 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute right-0 top-1/3 h-64 w-64 rounded-full bg-cyan-400/15 blur-3xl" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,oklch(0.52_0.18_195/.07)_1px,transparent_1px),linear-gradient(to_bottom,oklch(0.52_0.18_195/.07)_1px,transparent_1px)] bg-[size:34px_34px]" />
+      </div>
+
+      <main className="relative z-10 mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-10">
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <Link
             href={`/?theme=${activeTheme}`}
-            className="inline-flex items-center gap-2 border border-primary/60 bg-card px-3 py-2 text-xs sm:text-sm font-mono text-primary hover:border-primary"
+            className="inline-flex items-center gap-2 border border-primary/55 bg-card/80 px-4 py-2.5 text-xs font-mono tracking-wide text-primary transition-colors hover:border-primary hover:bg-card"
           >
             <ArrowLeft className="h-4 w-4" />
-            BACK_TO_PORTFOLIO
+            BACK TO PORTFOLIO
           </Link>
-          <p className="text-[10px] sm:text-xs font-mono text-muted-foreground">
-            {category.name}_PROJECT / {project.status}
-          </p>
-        </div>
 
-        <section className="relative border border-primary/30 bg-card/60 p-1.5 sm:p-2.5">
-          <div className="relative overflow-hidden border border-primary/20 min-h-[72vh] sm:min-h-[78vh] bg-black">
+          <div className="inline-flex items-center gap-2 border border-border/60 bg-card/60 px-3 py-2 text-[11px] font-mono uppercase tracking-[0.16em] text-muted-foreground">
+            <span>{category.name}</span>
+            <span className="text-primary/70">/</span>
+            <span>{project.status}</span>
+          </div>
+        </header>
+
+        <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-stretch">
+          <article className="relative overflow-hidden border border-border/70 bg-card/65 p-5 sm:p-7 backdrop-blur-sm">
+            <div className="mb-5 inline-flex items-center border border-primary/50 bg-primary/10 px-2.5 py-1 text-[10px] font-mono uppercase tracking-[0.18em] text-primary">
+              Project Spotlight
+            </div>
+
+            <h1 className="text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-4xl">
+              {project.title}
+            </h1>
+            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+              {project.description}
+            </p>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              {project.githubUrl && (
+                <a
+                  href={project.githubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 border border-primary/55 bg-primary/10 px-4 py-2.5 text-xs font-mono tracking-wide text-primary transition-colors hover:bg-primary/20"
+                >
+                  <Github className="h-4 w-4" />
+                  SOURCE CODE
+                </a>
+              )}
+              {project.projectUrl && (
+                <a
+                  href={project.projectUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 border border-border bg-card px-4 py-2.5 text-xs font-mono tracking-wide text-foreground transition-colors hover:border-primary/60 hover:text-primary"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  LIVE DEMO
+                </a>
+              )}
+              {project.document && (
+                <a
+                  href={openDocumentHref ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 border border-border bg-card px-4 py-2.5 text-xs font-mono tracking-wide text-foreground transition-colors hover:border-primary/60 hover:text-primary"
+                >
+                  <FileText className="h-4 w-4" />
+                  PROJECT PDF
+                </a>
+              )}
+            </div>
+          </article>
+
+          <aside className="relative overflow-hidden border border-primary/35 bg-black/90">
             {project.image?.secureUrl ? (
               <img
                 src={project.image.secureUrl}
                 alt={`${project.title} cover`}
-                className="h-full min-h-[72vh] sm:min-h-[78vh] w-full object-contain"
+                className="h-full min-h-[300px] w-full object-cover"
               />
             ) : (
-              <div className="h-full min-h-[72vh] sm:min-h-[78vh] w-full bg-[radial-gradient(circle_at_25%_25%,rgba(56,189,248,0.35),transparent_55%),radial-gradient(circle_at_75%_30%,rgba(6,182,212,0.25),transparent_60%),linear-gradient(180deg,rgba(2,6,23,0.95),rgba(2,6,23,1))]" />
+              <div className="h-full min-h-[300px] w-full bg-[radial-gradient(circle_at_30%_20%,rgba(56,189,248,0.32),transparent_55%),radial-gradient(circle_at_80%_75%,rgba(8,145,178,0.25),transparent_60%),linear-gradient(160deg,rgba(2,6,23,1),rgba(2,20,37,1))]" />
             )}
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_top,rgba(2,6,23,.75),rgba(2,6,23,.15)_55%,transparent)]" />
+          </aside>
+        </section>
 
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/82 to-black/20 px-4 sm:px-8 py-4 sm:py-7 backdrop-blur-[1px]">
-              <h1 className="text-lg sm:text-3xl font-bold font-mono text-slate-100 mb-2 tracking-wide">
-                {project.title}
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-200/90 leading-relaxed max-w-4xl whitespace-pre-line">
-                {project.description}
-              </p>
-
-              <div className="mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
-                {project.githubUrl && (
-                  <a
-                    href={project.githubUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 border border-cyan-300/45 bg-black/55 px-3 py-2 text-[11px] sm:text-xs font-mono text-cyan-100 hover:border-cyan-200/80 hover:text-cyan-50"
-                  >
-                    <Github className="h-4 w-4" />
-                    GITHUB
-                  </a>
-                )}
-                {project.projectUrl && (
-                  <a
-                    href={project.projectUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 border border-cyan-300/45 bg-black/55 px-3 py-2 text-[11px] sm:text-xs font-mono text-cyan-100 hover:border-cyan-200/80 hover:text-cyan-50"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    LIVE_PROJECT
-                  </a>
-                )}
-                {project.document && (
-                  <a
-                    href={openDocumentHref ?? "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 border border-cyan-300/45 bg-black/55 px-3 py-2 text-[11px] sm:text-xs font-mono text-cyan-100 hover:border-cyan-200/80 hover:text-cyan-50"
-                  >
-                    <FileText className="h-4 w-4" />
-                    OPEN_PDF
-                  </a>
-                )}
-              </div>
+        {metricEntries.length > 0 ? (
+          <section className="mt-6 border border-border/70 bg-card/60 p-5 sm:p-7 backdrop-blur-sm">
+            <h2 className="mb-4 text-sm font-mono uppercase tracking-[0.2em] text-primary">Impact Metrics</h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {metricEntries.map(([label, value]) => (
+                <article key={label} className="border border-border/70 bg-background/60 p-4">
+                  <p className="text-[11px] font-mono uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+                  <p className="mt-2 text-xl font-semibold tracking-tight text-foreground">{value}</p>
+                </article>
+              ))}
             </div>
-          </div>
+          </section>
+        ) : null}
+
+        <section className="mt-6 border border-border/70 bg-card/50 p-5 sm:p-7">
+          <h2 className="mb-3 text-sm font-mono uppercase tracking-[0.2em] text-primary">Overview</h2>
+          <p className="max-w-4xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+            {project.description}
+          </p>
         </section>
       </main>
     </div>

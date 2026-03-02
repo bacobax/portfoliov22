@@ -141,6 +141,19 @@ function ExperienceItem({ entry, isEditorMode, onChange, onDelete }: ExperienceI
         as="p"
         multiline
       />
+      {editable && (
+        <div className="mb-3 border border-dashed border-primary/30 p-2">
+          <p className="text-[10px] font-mono text-muted-foreground mb-1">CV_DESCRIPTION <span className="text-muted-foreground/60">(optional — shown in CV instead of main description)</span></p>
+          <EditableText
+            value={entry.cvDescription ?? ""}
+            onChange={(value) => handleFieldChange("cvDescription", value)}
+            isEditorMode={editable}
+            className="text-xs sm:text-sm text-foreground leading-relaxed"
+            as="p"
+            multiline
+          />
+        </div>
+      )}
       <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {entry.tags.map((tag, index) =>
           editable ? (
