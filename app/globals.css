@@ -351,5 +351,76 @@
     border-right: 1px solid var(--primary);
   }
 
+  /* ---- Spherical immersive interface ------------------------------------ */
 
+  /* Radial vignette + glow that fuses the WebGL sphere with the DOM content,
+     focusing attention on the centre "viewport" of the console. */
+  .sphere-vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background:
+      radial-gradient(
+        ellipse 75% 60% at 50% 42%,
+        color-mix(in oklch, var(--primary) 9%, transparent) 0%,
+        transparent 55%
+      ),
+      radial-gradient(
+        ellipse 120% 100% at 50% 50%,
+        transparent 45%,
+        var(--background) 100%
+      );
+  }
+
+  /* Perspective stage: gives the deck real depth so panels read as if they are
+     curving around the viewer rather than stacked on a flat page. */
+  .deck-perspective {
+    perspective: 1600px;
+    perspective-origin: 50% 38%;
+  }
+
+  /* The curved console surface. Holds the panel field in a shared 3D context so
+     section entrances animate with real depth toward/away from the viewer.
+     We deliberately avoid a constant rotate on this tall, scrolling element —
+     a fixed tilt would distort lower content. The "wrapping" read comes from
+     the WebGL sphere backdrop, the vignette, and per-section depth. */
+  .deck-surface {
+    transform-style: preserve-3d;
+  }
+
+  /* Each section sits slightly recessed and rises into place — spatial, not
+     vertical. Staggered via inline animation-delay from the page. */
+  .deck-section {
+    transform-style: preserve-3d;
+    animation: deck-emerge 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes deck-emerge {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 26px, -90px) rotateX(7deg);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) rotateX(0deg);
+    }
+  }
+
+  /* Flatten the curvature on small screens (readability + no overflow) and for
+     users who prefer reduced motion. */
+  @media (max-width: 768px) {
+    .deck-surface {
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .deck-surface {
+      transform: none;
+    }
+    .deck-section {
+      animation: none;
+    }
+  }
 }

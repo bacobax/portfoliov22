@@ -10,6 +10,7 @@ import { ParticleBrain } from "@/components/particle-brain"
 import { ParticleEngine } from "@/components/particle-engine"
 import { ParticleSphere } from "@/components/particle-sphere"
 import { SemanticSearch } from "@/components/SemanticSearch"
+import { SphereInterface } from "@/components/sphere-interface"
 import { ProjectForm } from "@/components/project-form"
 import { AboutSection } from "@/components/portfolio/about-section"
 import { EducationForm } from "@/components/portfolio/education-form"
@@ -624,9 +625,11 @@ export default function TechDashboardPortfolio() {
   const timeString = useMemo(() => time.toLocaleTimeString("en-US", { hour12: false }), [time])
 
   return (
-    <div className="min-h-screen bg-background text-foreground grid-pattern">
+    <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
       <TechCursor />
       {/* <div className="scan-line" /> */}
+      <SphereInterface color={{ r, g, b }} theme={theme} />
+      <div className="sphere-vignette" />
       <GridTrails color={{ r, g, b }} />
 
       {showAuthModal && <AuthModal onAuthenticate={handleAuthenticate} onClose={() => setShowAuthModal(false)} />}
@@ -671,10 +674,11 @@ export default function TechDashboardPortfolio() {
 
       {isEditorMode && <EditorModeBanner />}
 
-      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 relative z-10">
+      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 relative z-10 deck-perspective">
         <SectionTabs sections={sections} activeSection={activeSection} onSectionChange={setActiveSection} />
         <SemanticSearch theme={theme} />
 
+        <div className="deck-surface">
         {contentError && !isContentLoading && (
           <div className="mb-4 sm:mb-6">
             <div className="border border-destructive/50 bg-destructive/10 text-destructive text-xs sm:text-sm font-mono px-3 py-2 flex items-center justify-between gap-3">
@@ -691,77 +695,93 @@ export default function TechDashboardPortfolio() {
           </div>
         )}
 
-        {shouldShowSection("ABOUT") &&
-          (content ? (
-            <AboutSection
-              content={content}
-              isEditorMode={isEditorMode}
-              onUpdateProfileField={updateProfileField}
-              onUpdateAboutStat={updateAboutStat}
-              onUpdateSystemStatusValue={updateSystemStatusValue}
-              onUpdateSystemStatusLabel={updateSystemStatusLabel}
-              onAddSystemStatus={handleAddSystemStatusEntry}
-              onRemoveSystemStatus={handleRemoveSystemStatusEntry}
-              onUpdateLastDeployment={updateLastDeployment}
-            />
-          ) : (
-            <AboutSectionSkeleton />
-          ))}
+        {shouldShowSection("ABOUT") && (
+          <div className="deck-section" style={{ animationDelay: "0.04s" }}>
+            {content ? (
+              <AboutSection
+                content={content}
+                isEditorMode={isEditorMode}
+                onUpdateProfileField={updateProfileField}
+                onUpdateAboutStat={updateAboutStat}
+                onUpdateSystemStatusValue={updateSystemStatusValue}
+                onUpdateSystemStatusLabel={updateSystemStatusLabel}
+                onAddSystemStatus={handleAddSystemStatusEntry}
+                onRemoveSystemStatus={handleRemoveSystemStatusEntry}
+                onUpdateLastDeployment={updateLastDeployment}
+              />
+            ) : (
+              <AboutSectionSkeleton />
+            )}
+          </div>
+        )}
 
-        {shouldShowSection("EXPERIENCE") &&
-          (content ? (
-            <ExperienceSection
-              entries={content.experienceLog}
-              isEditorMode={isEditorMode}
-              onAddEntry={handleAddExperienceEntry}
-              onEntryChange={handleExperienceChange}
-              onDeleteEntry={handleDeleteExperienceEntry}
-            />
-          ) : (
-            <ExperienceSectionSkeleton />
-          ))}
+        {shouldShowSection("EXPERIENCE") && (
+          <div className="deck-section" style={{ animationDelay: "0.1s" }}>
+            {content ? (
+              <ExperienceSection
+                entries={content.experienceLog}
+                isEditorMode={isEditorMode}
+                onAddEntry={handleAddExperienceEntry}
+                onEntryChange={handleExperienceChange}
+                onDeleteEntry={handleDeleteExperienceEntry}
+              />
+            ) : (
+              <ExperienceSectionSkeleton />
+            )}
+          </div>
+        )}
 
-        {shouldShowSection("EDUCATION") &&
-          (content ? (
-            <EducationSection
-              entries={content.educationLog}
-              isEditorMode={isEditorMode}
-              onAddEntry={handleAddEducation}
-              onEditEntry={handleEditEducation}
-              onDeleteEntry={handleDeleteEducation}
-            />
-          ) : (
-            <EducationSectionSkeleton />
-          ))}
+        {shouldShowSection("EDUCATION") && (
+          <div className="deck-section" style={{ animationDelay: "0.16s" }}>
+            {content ? (
+              <EducationSection
+                entries={content.educationLog}
+                isEditorMode={isEditorMode}
+                onAddEntry={handleAddEducation}
+                onEditEntry={handleEditEducation}
+                onDeleteEntry={handleDeleteEducation}
+              />
+            ) : (
+              <EducationSectionSkeleton />
+            )}
+          </div>
+        )}
 
-        {shouldShowSection("PROJECTS") &&
-          (content && activeCategory ? (
-            <ProjectsSection
-              activeCategory={activeCategory}
-              isEditorMode={isEditorMode}
-              theme={theme}
-              particleColor={{ r, g, b }}
-              onPrevCategory={handlePrevCategory}
-              onNextCategory={handleNextCategory}
-              onAddProject={handleAddProject}
-              onEditProject={(index) => handleEditProject(activeCategoryIndex, index)}
-              onDeleteProject={(index) => handleDeleteProject(activeCategoryIndex, index)}
-              ParticleComponent={ParticleComponent}
-            />
-          ) : (
-            <ProjectsSectionSkeleton />
-          ))}
+        {shouldShowSection("PROJECTS") && (
+          <div className="deck-section" style={{ animationDelay: "0.22s" }}>
+            {content && activeCategory ? (
+              <ProjectsSection
+                activeCategory={activeCategory}
+                isEditorMode={isEditorMode}
+                theme={theme}
+                particleColor={{ r, g, b }}
+                onPrevCategory={handlePrevCategory}
+                onNextCategory={handleNextCategory}
+                onAddProject={handleAddProject}
+                onEditProject={(index) => handleEditProject(activeCategoryIndex, index)}
+                onDeleteProject={(index) => handleDeleteProject(activeCategoryIndex, index)}
+                ParticleComponent={ParticleComponent}
+              />
+            ) : (
+              <ProjectsSectionSkeleton />
+            )}
+          </div>
+        )}
 
-        {shouldShowSection("SKILLS") &&
-          (content ? (
-            <SkillsSection
-              skills={content.skillsData}
-              isEditorMode={isEditorMode}
-              onSkillsChange={updateSkills}
-            />
-          ) : (
-            <SkillsSectionSkeleton />
-          ))}
+        {shouldShowSection("SKILLS") && (
+          <div className="deck-section" style={{ animationDelay: "0.28s" }}>
+            {content ? (
+              <SkillsSection
+                skills={content.skillsData}
+                isEditorMode={isEditorMode}
+                onSkillsChange={updateSkills}
+              />
+            ) : (
+              <SkillsSectionSkeleton />
+            )}
+          </div>
+        )}
+        </div>
       </main>
 
       <PortfolioFooter />
