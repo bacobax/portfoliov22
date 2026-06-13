@@ -10,7 +10,7 @@ import { ParticleBrain } from "@/components/particle-brain"
 import { ParticleEngine } from "@/components/particle-engine"
 import { ParticleSphere } from "@/components/particle-sphere"
 import { SemanticSearch } from "@/components/SemanticSearch"
-import { SphereDeck, type SphereDeckPanel } from "@/components/sphere-deck"
+import { SphereOSScene, type SphereSectionKey } from "@/components/sphere-os-scene"
 import { ProjectForm } from "@/components/project-form"
 import { AboutSection } from "@/components/portfolio/about-section"
 import { EducationForm } from "@/components/portfolio/education-form"
@@ -149,7 +149,6 @@ export default function TechDashboardPortfolio() {
   const [sessionThemeOverrides, setSessionThemeOverrides] = useState<Partial<Record<ThemeMode, ThemeColor>>>({})
 
   const sections: SectionKey[] = ["ABOUT", "EXPERIENCE", "EDUCATION", "PROJECTS", "SKILLS"]
-  const deckPanels: SphereDeckPanel[] = sections.map((id) => ({ id }))
 
   const persistContent = useCallback(
     async (data: PortfolioContent) => {
@@ -722,16 +721,22 @@ export default function TechDashboardPortfolio() {
         />
       )}
 
-      {/* Immersive spherical interface: the sections live on the inner surface
-          of the sphere, behind the fixed HUD chrome below. */}
-      <SphereDeck
-        panels={deckPanels}
-        renderPanel={renderPanel}
-        activeId={activeSection}
-        onActiveChange={(id) => setActiveSection(id as SectionKey)}
-        color={{ r, g, b }}
-        theme={theme}
-      />
+      {/* Immersive spherical computer: the portfolio is broken into console
+          tiles scattered across the inner surface of the sphere. Editor mode
+          falls back to a stacked editable layout so authoring stays intact. */}
+      {isEditorMode ? (
+        <div className="absolute inset-0 overflow-y-auto pt-40 sm:pt-48 pb-24">
+          <div className="container mx-auto px-3 sm:px-4 space-y-6">{sections.map((id) => <div key={id}>{renderPanel(id)}</div>)}</div>
+        </div>
+      ) : content ? (
+        <SphereOSScene
+          content={content}
+          theme={theme}
+          color={{ r, g, b }}
+          activeSection={activeSection as SphereSectionKey}
+          onActiveSectionChange={(id) => setActiveSection(id)}
+        />
+      ) : null}
       <GridTrails color={{ r, g, b }} />
 
       {/* Fixed HUD chrome layered above the 3D environment. */}
