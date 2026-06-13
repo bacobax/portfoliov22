@@ -10,7 +10,7 @@ import { ParticleBrain } from "@/components/particle-brain"
 import { ParticleEngine } from "@/components/particle-engine"
 import { ParticleSphere } from "@/components/particle-sphere"
 import { SemanticSearch } from "@/components/SemanticSearch"
-import { SphereInterface } from "@/components/sphere-interface"
+import { SphereDeck, type SphereDeckPanel } from "@/components/sphere-deck"
 import { ProjectForm } from "@/components/project-form"
 import { AboutSection } from "@/components/portfolio/about-section"
 import { EducationForm } from "@/components/portfolio/education-form"
@@ -130,7 +130,7 @@ type AuthResult = { success: boolean; error?: string }
 
 export default function TechDashboardPortfolio() {
   const [time, setTime] = useState(new Date())
-  const [activeSection, setActiveSection] = useState<SectionKey>("ALL")
+  const [activeSection, setActiveSection] = useState<SectionKey>("ABOUT")
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0)
   const router = useRouter()
   const pathname = usePathname()
@@ -148,7 +148,8 @@ export default function TechDashboardPortfolio() {
   const [contentError, setContentError] = useState<string | null>(null)
   const [sessionThemeOverrides, setSessionThemeOverrides] = useState<Partial<Record<ThemeMode, ThemeColor>>>({})
 
-  const sections: SectionKey[] = ["ALL", "ABOUT", "EXPERIENCE", "EDUCATION", "PROJECTS", "SKILLS"]
+  const sections: SectionKey[] = ["ABOUT", "EXPERIENCE", "EDUCATION", "PROJECTS", "SKILLS"]
+  const deckPanels: SphereDeckPanel[] = sections.map((id) => ({ id }))
 
   const persistContent = useCallback(
     async (data: PortfolioContent) => {
@@ -560,10 +561,6 @@ export default function TechDashboardPortfolio() {
     ? projectVisualComponentMap[activeCategory.visual] || ParticleBrain
     : ParticleBrain
 
-  const shouldShowSection = (section: SectionKey) => {
-    return activeSection === "ALL" || activeSection === section
-  }
-
   const handlePrevCategory = () => {
     if (projectCategoryCount === 0) {
       return
@@ -624,13 +621,80 @@ export default function TechDashboardPortfolio() {
   const [r, g, b] = hslToRgb(accentColor.h, accentColor.s, accentColor.l)
   const timeString = useMemo(() => time.toLocaleTimeString("en-US", { hour12: false }), [time])
 
+  // Each portfolio section becomes a panel on the inner surface of the sphere.
+  const renderPanel = (id: string) => {
+    switch (id) {
+      case "ABOUT":
+        return content ? (
+          <AboutSection
+            content={content}
+            isEditorMode={isEditorMode}
+            onUpdateProfileField={updateProfileField}
+            onUpdateAboutStat={updateAboutStat}
+            onUpdateSystemStatusValue={updateSystemStatusValue}
+            onUpdateSystemStatusLabel={updateSystemStatusLabel}
+            onAddSystemStatus={handleAddSystemStatusEntry}
+            onRemoveSystemStatus={handleRemoveSystemStatusEntry}
+            onUpdateLastDeployment={updateLastDeployment}
+          />
+        ) : (
+          <AboutSectionSkeleton />
+        )
+      case "EXPERIENCE":
+        return content ? (
+          <ExperienceSection
+            entries={content.experienceLog}
+            isEditorMode={isEditorMode}
+            onAddEntry={handleAddExperienceEntry}
+            onEntryChange={handleExperienceChange}
+            onDeleteEntry={handleDeleteExperienceEntry}
+          />
+        ) : (
+          <ExperienceSectionSkeleton />
+        )
+      case "EDUCATION":
+        return content ? (
+          <EducationSection
+            entries={content.educationLog}
+            isEditorMode={isEditorMode}
+            onAddEntry={handleAddEducation}
+            onEditEntry={handleEditEducation}
+            onDeleteEntry={handleDeleteEducation}
+          />
+        ) : (
+          <EducationSectionSkeleton />
+        )
+      case "PROJECTS":
+        return content && activeCategory ? (
+          <ProjectsSection
+            activeCategory={activeCategory}
+            isEditorMode={isEditorMode}
+            theme={theme}
+            particleColor={{ r, g, b }}
+            onPrevCategory={handlePrevCategory}
+            onNextCategory={handleNextCategory}
+            onAddProject={handleAddProject}
+            onEditProject={(index) => handleEditProject(activeCategoryIndex, index)}
+            onDeleteProject={(index) => handleDeleteProject(activeCategoryIndex, index)}
+            ParticleComponent={ParticleComponent}
+          />
+        ) : (
+          <ProjectsSectionSkeleton />
+        )
+      case "SKILLS":
+        return content ? (
+          <SkillsSection skills={content.skillsData} isEditorMode={isEditorMode} onSkillsChange={updateSkills} />
+        ) : (
+          <SkillsSectionSkeleton />
+        )
+      default:
+        return null
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
+    <div className="h-screen overflow-hidden bg-background text-foreground relative">
       <TechCursor />
-      {/* <div className="scan-line" /> */}
-      <SphereInterface color={{ r, g, b }} theme={theme} />
-      <div className="sphere-vignette" />
-      <GridTrails color={{ r, g, b }} />
 
       {showAuthModal && <AuthModal onAuthenticate={handleAuthenticate} onClose={() => setShowAuthModal(false)} />}
       {showProjectForm && activeCategory && (
@@ -658,133 +722,63 @@ export default function TechDashboardPortfolio() {
         />
       )}
 
-      <PortfolioHeader
-        timeString={timeString}
-        isEditorMode={isEditorMode}
-        isAuthenticated={isAuthenticated}
+      {/* Immersive spherical interface: the sections live on the inner surface
+          of the sphere, behind the fixed HUD chrome below. */}
+      <SphereDeck
+        panels={deckPanels}
+        renderPanel={renderPanel}
+        activeId={activeSection}
+        onActiveChange={(id) => setActiveSection(id as SectionKey)}
+        color={{ r, g, b }}
         theme={theme}
-        isContentLoading={isContentLoading}
-        accentColor={accentColor}
-        onToggleEditor={handleToggleEditor}
-        onToggleTheme={toggleTheme}
-        onLogout={handleLogout}
-        onColorChange={handleColorChange}
-        onPersistAccentColor={handlePersistAccentColor}
       />
+      <GridTrails color={{ r, g, b }} />
 
-      {isEditorMode && <EditorModeBanner />}
+      {/* Fixed HUD chrome layered above the 3D environment. */}
+      <div className="relative z-40">
+        <PortfolioHeader
+          timeString={timeString}
+          isEditorMode={isEditorMode}
+          isAuthenticated={isAuthenticated}
+          theme={theme}
+          isContentLoading={isContentLoading}
+          accentColor={accentColor}
+          onToggleEditor={handleToggleEditor}
+          onToggleTheme={toggleTheme}
+          onLogout={handleLogout}
+          onColorChange={handleColorChange}
+          onPersistAccentColor={handlePersistAccentColor}
+        />
 
-      <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-8 relative z-10 deck-perspective">
-        <SectionTabs sections={sections} activeSection={activeSection} onSectionChange={setActiveSection} />
-        <SemanticSearch theme={theme} />
+        {isEditorMode && <EditorModeBanner />}
 
-        <div className="deck-surface">
-        {contentError && !isContentLoading && (
-          <div className="mb-4 sm:mb-6">
-            <div className="border border-destructive/50 bg-destructive/10 text-destructive text-xs sm:text-sm font-mono px-3 py-2 flex items-center justify-between gap-3">
-              <span>{contentError}</span>
-              <button
-                onClick={() => {
-                  void fetchContent()
-                }}
-                className="px-2 py-1 border border-destructive/60 bg-card text-destructive hover:border-destructive cursor-pointer"
-              >
-                RETRY
-              </button>
+        <nav aria-label="Portfolio sections" className="container mx-auto px-3 sm:px-4 pt-3 sm:pt-4">
+          <SectionTabs sections={sections} activeSection={activeSection} onSectionChange={setActiveSection} />
+          <SemanticSearch theme={theme} />
+
+          {contentError && !isContentLoading && (
+            <div className="mb-2">
+              <div className="border border-destructive/50 bg-destructive/10 text-destructive text-xs sm:text-sm font-mono px-3 py-2 flex items-center justify-between gap-3">
+                <span>{contentError}</span>
+                <button
+                  onClick={() => {
+                    void fetchContent()
+                  }}
+                  className="px-2 py-1 border border-destructive/60 bg-card text-destructive hover:border-destructive cursor-pointer"
+                >
+                  RETRY
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </nav>
+      </div>
 
-        {shouldShowSection("ABOUT") && (
-          <div className="deck-section" style={{ animationDelay: "0.04s" }}>
-            {content ? (
-              <AboutSection
-                content={content}
-                isEditorMode={isEditorMode}
-                onUpdateProfileField={updateProfileField}
-                onUpdateAboutStat={updateAboutStat}
-                onUpdateSystemStatusValue={updateSystemStatusValue}
-                onUpdateSystemStatusLabel={updateSystemStatusLabel}
-                onAddSystemStatus={handleAddSystemStatusEntry}
-                onRemoveSystemStatus={handleRemoveSystemStatusEntry}
-                onUpdateLastDeployment={updateLastDeployment}
-              />
-            ) : (
-              <AboutSectionSkeleton />
-            )}
-          </div>
-        )}
+      <div className="sphere-hint">◂ DRAG OR USE ◂ ▸ TO ORBIT THE INTERFACE ▸</div>
 
-        {shouldShowSection("EXPERIENCE") && (
-          <div className="deck-section" style={{ animationDelay: "0.1s" }}>
-            {content ? (
-              <ExperienceSection
-                entries={content.experienceLog}
-                isEditorMode={isEditorMode}
-                onAddEntry={handleAddExperienceEntry}
-                onEntryChange={handleExperienceChange}
-                onDeleteEntry={handleDeleteExperienceEntry}
-              />
-            ) : (
-              <ExperienceSectionSkeleton />
-            )}
-          </div>
-        )}
-
-        {shouldShowSection("EDUCATION") && (
-          <div className="deck-section" style={{ animationDelay: "0.16s" }}>
-            {content ? (
-              <EducationSection
-                entries={content.educationLog}
-                isEditorMode={isEditorMode}
-                onAddEntry={handleAddEducation}
-                onEditEntry={handleEditEducation}
-                onDeleteEntry={handleDeleteEducation}
-              />
-            ) : (
-              <EducationSectionSkeleton />
-            )}
-          </div>
-        )}
-
-        {shouldShowSection("PROJECTS") && (
-          <div className="deck-section" style={{ animationDelay: "0.22s" }}>
-            {content && activeCategory ? (
-              <ProjectsSection
-                activeCategory={activeCategory}
-                isEditorMode={isEditorMode}
-                theme={theme}
-                particleColor={{ r, g, b }}
-                onPrevCategory={handlePrevCategory}
-                onNextCategory={handleNextCategory}
-                onAddProject={handleAddProject}
-                onEditProject={(index) => handleEditProject(activeCategoryIndex, index)}
-                onDeleteProject={(index) => handleDeleteProject(activeCategoryIndex, index)}
-                ParticleComponent={ParticleComponent}
-              />
-            ) : (
-              <ProjectsSectionSkeleton />
-            )}
-          </div>
-        )}
-
-        {shouldShowSection("SKILLS") && (
-          <div className="deck-section" style={{ animationDelay: "0.28s" }}>
-            {content ? (
-              <SkillsSection
-                skills={content.skillsData}
-                isEditorMode={isEditorMode}
-                onSkillsChange={updateSkills}
-              />
-            ) : (
-              <SkillsSectionSkeleton />
-            )}
-          </div>
-        )}
-        </div>
-      </main>
-
-      <PortfolioFooter />
+      <div className="fixed bottom-0 left-0 right-0 z-40">
+        <PortfolioFooter />
+      </div>
     </div>
   )
 }

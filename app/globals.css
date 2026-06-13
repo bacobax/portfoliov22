@@ -373,54 +373,77 @@
       );
   }
 
-  /* Perspective stage: gives the deck real depth so panels read as if they are
-     curving around the viewer rather than stacked on a flat page. */
-  .deck-perspective {
+  /* The 3D stage that holds the section panels on the inner surface of the
+     sphere. Perspective gives real depth; pointer events pass through the empty
+     gaps to the WebGL drag layer beneath, while panel content stays clickable. */
+  .sphere-stage {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
     perspective: 1600px;
-    perspective-origin: 50% 38%;
+    perspective-origin: 50% 47%;
+    pointer-events: none;
+    overflow: hidden;
   }
 
-  /* The curved console surface. Holds the panel field in a shared 3D context so
-     section entrances animate with real depth toward/away from the viewer.
-     We deliberately avoid a constant rotate on this tall, scrolling element —
-     a fixed tilt would distort lower content. The "wrapping" read comes from
-     the WebGL sphere backdrop, the vignette, and per-section depth. */
-  .deck-surface {
+  /* The ring that rotates to bring each panel to the front. */
+  .sphere-rotator {
+    position: absolute;
+    left: 50%;
+    top: 47%;
+    width: 0;
+    height: 0;
     transform-style: preserve-3d;
+    will-change: transform;
   }
 
-  /* Each section sits slightly recessed and rises into place — spatial, not
-     vertical. Staggered via inline animation-delay from the page. */
-  .deck-section {
-    transform-style: preserve-3d;
-    animation: deck-emerge 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  /* A single console panel, positioned on the curved surface (transform is set
+     per-panel inline). Hidden once it rotates past the viewer's shoulder. */
+  .sphere-panel {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1100px;
+    max-width: 94vw;
+    transform-origin: center center;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
   }
 
-  @keyframes deck-emerge {
-    from {
-      opacity: 0;
-      transform: translate3d(0, 26px, -90px) rotateX(7deg);
-    }
-    to {
-      opacity: 1;
-      transform: translate3d(0, 0, 0) rotateX(0deg);
-    }
+  /* Interactive, scrollable surface of a panel. Long sections scroll in place
+     so the spatial layout never forces the page itself to grow vertically. */
+  .sphere-panel-inner {
+    pointer-events: auto;
+    max-height: 84vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0.25rem;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--primary) 50%, transparent) transparent;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%);
   }
 
-  /* Flatten the curvature on small screens (readability + no overflow) and for
-     users who prefer reduced motion. */
-  @media (max-width: 768px) {
-    .deck-surface {
-      transform: none;
-    }
+  .sphere-panel-inner::-webkit-scrollbar {
+    width: 6px;
+  }
+  .sphere-panel-inner::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--primary) 50%, transparent);
+    border-radius: 0;
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .deck-surface {
-      transform: none;
-    }
-    .deck-section {
-      animation: none;
-    }
+  /* Subtle hint that the environment can be rotated. */
+  .sphere-hint {
+    position: fixed;
+    bottom: 1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    pointer-events: none;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.15em;
+    color: var(--muted-foreground);
+    opacity: 0.7;
   }
 }
