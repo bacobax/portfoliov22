@@ -5,31 +5,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 
 import { AuthModal } from "@/components/auth-modal"
-import { GridTrails } from "@/components/grid-trails"
-import { ParticleBrain } from "@/components/particle-brain"
-import { ParticleEngine } from "@/components/particle-engine"
-import { ParticleSphere } from "@/components/particle-sphere"
-import { SemanticSearch } from "@/components/SemanticSearch"
-import { SphereOSScene, type SphereSectionKey } from "@/components/sphere-os-scene"
 import { ProjectForm } from "@/components/project-form"
-import { AboutSection } from "@/components/portfolio/about-section"
 import { EducationForm } from "@/components/portfolio/education-form"
-import { EducationSection } from "@/components/portfolio/education-section"
-import { EditorModeBanner } from "@/components/portfolio/editor-mode-banner"
-import { ExperienceSection } from "@/components/portfolio/experience-section"
-import { PortfolioFooter } from "@/components/portfolio/portfolio-footer"
-import { PortfolioHeader } from "@/components/portfolio/portfolio-header"
-import { ProjectsSection, type ProjectVisualComponent } from "@/components/portfolio/projects-section"
-import {
-  AboutSectionSkeleton,
-  EducationSectionSkeleton,
-  ExperienceSectionSkeleton,
-  ProjectsSectionSkeleton,
-  SkillsSectionSkeleton,
-} from "@/components/portfolio/sections-skeleton"
-import { SectionTabs, type SectionKey } from "@/components/portfolio/section-tabs"
-import { SkillsSection } from "@/components/portfolio/skills-section"
-import { TechCursor } from "@/components/tech-cursor"
+import { SpherePortfolio } from "@/components/sphere-portfolio/sphere-portfolio"
 import {
   cloneDefaultContent,
   type EducationEntry,
@@ -37,18 +15,11 @@ import {
   type PortfolioContent,
   type Project,
   type ProjectCategory,
-  type ProjectVisual,
   type SystemStatus,
   type ThemeColor,
   withDefaultCustomColor,
 } from "@/lib/default-content"
 import { DEFAULT_THEME_COLORS, type ThemeMode } from "@/lib/theme"
-
-const projectVisualComponentMap: Record<ProjectVisual, ProjectVisualComponent> = {
-  brain: ParticleBrain,
-  sphere: ParticleSphere,
-  engine: ParticleEngine,
-}
 
 const parseThemeParam = (value: string | null): ThemeMode | null => {
   if (value === "dark" || value === "light") {
@@ -130,7 +101,6 @@ type AuthResult = { success: boolean; error?: string }
 
 export default function TechDashboardPortfolio() {
   const [time, setTime] = useState(new Date())
-  const [activeSection, setActiveSection] = useState<SectionKey>("ABOUT")
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0)
   const router = useRouter()
   const pathname = usePathname()
@@ -147,8 +117,6 @@ export default function TechDashboardPortfolio() {
   const [isContentLoading, setIsContentLoading] = useState(true)
   const [contentError, setContentError] = useState<string | null>(null)
   const [sessionThemeOverrides, setSessionThemeOverrides] = useState<Partial<Record<ThemeMode, ThemeColor>>>({})
-
-  const sections: SectionKey[] = ["ABOUT", "EXPERIENCE", "EDUCATION", "PROJECTS", "SKILLS"]
 
   const persistContent = useCallback(
     async (data: PortfolioContent) => {
@@ -556,10 +524,6 @@ export default function TechDashboardPortfolio() {
       ? projectCategories[Math.min(activeCategoryIndex, projectCategoryCount - 1)]
       : null
 
-  const ParticleComponent = activeCategory
-    ? projectVisualComponentMap[activeCategory.visual] || ParticleBrain
-    : ParticleBrain
-
   const handlePrevCategory = () => {
     if (projectCategoryCount === 0) {
       return
@@ -608,93 +572,8 @@ export default function TechDashboardPortfolio() {
     }))
   }
 
-  const hslToRgb = (h: number, s: number, l: number) => {
-    let saturation = s / 100
-    let lightness = l / 100
-    const k = (n: number) => (n + h / 30) % 12
-    const a = saturation * Math.min(lightness, 1 - lightness)
-    const f = (n: number) => lightness - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))
-    return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))]
-  }
-
-  const [r, g, b] = hslToRgb(accentColor.h, accentColor.s, accentColor.l)
-  const timeString = useMemo(() => time.toLocaleTimeString("en-US", { hour12: false }), [time])
-
-  // Each portfolio section becomes a panel on the inner surface of the sphere.
-  const renderPanel = (id: string) => {
-    switch (id) {
-      case "ABOUT":
-        return content ? (
-          <AboutSection
-            content={content}
-            isEditorMode={isEditorMode}
-            onUpdateProfileField={updateProfileField}
-            onUpdateAboutStat={updateAboutStat}
-            onUpdateSystemStatusValue={updateSystemStatusValue}
-            onUpdateSystemStatusLabel={updateSystemStatusLabel}
-            onAddSystemStatus={handleAddSystemStatusEntry}
-            onRemoveSystemStatus={handleRemoveSystemStatusEntry}
-            onUpdateLastDeployment={updateLastDeployment}
-          />
-        ) : (
-          <AboutSectionSkeleton />
-        )
-      case "EXPERIENCE":
-        return content ? (
-          <ExperienceSection
-            entries={content.experienceLog}
-            isEditorMode={isEditorMode}
-            onAddEntry={handleAddExperienceEntry}
-            onEntryChange={handleExperienceChange}
-            onDeleteEntry={handleDeleteExperienceEntry}
-          />
-        ) : (
-          <ExperienceSectionSkeleton />
-        )
-      case "EDUCATION":
-        return content ? (
-          <EducationSection
-            entries={content.educationLog}
-            isEditorMode={isEditorMode}
-            onAddEntry={handleAddEducation}
-            onEditEntry={handleEditEducation}
-            onDeleteEntry={handleDeleteEducation}
-          />
-        ) : (
-          <EducationSectionSkeleton />
-        )
-      case "PROJECTS":
-        return content && activeCategory ? (
-          <ProjectsSection
-            activeCategory={activeCategory}
-            isEditorMode={isEditorMode}
-            theme={theme}
-            particleColor={{ r, g, b }}
-            onPrevCategory={handlePrevCategory}
-            onNextCategory={handleNextCategory}
-            onAddProject={handleAddProject}
-            onEditProject={(index) => handleEditProject(activeCategoryIndex, index)}
-            onDeleteProject={(index) => handleDeleteProject(activeCategoryIndex, index)}
-            ParticleComponent={ParticleComponent}
-          />
-        ) : (
-          <ProjectsSectionSkeleton />
-        )
-      case "SKILLS":
-        return content ? (
-          <SkillsSection skills={content.skillsData} isEditorMode={isEditorMode} onSkillsChange={updateSkills} />
-        ) : (
-          <SkillsSectionSkeleton />
-        )
-      default:
-        return null
-    }
-  }
-
   return (
-    <div className="h-screen overflow-hidden bg-background text-foreground relative">
-      <TechCursor />
-
+    <>
       {showAuthModal && <AuthModal onAuthenticate={handleAuthenticate} onClose={() => setShowAuthModal(false)} />}
       {showProjectForm && activeCategory && (
         <ProjectForm
@@ -721,69 +600,48 @@ export default function TechDashboardPortfolio() {
         />
       )}
 
-      {/* Immersive spherical computer: the portfolio is broken into console
-          tiles scattered across the inner surface of the sphere. Editor mode
-          falls back to a stacked editable layout so authoring stays intact. */}
-      {isEditorMode ? (
-        <div className="absolute inset-0 overflow-y-auto pt-40 sm:pt-48 pb-24">
-          <div className="container mx-auto px-3 sm:px-4 space-y-6">{sections.map((id) => <div key={id}>{renderPanel(id)}</div>)}</div>
-        </div>
-      ) : content ? (
-        <SphereOSScene
-          content={content}
-          theme={theme}
-          color={{ r, g, b }}
-          activeSection={activeSection as SphereSectionKey}
-          onActiveSectionChange={(id) => setActiveSection(id)}
-        />
-      ) : null}
-      <GridTrails color={{ r, g, b }} />
-
-      {/* Fixed HUD chrome layered above the 3D environment. */}
-      <div className="relative z-40">
-        <PortfolioHeader
-          timeString={timeString}
-          isEditorMode={isEditorMode}
-          isAuthenticated={isAuthenticated}
-          theme={theme}
-          isContentLoading={isContentLoading}
-          accentColor={accentColor}
-          onToggleEditor={handleToggleEditor}
-          onToggleTheme={toggleTheme}
-          onLogout={handleLogout}
-          onColorChange={handleColorChange}
-          onPersistAccentColor={handlePersistAccentColor}
-        />
-
-        {isEditorMode && <EditorModeBanner />}
-
-        <nav aria-label="Portfolio sections" className="container mx-auto px-3 sm:px-4 pt-3 sm:pt-4">
-          <SectionTabs sections={sections} activeSection={activeSection} onSectionChange={setActiveSection} />
-          <SemanticSearch theme={theme} />
-
-          {contentError && !isContentLoading && (
-            <div className="mb-2">
-              <div className="border border-destructive/50 bg-destructive/10 text-destructive text-xs sm:text-sm font-mono px-3 py-2 flex items-center justify-between gap-3">
-                <span>{contentError}</span>
-                <button
-                  onClick={() => {
-                    void fetchContent()
-                  }}
-                  className="px-2 py-1 border border-destructive/60 bg-card text-destructive hover:border-destructive cursor-pointer"
-                >
-                  RETRY
-                </button>
-              </div>
-            </div>
-          )}
-        </nav>
-      </div>
-
-      <div className="sphere-hint">◂ DRAG OR USE ◂ ▸ TO ORBIT THE INTERFACE ▸</div>
-
-      <div className="fixed bottom-0 left-0 right-0 z-40">
-        <PortfolioFooter />
-      </div>
-    </div>
+      <SpherePortfolio
+        content={content}
+        isContentLoading={isContentLoading}
+        contentError={contentError}
+        time={time}
+        theme={theme}
+        accentColor={accentColor}
+        isEditorMode={isEditorMode}
+        isAuthenticated={isAuthenticated}
+        canPersistAccent={isEditorMode && isAuthenticated}
+        activeCategory={activeCategory}
+        activeCategoryIndex={activeCategoryIndex}
+        onPrevCategory={handlePrevCategory}
+        onNextCategory={handleNextCategory}
+        onRetryContent={() => {
+          void fetchContent()
+        }}
+        onToggleEditor={handleToggleEditor}
+        onToggleTheme={toggleTheme}
+        onLogout={handleLogout}
+        onColorChange={handleColorChange}
+        onPersistAccentColor={handlePersistAccentColor}
+        editHandlers={{
+          onUpdateProfileField: updateProfileField,
+          onUpdateAboutStat: updateAboutStat,
+          onUpdateSystemStatusValue: updateSystemStatusValue,
+          onUpdateSystemStatusLabel: updateSystemStatusLabel,
+          onAddSystemStatus: handleAddSystemStatusEntry,
+          onRemoveSystemStatus: handleRemoveSystemStatusEntry,
+          onUpdateLastDeployment: updateLastDeployment,
+          onUpdateSkills: updateSkills,
+          onAddExperienceEntry: handleAddExperienceEntry,
+          onExperienceChange: handleExperienceChange,
+          onDeleteExperienceEntry: handleDeleteExperienceEntry,
+          onAddEducation: handleAddEducation,
+          onEditEducation: handleEditEducation,
+          onDeleteEducation: handleDeleteEducation,
+          onAddProject: handleAddProject,
+          onEditProject: handleEditProject,
+          onDeleteProject: handleDeleteProject,
+        }}
+      />
+    </>
   )
 }
