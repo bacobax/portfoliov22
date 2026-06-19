@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
 
 import type { PortfolioContent, ProjectCategory, ThemeColor } from "@/lib/default-content"
 import type { ThemeMode } from "@/lib/theme"
@@ -53,6 +53,7 @@ export function SpherePortfolio({
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const mobileScrollRef = useRef<HTMLDivElement | null>(null)
   const sceneRef = useRef<SphereScene | null>(null)
+  const mobileTapRef = useRef({ x: 0, y: 0, scrollTop: 0, moved: false })
   const [fontsReady, setFontsReady] = useState(false)
   const [adminOpen, setAdminOpen] = useState(false)
   const [hud, setHud] = useState<SphereHudState>({
@@ -186,6 +187,36 @@ export function SpherePortfolio({
     sceneRef.current?.cycleFocus(step)
   }
 
+  const handleMobilePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    mobileTapRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      scrollTop: mobileScrollRef.current?.scrollTop ?? 0,
+      moved: false,
+    }
+  }
+
+  const handleMobilePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const tap = mobileTapRef.current
+    if (Math.abs(event.clientX - tap.x) + Math.abs(event.clientY - tap.y) > 10) {
+      tap.moved = true
+    }
+  }
+
+  const handleMobilePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (hud.focusedPanel || adminOpen) {
+      return
+    }
+
+    const tap = mobileTapRef.current
+    const scrollDelta = Math.abs((mobileScrollRef.current?.scrollTop ?? 0) - tap.scrollTop)
+    if (tap.moved || scrollDelta > 6) {
+      return
+    }
+
+    sceneRef.current?.focusAt(event.clientX, event.clientY)
+  }
+
   return (
     <div
       className="sphere-portfolio"
@@ -205,6 +236,9 @@ export function SpherePortfolio({
         role="region"
         aria-label="Mobile sphere navigation"
         tabIndex={0}
+        onPointerDown={handleMobilePointerDown}
+        onPointerMove={handleMobilePointerMove}
+        onPointerUp={handleMobilePointerUp}
       >
         <div className="sphere-mobile-scroll-content" aria-hidden="true" />
       </div>

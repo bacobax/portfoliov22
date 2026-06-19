@@ -67,6 +67,14 @@ const disposeMaterial = (material: THREE.Material) => {
   material.dispose()
 }
 
+const panelCenter = (name: PanelName) => {
+  const def = PANEL_DEFS[name]
+  return {
+    yaw: def.yaw * DEG * CURVE_SPREAD,
+    pitch: def.pitch * DEG * CURVE_SPREAD,
+  }
+}
+
 export class SphereScene {
   private readonly canvas: HTMLCanvasElement
   private readonly renderer: THREE.WebGLRenderer
@@ -185,6 +193,15 @@ export class SphereScene {
 
   focus(name: PanelName) {
     this.setFocus(name)
+  }
+
+  focusAt(clientX: number, clientY: number) {
+    const hit = this.pickPanelAt(clientX, clientY)
+    if (!hit) {
+      return false
+    }
+    this.setFocus(hit)
+    return true
   }
 
   exitFocus() {
@@ -372,28 +389,57 @@ export class SphereScene {
   }
 
   private handleClick(event: PointerEvent) {
-    const ndc = new THREE.Vector2(
-      (event.clientX / window.innerWidth) * 2 - 1,
-      -(event.clientY / window.innerHeight) * 2 + 1,
-    )
-    this.raycaster.setFromCamera(ndc, this.camera)
-    const hits = this.raycaster.intersectObjects(this.panelMeshes.filter((mesh) => mesh.material.opacity > 0.4))
-    const hit = hits.length ? (hits[0].object.userData.name as PanelName) : null
-    if (this.focusName) {
-      if (!hit || hit === this.focusName) {
-        this.exitFocus()
-      } else {
-        this.setFocus(hit)
-      }
-    } else if (hit) {
+    if (!this.focusName) {
+      this.focusAt(event.clientX, event.clientY)
+      return
+    }
+
+    const hit = this.pickPanelAt(event.clientX, event.clientY)
+    if (!hit || hit === this.focusName) {
+      this.exitFocus()
+    } else {
       this.setFocus(hit)
     }
+  }
+
+  private pickPanelAt(clientX: number, clientY: number) {
+    const rect = this.canvas.getBoundingClientRect()
+    if (
+      rect.width <= 0 ||
+      rect.height <= 0 ||
+      clientX < rect.left ||
+      clientX > rect.right ||
+      clientY < rect.top ||
+      clientY > rect.bottom
+    ) {
+      return null
+    }
+
+    const ndc = new THREE.Vector2(
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
+    )
+    this.raycaster.setFromCamera(ndc, this.camera)
+    const candidates = this.panelMeshes.filter((mesh) => mesh.material.opacity > 0.12)
+    const hits = this.raycaster.intersectObjects(candidates, false)
+    return hits.length ? (hits[0].object.userData.name as PanelName) : null
+  }
+
+  private aimAtPanel(name: PanelName) {
+    const center = panelCenter(name)
+    this.pxYaw = clamp(center.yaw, -YAW_CLAMP, YAW_CLAMP)
+    this.pxPitch = clamp(center.pitch, PITCH_MIN, PITCH_MAX)
+    this.uYaw = this.pxYaw
+    this.uPitch = this.pxPitch
+    this.mobileActivePanel = null
+    this.mobileActiveUntil = 0
   }
 
   private setFocus(name: PanelName) {
     this.focusName = name
     this.focusMesh = this.meshOf(name)
     this.focusScroll = 0
+    this.aimAtPanel(name)
     this.dismissHint()
     this.emitFocus()
   }

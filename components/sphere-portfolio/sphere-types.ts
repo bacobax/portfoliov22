@@ -52,6 +52,7 @@ export type EditableSphereHandlers = {
 export type SphereSceneApi = {
   setSnapshot: (snapshot: SphereSceneSnapshot) => void
   setMobileScrollProgress: (progress: number) => void
+  focusAt: (clientX: number, clientY: number) => boolean
   focus: (name: PanelName) => void
   exitFocus: () => void
   cycleFocus: (step: number) => void
