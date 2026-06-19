@@ -237,11 +237,14 @@ export class SphereScene {
       return
     }
 
-    const names: PanelName[] = key === this.lastTextureKey ? ["header"] : PANEL_ORDER
+    const shouldRefreshBackdrop = key !== this.lastTextureKey
+    const names: PanelName[] = shouldRefreshBackdrop ? PANEL_ORDER : ["header"]
     names.forEach((name) => this.replaceTexture(name))
     this.lastTextureKey = key
     this.lastHeaderTimeKey = headerKey
-    this.buildBackdrop()
+    if (shouldRefreshBackdrop) {
+      this.buildBackdrop()
+    }
   }
 
   private replaceTexture(name: PanelName) {

@@ -73,6 +73,11 @@ export function SpherePortfolio({
     }),
     [content, activeCategory, activeCategoryIndex, time, accentColor, theme],
   )
+  const snapshotRef = useRef(snapshot)
+
+  useEffect(() => {
+    snapshotRef.current = snapshot
+  }, [snapshot])
 
   useEffect(() => {
     let cancelled = false
@@ -113,7 +118,7 @@ export function SpherePortfolio({
 
     sceneRef.current = createSphereScene({
       canvas: canvasRef.current,
-      snapshot,
+      snapshot: snapshotRef.current,
       onFocusChange: (focusedPanel) => setHud((previous) => ({ ...previous, focusedPanel })),
       onActivePanelChange: (activePanel) => setHud((previous) => ({ ...previous, activePanel })),
       onReady: () => setHud((previous) => ({ ...previous, isReady: true })),
@@ -124,7 +129,7 @@ export function SpherePortfolio({
       sceneRef.current?.dispose()
       sceneRef.current = null
     }
-  }, [fontsReady, snapshot])
+  }, [fontsReady])
 
   useEffect(() => {
     sceneRef.current?.setSnapshot(snapshot)
