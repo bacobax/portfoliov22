@@ -137,6 +137,8 @@ export class SphereScene {
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, preserveDrawingBuffer: true })
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace
+    this.renderer.toneMapping = THREE.NoToneMapping
     this.maxAniso = this.renderer.capabilities.getMaxAnisotropy()
     this.sprite = this.createCircleSprite()
     this.scene.add(this.panelGroup)
@@ -278,6 +280,7 @@ export class SphereScene {
 
   private createPanelTexture(name: PanelName) {
     const texture = new THREE.CanvasTexture(makePanelCanvas({ ...this.snapshot, name }))
+    texture.colorSpace = THREE.SRGBColorSpace
     texture.anisotropy = this.maxAniso
     texture.minFilter = THREE.LinearMipmapLinearFilter
     texture.magFilter = THREE.LinearFilter
@@ -292,8 +295,6 @@ export class SphereScene {
     this.canvas.addEventListener("wheel", this.handleWheel, { passive: false })
     window.addEventListener("keydown", this.handleKeyDown)
     document.addEventListener("keydown", this.handleKeyDown)
-    window.addEventListener("keyup", this.handleKeyDown)
-    document.addEventListener("keyup", this.handleKeyDown)
     window.addEventListener("resize", this.resize)
   }
 
@@ -305,8 +306,6 @@ export class SphereScene {
     this.canvas.removeEventListener("wheel", this.handleWheel)
     window.removeEventListener("keydown", this.handleKeyDown)
     document.removeEventListener("keydown", this.handleKeyDown)
-    window.removeEventListener("keyup", this.handleKeyDown)
-    document.removeEventListener("keyup", this.handleKeyDown)
     window.removeEventListener("resize", this.resize)
   }
 
@@ -370,6 +369,14 @@ export class SphereScene {
   }
 
   private handleKeyDown = (event: KeyboardEvent) => {
+    const target = event.target as HTMLElement | null
+    if (
+      target &&
+      (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(target.tagName))
+    ) {
+      return
+    }
+
     const key = event.key || event.code
     if ((key === "Escape" || key === "Esc") && this.focusName) {
       this.exitFocus()

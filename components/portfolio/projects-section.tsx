@@ -75,6 +75,8 @@ export function ProjectsSection({
             onClick={onPrevCategory}
             className="h-7 w-7 sm:h-8 sm:w-8 bg-transparent border-primary/50 hover:border-primary cursor-pointer"
             type="button"
+            aria-label="Previous project category"
+            title="Previous project category"
           >
             <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
           </Button>
@@ -83,6 +85,8 @@ export function ProjectsSection({
             onClick={onNextCategory}
             className="h-7 w-7 sm:h-8 sm:w-8 bg-transparent border-primary/50 hover:border-primary cursor-pointer"
             type="button"
+            aria-label="Next project category"
+            title="Next project category"
           >
             <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
           </Button>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 
 import type { PortfolioContent, ProjectCategory, ThemeColor } from "@/lib/default-content"
 import type { ThemeMode } from "@/lib/theme"
+import { FocusedPanelPage } from "./focused-panel-page"
 import { createSphereScene, type SphereScene } from "./sphere-scene"
 import { SphereHud } from "./sphere-hud"
 import type { EditableSphereHandlers, SphereContentSnapshot, SphereHudState } from "./sphere-types"
@@ -246,6 +247,19 @@ export function SpherePortfolio({
         Scroll to orbit
       </div>
       <div className="sphere-vignette" aria-hidden="true" />
+      <FocusedPanelPage
+        focusedPanel={hud.focusedPanel}
+        content={content}
+        activeCategory={activeCategory}
+        activeCategoryIndex={activeCategoryIndex}
+        theme={theme}
+        accentColor={accentColor}
+        isEditorMode={isEditorMode}
+        isContentLoading={isContentLoading}
+        onPrevCategory={onPrevCategory}
+        onNextCategory={onNextCategory}
+        handlers={editHandlers}
+      />
       <SphereHud
         time={time}
         theme={theme}

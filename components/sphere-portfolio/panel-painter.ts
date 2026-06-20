@@ -5,7 +5,7 @@ import {
   type PanelName,
 } from "./panel-layout"
 
-const SCALE = 2
+const SCALE = 2.5
 const FONT = '"Anonymous Pro", "Courier New", monospace'
 
 type PaintColors = {
@@ -74,14 +74,14 @@ const colors = (accent: ThemeColor, theme: ThemeMode): PaintColors => {
     acc,
     solid: acc(1),
     bright: acc(1, 0.14),
-    fg: "hsl(0 0% 97%)",
-    fgDim: "hsl(0 0% 82%)",
-    muted: "hsl(0 0% 60%)",
-    faint: "hsl(0 0% 42%)",
-    voidc: `hsl(${accent.h} 32% 4%)`,
-    panelBg: `hsl(${accent.h} 28% 7%)`,
-    cardBg: `hsl(${accent.h} 24% 10%)`,
-    sec: `hsl(${accent.h} 22% 15%)`,
+    fg: "hsl(0 0% 99%)",
+    fgDim: "hsl(0 0% 84%)",
+    muted: "hsl(0 0% 68%)",
+    faint: "hsl(0 0% 48%)",
+    voidc: `hsl(${accent.h} 30% 2%)`,
+    panelBg: `hsl(${accent.h} 24% 4%)`,
+    cardBg: `hsl(${accent.h} 22% 7%)`,
+    sec: `hsl(${accent.h} 20% 11%)`,
     ink: "#000",
     vizBg: "#000",
   }
@@ -203,7 +203,7 @@ const frame = (ctx: CanvasRenderingContext2D, W: number, H: number, C: PaintColo
   rect(ctx, 6, 6, W - 12, H - 12, null, C.acc(0.6), 2)
   ctx.restore()
   rect(ctx, 6, 6, W - 12, H - 12, null, C.acc(0.22), 1)
-  ctx.fillStyle = C.acc(0.018)
+  ctx.fillStyle = C.acc(0.012)
   for (let yy = 8; yy < H - 8; yy += 4) {
     ctx.fillRect(8, yy, W - 16, 1)
   }
