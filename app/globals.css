@@ -351,5 +351,740 @@
     border-right: 1px solid var(--primary);
   }
 
+  .sphere-portfolio {
+    --sphere-hud: var(--primary);
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: #000;
+    color: var(--sphere-hud);
+    font-family: var(--font-anonymous-pro), "Courier New", monospace;
+  }
+
+  .sphere-portfolio[data-theme="light"] {
+    background: oklch(0.96 0.012 220);
+  }
+
+  .sphere-canvas {
+    position: fixed;
+    inset: 0;
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .sphere-canvas.dragging {
+    cursor: grabbing;
+  }
+
+  .sphere-canvas.focusing {
+    cursor: zoom-out;
+  }
+
+  .sphere-vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+    background: radial-gradient(ellipse 75% 75% at 50% 48%, transparent 52%, rgba(0, 0, 0, 0.55) 100%);
+  }
+
+  .sphere-portfolio[data-theme="light"] .sphere-vignette {
+    background: radial-gradient(ellipse 75% 75% at 50% 48%, transparent 55%, rgba(255, 255, 255, 0.42) 100%);
+  }
+
+  .sphere-status {
+    position: fixed;
+    top: 16px;
+    left: 18px;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: oklch(0.62 0 0);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    transition: opacity 0.4s ease;
+  }
+
+  .sphere-status b {
+    color: var(--sphere-hud);
+    font-weight: 700;
+  }
+
+  .sphere-status-dot {
+    width: 7px;
+    height: 7px;
+    background: var(--sphere-hud);
+    animation: sphere-blink 1.6s ease-in-out infinite;
+  }
+
+  @keyframes sphere-blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  .sphere-hint {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 4;
+    width: min(520px, calc(100vw - 32px));
+    transform: translate(-50%, -50%);
+    color: color-mix(in oklch, var(--sphere-hud) 78%, transparent);
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    line-height: 1.5;
+    text-align: center;
+    text-transform: uppercase;
+    pointer-events: none;
+    transition: opacity 0.6s ease;
+  }
+
+  .sphere-hint-ring {
+    width: 30px;
+    height: 30px;
+    margin: 0 auto 12px;
+    border: 1.5px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: sphere-spin 2.4s linear infinite;
+  }
+
+  @keyframes sphere-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .sphere-hint-mobile {
+    display: none;
+  }
+
+  .sphere-mobile-scroll,
+  .sphere-mobile-scroll-cue {
+    display: none;
+  }
+
+  .sphere-controls {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    z-index: 20;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .sphere-error {
+    position: fixed;
+    top: 68px;
+    left: 50%;
+    z-index: 25;
+    display: flex;
+    transform: translateX(-50%);
+    align-items: center;
+    gap: 12px;
+    border: 1px solid color-mix(in oklch, var(--destructive) 55%, transparent);
+    background: color-mix(in oklch, var(--destructive) 10%, var(--background));
+    padding: 8px 10px;
+    color: var(--destructive);
+    font-size: 12px;
+  }
+
+  .sphere-compass {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    z-index: 4;
+    display: flex;
+    max-width: calc(100vw - 24px);
+    transform: translateX(-50%);
+    gap: 6px;
+    overflow-x: auto;
+    border: 1px solid color-mix(in oklch, var(--sphere-hud) 25%, transparent);
+    background: oklch(0.08 0.01 220 / 0.6);
+    padding: 6px;
+    backdrop-filter: blur(8px);
+  }
+
+  .sphere-portfolio[data-theme="light"] .sphere-compass {
+    background: oklch(0.97 0.01 220 / 0.74);
+  }
+
+  .sphere-compass button {
+    border: 1px solid transparent;
+    background: transparent;
+    color: oklch(0.62 0 0);
+    padding: 7px 12px;
+    font-family: inherit;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+    transition: all 0.18s ease;
+  }
+
+  .sphere-compass button:hover {
+    border-color: color-mix(in oklch, var(--sphere-hud) 35%, transparent);
+    color: var(--sphere-hud);
+  }
+
+  .sphere-compass button.active {
+    border-color: var(--sphere-hud);
+    background: var(--sphere-hud);
+    color: #000;
+    font-weight: 700;
+  }
+
+  .sphere-focusbar {
+    position: fixed;
+    top: 18px;
+    left: 50%;
+    z-index: 12;
+    display: flex;
+    transform: translateX(-50%) translateY(-14px);
+    align-items: center;
+    gap: 4px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .sphere-focusbar.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .sphere-focusbar .arw,
+  .sphere-focusbar .close,
+  .sphere-focusbar .title {
+    display: flex;
+    height: 34px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in oklch, var(--sphere-hud) 30%, transparent);
+    background: oklch(0.08 0.01 220 / 0.7);
+    color: oklch(0.62 0 0);
+    backdrop-filter: blur(8px);
+  }
+
+  .sphere-portfolio[data-theme="light"] .sphere-focusbar .arw,
+  .sphere-portfolio[data-theme="light"] .sphere-focusbar .close,
+  .sphere-portfolio[data-theme="light"] .sphere-focusbar .title {
+    background: oklch(0.97 0.01 220 / 0.82);
+  }
+
+  .sphere-focusbar .arw {
+    width: 34px;
+  }
+
+  .sphere-focusbar .title {
+    min-width: 168px;
+    padding: 0 18px;
+    color: var(--sphere-hud);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+  }
+
+  .sphere-focusbar .close {
+    margin-left: 8px;
+    padding: 0 14px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+  }
+
+  .sphere-focusbar button:hover {
+    border-color: var(--sphere-hud);
+    color: var(--sphere-hud);
+  }
+
+  .sphere-focusbar .close:hover {
+    background: var(--sphere-hud);
+    color: #000;
+    font-weight: 700;
+  }
+
+  .sphere-exit-hint {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    z-index: 12;
+    transform: translateX(-50%);
+    color: oklch(0.56 0 0);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+  }
+
+  .sphere-exit-hint.show {
+    opacity: 1;
+  }
+
+  .sphere-focus-page {
+    position: fixed;
+    inset: 72px 22px 70px;
+    z-index: 11;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklch, var(--sphere-hud) 46%, transparent);
+    background:
+      linear-gradient(180deg, color-mix(in oklch, var(--sphere-hud) 7%, transparent), transparent 30%),
+      oklch(0.035 0.008 220 / 0.97);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.025) inset,
+      0 22px 80px rgba(0, 0, 0, 0.55),
+      0 0 52px color-mix(in oklch, var(--sphere-hud) 14%, transparent);
+    color: var(--foreground);
+    backdrop-filter: blur(18px);
+  }
+
+  .sphere-portfolio[data-theme="light"] .sphere-focus-page {
+    background:
+      linear-gradient(180deg, color-mix(in oklch, var(--sphere-hud) 6%, transparent), transparent 32%),
+      oklch(0.985 0.004 220 / 0.98);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.7) inset,
+      0 22px 70px rgba(15, 23, 42, 0.18),
+      0 0 38px color-mix(in oklch, var(--sphere-hud) 10%, transparent);
+  }
+
+  .sphere-focus-page::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(color-mix(in oklch, var(--sphere-hud) 5%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in oklch, var(--sphere-hud) 4%, transparent) 1px, transparent 1px);
+    background-size: 36px 36px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.8), transparent 68%);
+  }
+
+  .sphere-focus-page-head,
+  .sphere-focus-page-foot {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border-color: color-mix(in oklch, var(--sphere-hud) 24%, transparent);
+    padding: 16px 18px;
+  }
+
+  .sphere-focus-page-head {
+    border-bottom: 1px solid color-mix(in oklch, var(--sphere-hud) 24%, transparent);
+  }
+
+  .sphere-focus-page-foot {
+    border-top: 1px solid color-mix(in oklch, var(--sphere-hud) 18%, transparent);
+  }
+
+  .sphere-focus-kicker {
+    margin: 0 0 4px;
+    color: color-mix(in oklch, var(--sphere-hud) 76%, transparent);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+  }
+
+  .sphere-focus-page h1 {
+    margin: 0;
+    color: var(--sphere-hud);
+    font-size: clamp(20px, 2.4vw, 34px);
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 1;
+  }
+
+  .sphere-focus-actions,
+  .sphere-focus-page-foot {
+    flex-wrap: wrap;
+  }
+
+  .sphere-page-button {
+    gap: 8px;
+    border-color: color-mix(in oklch, var(--sphere-hud) 42%, transparent);
+    color: var(--sphere-hud);
+    font-family: var(--font-anonymous-pro), "Courier New", monospace;
+    font-size: 11px;
+  }
+
+  .sphere-focus-page-body {
+    position: relative;
+    z-index: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 18px;
+    scrollbar-color: color-mix(in oklch, var(--sphere-hud) 55%, transparent) transparent;
+    scrollbar-width: thin;
+  }
+
+  .sphere-focus-page-body::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .sphere-focus-page-body::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--sphere-hud) 55%, transparent);
+  }
+
+  .sphere-focus-page-body > *:last-child {
+    margin-bottom: 0;
+  }
+
+  .sphere-focus-page .bg-card {
+    background-color: color-mix(in oklch, var(--card) 92%, transparent);
+  }
+
+  .sphere-focus-page .text-foreground {
+    color: color-mix(in oklch, var(--foreground) 96%, white 4%);
+  }
+
+  .sphere-focus-page .text-muted-foreground {
+    color: color-mix(in oklch, var(--muted-foreground) 84%, var(--foreground) 16%);
+  }
+
+  .sphere-focus-page a,
+  .sphere-focus-page button,
+  .sphere-focus-page input,
+  .sphere-focus-page textarea {
+    pointer-events: auto;
+  }
+
+  .sphere-focus-page-foot {
+    justify-content: flex-start;
+  }
+
+  .sphere-focus-page-foot a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--sphere-hud);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+
+  .sphere-page-empty {
+    display: flex;
+    min-height: 260px;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border: 1px dashed color-mix(in oklch, var(--sphere-hud) 34%, transparent);
+    color: var(--sphere-hud);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+  }
+
+  .sphere-focus-hero {
+    display: grid;
+    min-height: 360px;
+    align-content: center;
+    gap: 26px;
+    border: 1px solid color-mix(in oklch, var(--sphere-hud) 24%, transparent);
+    background: color-mix(in oklch, var(--sphere-hud) 5%, transparent);
+    padding: clamp(22px, 5vw, 56px);
+  }
+
+  .sphere-focus-hero h2 {
+    margin: 0 0 10px;
+    color: var(--foreground);
+    font-size: clamp(30px, 6vw, 72px);
+    font-weight: 700;
+    letter-spacing: 0;
+    line-height: 0.96;
+  }
+
+  .sphere-focus-hero-title {
+    margin: 0 0 18px;
+    color: var(--sphere-hud);
+    font-size: clamp(14px, 1.7vw, 22px);
+  }
+
+  .sphere-focus-hero-copy {
+    max-width: 760px;
+    margin: 0;
+    color: color-mix(in oklch, var(--foreground) 72%, transparent);
+    font-size: clamp(14px, 1.4vw, 18px);
+    line-height: 1.65;
+  }
+
+  .sphere-focus-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .sphere-focus-hero-actions a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid color-mix(in oklch, var(--sphere-hud) 40%, transparent);
+    padding: 10px 13px;
+    color: var(--sphere-hud);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+
+  .sphere-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    background: radial-gradient(ellipse 70% 70% at 50% 48%, oklch(0.07 0.01 200) 0%, #000 70%);
+    transition: opacity 0.7s ease;
+  }
+
+  .sphere-portfolio[data-theme="light"] .sphere-loader {
+    background: radial-gradient(ellipse 70% 70% at 50% 48%, oklch(0.97 0.02 200) 0%, oklch(0.88 0.01 220) 76%);
+  }
+
+  .sphere-loader.gone {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .sphere-loader .globe {
+    width: 156px;
+    height: 156px;
+    color: var(--sphere-hud);
+    animation: sphere-breathe 3.2s ease-in-out infinite;
+  }
+
+  .sphere-loader .globe ellipse,
+  .sphere-loader .globe circle,
+  .sphere-loader .globe rect {
+    fill: none;
+    stroke: currentColor;
+  }
+
+  .sphere-loader .globe rect {
+    fill: color-mix(in oklch, var(--sphere-hud) 12%, transparent);
+  }
+
+  @keyframes sphere-breathe {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .sphere-loader .ttl {
+    color: var(--sphere-hud);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.34em;
+  }
+
+  .sphere-loader .sub {
+    color: oklch(0.55 0 0);
+    font-size: 10px;
+    letter-spacing: 0.3em;
+  }
+
+  .sphere-admin {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 28;
+    display: grid;
+    width: min(420px, 100vw);
+    height: 100vh;
+    grid-template-rows: auto 1fr;
+    border-left: 1px solid color-mix(in oklch, var(--sphere-hud) 35%, transparent);
+    background: oklch(0.075 0.01 220 / 0.94);
+    color: var(--foreground);
+    box-shadow: -18px 0 60px rgba(0, 0, 0, 0.36);
+    transform: translateX(100%);
+    transition: transform 0.28s ease;
+    backdrop-filter: blur(14px);
+  }
+
+  .sphere-portfolio[data-theme="light"] .sphere-admin {
+    background: oklch(0.98 0.01 220 / 0.94);
+  }
+
+  .sphere-admin.open {
+    transform: translateX(0);
+  }
+
+  .sphere-admin input,
+  .sphere-admin textarea,
+  .sphere-admin button {
+    border-radius: 0;
+    font-family: inherit;
+  }
+
+  @media (max-width: 720px) {
+    .sphere-canvas {
+      cursor: default;
+    }
+
+    .sphere-mobile-scroll {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      display: block;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      touch-action: pan-y;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .sphere-mobile-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    .sphere-mobile-scroll[data-focused="true"],
+    .sphere-mobile-scroll[data-admin-open="true"] {
+      pointer-events: none;
+    }
+
+    .sphere-mobile-scroll-content {
+      min-height: 540vh;
+    }
+
+    .sphere-mobile-scroll-cue {
+      position: fixed;
+      right: 12px;
+      bottom: 76px;
+      z-index: 4;
+      display: block;
+      border: 1px solid color-mix(in oklch, var(--sphere-hud) 22%, transparent);
+      background: oklch(0.08 0.01 220 / 0.58);
+      padding: 6px 8px;
+      color: color-mix(in oklch, var(--sphere-hud) 72%, transparent);
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      pointer-events: none;
+      transition: opacity 0.45s ease;
+      backdrop-filter: blur(8px);
+    }
+
+    .sphere-portfolio[data-theme="light"] .sphere-mobile-scroll-cue {
+      background: oklch(0.97 0.01 220 / 0.74);
+    }
+
+    .sphere-status {
+      display: none;
+    }
+
+    .sphere-controls {
+      top: 10px;
+      right: 10px;
+      gap: 5px;
+    }
+
+    .sphere-hint {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+    }
+
+    .sphere-hint-desktop {
+      display: none;
+    }
+
+    .sphere-hint-mobile {
+      display: inline;
+    }
+
+    .sphere-compass {
+      right: 12px;
+      bottom: 14px;
+      left: 68px;
+      z-index: 8;
+      transform: none;
+      justify-content: flex-start;
+      width: auto;
+    }
+
+    .sphere-compass button {
+      padding: 7px 9px;
+      font-size: 9.5px;
+    }
+
+    .sphere-focusbar {
+      top: 58px;
+      width: calc(100vw - 20px);
+      justify-content: center;
+    }
+
+    .sphere-focusbar .title {
+      min-width: 0;
+      flex: 1;
+      padding: 0 8px;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+    }
+
+    .sphere-focusbar .close {
+      margin-left: 4px;
+      padding: 0 8px;
+    }
+
+    .sphere-focus-page {
+      inset: 104px 10px 68px;
+      border-color: color-mix(in oklch, var(--sphere-hud) 38%, transparent);
+      backdrop-filter: blur(12px);
+    }
+
+    .sphere-focus-page-head {
+      align-items: flex-start;
+      padding: 12px;
+    }
+
+    .sphere-focus-page h1 {
+      font-size: 20px;
+    }
+
+    .sphere-focus-actions {
+      justify-content: flex-end;
+      gap: 6px;
+    }
+
+    .sphere-page-button {
+      height: 30px;
+      padding: 0 9px;
+      font-size: 10px;
+    }
+
+    .sphere-focus-page-body {
+      padding: 12px;
+    }
+
+    .sphere-focus-page-foot {
+      padding: 10px 12px;
+    }
+
+    .sphere-exit-hint {
+      bottom: 62px;
+      width: calc(100vw - 32px);
+      text-align: center;
+      letter-spacing: 0.1em;
+    }
+  }
 
 }
