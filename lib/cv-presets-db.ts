@@ -1,52 +1,65 @@
-import { getDb } from "@/lib/mongodb"
+import { getDb } from "@/lib/mongodb";
+import type { Document } from "mongodb";
 import {
   cvPresetsDocumentSchema,
   defaultPresetsDocument,
   type CvPresetsDocument,
   type CvPreset,
   type PersistedCvPresetsDocument,
-} from "@/lib/cv-presets"
-import { migrateCvContent } from "@/lib/cv-content"
-import { cvContentFromPortfolio } from "@/lib/cv-content-db"
-import type { PortfolioContent } from "@/lib/default-content"
+} from "@/lib/cv-presets";
+import { migrateCvContent } from "@/lib/cv-content";
+import { cvContentFromPortfolio } from "@/lib/cv-content-db";
+import type { PortfolioContent } from "@/lib/default-content";
 
-const COLLECTION_NAME = "cv_presets"
-const DOCUMENT_ID = "cv_presets"
+const COLLECTION_NAME = "cv_presets";
+const DOCUMENT_ID = "cv_presets";
 
-const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 /** Load raw presets from MongoDB, migrating old content format if needed */
 export async function loadCvPresets(): Promise<CvPresetsDocument> {
   try {
-    const db = await getDb()
+    const db = await getDb();
     const doc = await db
-      .collection(COLLECTION_NAME)
-      .findOne<{ _id: string } & Record<string, unknown>>({ _id: DOCUMENT_ID } as any)
+      .collection<{ _id: string } & Document>(COLLECTION_NAME)
+      .findOne({ _id: DOCUMENT_ID });
 
-    if (!doc) return defaultPresetsDocument()
+    if (!doc) return defaultPresetsDocument();
 
-    const { _id: _ignoredId, ...rest } = doc
+    const { _id: _ignoredId, ...rest } = doc;
 
     // Migrate each preset's content from old format if necessary
     if (Array.isArray(rest.presets)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      rest.presets = rest.presets.map((p: any) => ({
-        ...p,
-        content: p.content ? migrateCvContent(p.content) : p.content,
-      }))
+      rest.presets = rest.presets.map((candidate) => {
+        if (!candidate || typeof candidate !== "object") {
+          return candidate;
+        }
+
+        const preset = candidate as Record<string, unknown>;
+        const content = preset.content;
+        return {
+          ...preset,
+          content:
+            content && typeof content === "object"
+              ? migrateCvContent(
+                  content as Parameters<typeof migrateCvContent>[0],
+                )
+              : content,
+        };
+      });
     }
 
-    const parsed = cvPresetsDocumentSchema.safeParse(rest)
+    const parsed = cvPresetsDocumentSchema.safeParse(rest);
 
     if (!parsed.success) {
-      console.error("Failed to parse CV presets", parsed.error)
-      return defaultPresetsDocument()
+      console.error("Failed to parse CV presets", parsed.error);
+      return defaultPresetsDocument();
     }
 
-    return parsed.data as CvPresetsDocument
+    return parsed.data as CvPresetsDocument;
   } catch (error) {
-    console.error("Failed to load CV presets", error)
-    return defaultPresetsDocument()
+    console.error("Failed to load CV presets", error);
+    return defaultPresetsDocument();
   }
 }
 
@@ -56,10 +69,10 @@ export async function loadCvPresets(): Promise<CvPresetsDocument> {
 export async function loadCvPresetsWithFallback(
   portfolio: PortfolioContent,
 ): Promise<CvPresetsDocument> {
-  const doc = await loadCvPresets()
+  const doc = await loadCvPresets();
 
   if (doc.presets.length === 0) {
-    const content = cvContentFromPortfolio(portfolio)
+    const content = cvContentFromPortfolio(portfolio);
     const defaults: CvPreset[] = [
       {
         id: uid(),
@@ -75,20 +88,24 @@ export async function loadCvPresetsWithFallback(
         visible: true,
         content: { ...content },
       },
-    ]
-    const initialized: CvPresetsDocument = { presets: defaults }
-    await saveCvPresets(initialized as PersistedCvPresetsDocument)
-    return initialized
+    ];
+    const initialized: CvPresetsDocument = { presets: defaults };
+    await saveCvPresets(initialized as PersistedCvPresetsDocument);
+    return initialized;
   }
 
-  return doc
+  return doc;
 }
 
-export async function saveCvPresets(doc: PersistedCvPresetsDocument): Promise<void> {
-  const db = await getDb()
-  await db.collection(COLLECTION_NAME).updateOne(
-    { _id: DOCUMENT_ID } as any,
-    { $set: doc, $setOnInsert: { _id: DOCUMENT_ID } },
-    { upsert: true },
-  )
+export async function saveCvPresets(
+  doc: PersistedCvPresetsDocument,
+): Promise<void> {
+  const db = await getDb();
+  await db
+    .collection<{ _id: string } & Document>(COLLECTION_NAME)
+    .updateOne(
+      { _id: DOCUMENT_ID },
+      { $set: doc, $setOnInsert: { _id: DOCUMENT_ID } },
+      { upsert: true },
+    );
 }

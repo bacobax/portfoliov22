@@ -218,6 +218,30 @@
     }
   }
 
+  @keyframes semantic-backdrop-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* panel pops out of the mascot: starts at the puppet's position, lands centered */
+  @keyframes semantic-pop {
+    0% {
+      transform: translate(var(--pop-dx, 0px), var(--pop-dy, 0px)) scale(0.06);
+      opacity: 0;
+    }
+    45% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(0, 0) scale(1);
+      opacity: 1;
+    }
+  }
+
   @keyframes semantic-loading {
     0% {
       transform: translateX(-120%);
@@ -259,10 +283,10 @@
     outline-offset: 2px;
   }
 
-  /* Simplified cursor to clean "+" with subtle corners, removed glow effects */
-  /* Redesigned cursor as simple "+" crosshair with minimal tech styling */
+  /* The native cursor stays visible: the editorial UI no longer renders TechCursor,
+     so the cursor is only hidden inside an explicit .tech-cursor-host subtree. */
   @media (pointer: fine) {
-    body:not(.cv-cursor-visible) * {
+    body:not(.cv-cursor-visible) .tech-cursor-host * {
       cursor: none !important;
     }
   }
