@@ -273,25 +273,40 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  /* dark/light background: driven by whichever themed section sits at the
+     viewport centre. The previous IntersectionObserver compared ratios of
+     very differently-sized sections and (with sparse thresholds) skipped
+     events, leaving the education → manifesto transition stuck or flickery. */
   useEffect(() => {
     const sections = Array.from(
       document.querySelectorAll<HTMLElement>("[data-editorial-theme]"),
     );
     if (!sections.length) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (visible)
-          setDarkSection(
-            (visible.target as HTMLElement).dataset.editorialTheme === "dark",
-          );
-      },
-      { rootMargin: "-44% 0px -44% 0px", threshold: [0, 0.01] },
-    );
-    sections.forEach((section) => observer.observe(section));
-    return () => observer.disconnect();
+    let ticking = false;
+    const update = () => {
+      ticking = false;
+      const middle = window.innerHeight * 0.5;
+      for (const section of sections) {
+        const rect = section.getBoundingClientRect();
+        if (rect.top <= middle && rect.bottom >= middle) {
+          setDarkSection(section.dataset.editorialTheme === "dark");
+          return;
+        }
+      }
+    };
+    const onScroll = () => {
+      if (!ticking) {
+        ticking = true;
+        window.requestAnimationFrame(update);
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    update();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
   }, [content]);
 
   /* experience — pinned scroll progression (mock: services engine) */

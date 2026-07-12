@@ -75,15 +75,17 @@ const sampleLogo = (raw: Array<[number, number]>, count: number): Float32Array =
   return out
 }
 
-/* A filled disc via a Fibonacci spiral — a dense, even, round particle blob. */
-const makeBlob = (count: number): Float32Array => {
-  const out = new Float32Array(count * 2)
-  const golden = Math.PI * (3 - Math.sqrt(5))
+/* A Fibonacci sphere — the resting blob is the SAME organic 3D particle
+   sphere as the hero formation (rotating, wobbling), not a flat dot disc. */
+const makeSphere = (count: number): Float32Array => {
+  const out = new Float32Array(count * 3)
   for (let index = 0; index < count; index += 1) {
-    const radius = Math.sqrt((index + 0.5) / count) * 0.94
-    const angle = index * golden
-    out[index * 2] = Math.cos(angle) * radius
-    out[index * 2 + 1] = Math.sin(angle) * radius
+    const fraction = (index + 0.5) / count
+    const phi = Math.acos(1 - 2 * fraction)
+    const theta = Math.PI * (1 + Math.sqrt(5)) * index
+    out[index * 3] = Math.sin(phi) * Math.cos(theta)
+    out[index * 3 + 1] = Math.cos(phi)
+    out[index * 3 + 2] = Math.sin(phi) * Math.sin(theta)
   }
   return out
 }
@@ -108,10 +110,10 @@ export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
       "(prefers-reduced-motion: reduce)",
     ).matches
     const mobile = window.matchMedia("(max-width: 760px)").matches
-    const count = mobile ? 1900 : 3200
+    const count = mobile ? 2600 : 4800
 
-    const shapes: Record<Shape, Float32Array> = {
-      blob: makeBlob(count),
+    const sphere = makeSphere(count)
+    const logoShapes: Record<"codex" | "claude", Float32Array> = {
       codex: sampleLogo(decodeRaw("codex"), count),
       claude: sampleLogo(decodeRaw("claude"), count),
     }
@@ -173,8 +175,6 @@ export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
         local <= HOLD_SECONDS
           ? 0
           : smoothstep((local - HOLD_SECONDS) / MORPH_SECONDS)
-      const from = shapes[fromShape]
-      const to = shapes[toShape]
 
       const dominant = morph < 0.5 ? fromShape : toShape
       if (dominant !== reportedShape) {
@@ -187,22 +187,63 @@ export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
       const half = side / 2
       const centerX = width / 2
       const centerY = height / 2
-      /* gentle breathing while a shape is held */
-      const breathe = 1 + Math.sin(seconds * 0.8) * 0.02
       const scatter = (1 - presence) * Math.min(width, height) * 0.3
 
+      /* slow autonomous rotation — identical treatment to the hero blob */
+      const yaw =
+        seconds * 0.16 +
+        Math.sin(seconds * 0.17) * 0.7 +
+        Math.sin(seconds * 0.071) * 0.28
+      const pitch =
+        Math.sin(seconds * 0.13) * 0.48 + Math.cos(seconds * 0.083) * 0.2
+      const cosY = Math.cos(yaw)
+      const sinY = Math.sin(yaw)
+      const cosX = Math.cos(pitch)
+      const sinX = Math.sin(pitch)
+      const sphereRadius = half * 0.78
+
       for (let index = 0; index < count; index += 1) {
-        const nx =
-          from[index * 2] + (to[index * 2] - from[index * 2]) * morph
-        const ny =
-          from[index * 2 + 1] +
-          (to[index * 2 + 1] - from[index * 2 + 1]) * morph
+        /* organic 3D blob position: rotating, noise-wobbled sphere */
+        const dx3 = sphere[index * 3]
+        const dy3 = sphere[index * 3 + 1]
+        const dz3 = sphere[index * 3 + 2]
+        const noise =
+          Math.sin(dx3 * 3.1 + seconds * 0.9) *
+          Math.sin(dy3 * 3.7 - seconds * 0.7) *
+          Math.sin(dz3 * 2.6 + seconds * 1.1)
+        const ripple = Math.sin(dy3 * 7 + seconds * 1.6) * 0.35
+        const wobble = 1 + noise * 0.22 + ripple * 0.08
+        const rx = dx3 * cosY - dz3 * sinY
+        const rz0 = dx3 * sinY + dz3 * cosY
+        const ry = dy3 * cosX - rz0 * sinX
+        const rz = dy3 * sinX + rz0 * cosX
+        const perspective = 0.82 + (rz + 1) * 0.13
+        const blobX = centerX + rx * sphereRadius * wobble * perspective
+        const blobY = centerY + ry * sphereRadius * wobble * perspective
+        const blobAlpha = 0.5 + (rz + 1) * 0.22
+        const blobSize = (0.62 + random[index] * 0.95) * perspective * 1.25
 
-        const idleX = Math.sin(seconds * 0.7 + phase[index] + ny * 2) * 0.9
-        const idleY = Math.cos(seconds * 0.55 + phase[index] + nx * 2) * 0.9
+        /* flat logo position with gentle idle drift */
+        const logoArr =
+          logoShapes[(fromShape === "blob" ? toShape : fromShape) as
+            | "codex"
+            | "claude"]
+        const lx = logoArr[index * 2]
+        const ly = logoArr[index * 2 + 1]
+        const idleX = Math.sin(seconds * 0.7 + phase[index] + ly * 2) * 0.9
+        const idleY = Math.cos(seconds * 0.55 + phase[index] + lx * 2) * 0.9
+        const pulse = 0.8 + Math.sin(seconds * 1.1 + phase[index]) * 0.12
+        const logoX = centerX + lx * half + idleX
+        const logoY = centerY + ly * half + idleY
+        const logoAlpha = 0.42 + random[index] * 0.5
+        const logoSize = (0.7 + random[index] * 1.15) * pulse
 
-        let x = centerX + nx * half * breathe + idleX
-        let y = centerY + ny * half * breathe + idleY
+        /* blend blob ↔ logo depending on which side of the morph we're on */
+        const toLogo = fromShape === "blob" ? morph : 1 - morph
+        let x = blobX + (logoX - blobX) * toLogo
+        let y = blobY + (logoY - blobY) * toLogo
+        const alpha = blobAlpha + (logoAlpha - blobAlpha) * toLogo
+        const size = blobSize + (logoSize - blobSize) * toLogo
 
         /* scatter outward before the blob has faded in */
         if (scatter > 0.5) {
@@ -217,12 +258,10 @@ export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
         x += (dx / distance) * influence * 14
         y += (dy / distance) * influence * 14
 
-        const pulse = 0.8 + Math.sin(seconds * 1.1 + phase[index]) * 0.12
-        const radius = (0.7 + random[index] * 1.15) * pulse
-        context.globalAlpha = presence * (0.42 + random[index] * 0.5)
+        context.globalAlpha = presence * alpha
         context.fillStyle = random[index] > 0.975 ? "#f4ee62" : "#aba6f1"
         context.beginPath()
-        context.arc(x, y, radius, 0, Math.PI * 2)
+        context.arc(x, y, size, 0, Math.PI * 2)
         context.fill()
       }
 

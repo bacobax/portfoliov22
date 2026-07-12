@@ -107,6 +107,10 @@ export function ParticleMascot({
     let initialised = false;
     let clickKick = 0; // excitement burst when the puppet is clicked
     let animationStartedAt: number | null = null;
+    let signedVelocity = 0; // smoothed, direction-preserving scroll speed
+    let spinImpulse = 0; // playful barrel-roll fired when crossing sections
+    let lastAnchorIndex = -1;
+    let spinAngle = 0;
     const clickTarget = { x: mascot.x, y: mascot.y };
 
     const buildParticleWords = () => {
@@ -210,6 +214,7 @@ export function ParticleMascot({
       const middle = window.scrollY + height * 0.5;
       let current = anchors[0];
       let next = anchors[0];
+      let currentIndex = 0;
       let progress = 0;
       for (let index = 0; index < anchors.length; index += 1) {
         const candidate = anchors[index];
@@ -217,6 +222,7 @@ export function ParticleMascot({
           candidate.element.offsetTop + candidate.element.offsetHeight * 0.5;
         if (middle >= candidateMiddle) {
           current = candidate;
+          currentIndex = index;
           next = anchors[index + 1] ?? candidate;
           const nextMiddle =
             next.element.offsetTop + next.element.offsetHeight * 0.5;
@@ -228,6 +234,11 @@ export function ParticleMascot({
                 );
         }
       }
+      /* crossing into a new section fires a playful little barrel roll */
+      if (lastAnchorIndex !== -1 && currentIndex !== lastAnchorIndex) {
+        spinImpulse += currentIndex > lastAnchorIndex ? 0.55 : -0.55;
+      }
+      lastAnchorIndex = currentIndex;
       const eased = smoothstep(progress);
       state.x = lerp(current.config.x, next.config.x, eased);
       state.y = lerp(current.config.y, next.config.y, eased);
@@ -292,12 +303,10 @@ export function ParticleMascot({
         heroRect.top < height * 0.3 &&
         heroRect.bottom > height * 0.28,
       );
-      if (
-        !reducedMotion &&
-        time > 0 &&
-        inCover &&
-        animationStartedAt === null
-      ) {
+      /* the clock starts on the first real frame, wherever the page loads —
+         previously it waited for the hero, freezing the puppet on mid-page
+         reloads (no rotation, no bob, dead eyes) */
+      if (!reducedMotion && time > 0 && animationStartedAt === null) {
         animationStartedAt = time;
       }
       const seconds =
@@ -308,6 +317,35 @@ export function ParticleMascot({
 
       /* px-per-world-unit factor so motion amplitudes match the mock's camera */
       const unit = Math.min(width, height * 1.15) * 0.155;
+
+      /* scroll dynamics first — they feed the position targets below */
+      const scrollDelta = window.scrollY - previousScrollY;
+      velocity += (Math.abs(scrollDelta) - velocity) * 0.1;
+      signedVelocity += (scrollDelta - signedVelocity) * 0.14;
+      previousScrollY = window.scrollY;
+      spinAngle += spinImpulse * 0.16;
+      spinImpulse *= 0.92;
+
+      /* hero formation geometry (also drives the unified mobile pose) */
+      const formationCenterX = mobile
+        ? width * 0.5
+        : width * 0.5 + FORMATION_ANCHOR.x * 0.86 * (width * 0.5);
+      const formationCenterY =
+        (heroRect?.top ?? 0) +
+        (mobile
+          ? height * 0.22
+          : height * 0.5 - FORMATION_ANCHOR.y * 0.8 * (height * 0.5));
+      const formationRadius = mobile
+        ? Math.min(width * 0.24, height * 0.125)
+        : unit;
+      const formationAlpha = heroRect
+        ? smoothstep(clamp(heroRect.bottom / (height * 0.55)))
+        : 0;
+      /* The formation blob is its OWN entity (same as desktop) on every
+         screen size — it never merges with the eyed puppet. On mobile it is
+         simply centred in the free band above the hero title. */
+      const showFormation =
+        !inSearchPose && (mobile ? formationAlpha > 0.04 : inCover);
 
       let ax = state.x;
       let ay = state.y;
@@ -327,16 +365,26 @@ export function ParticleMascot({
         pointer.y * 0.68 * unit;
       let targetScale = mobile ? 0.48 : 0.36;
 
-      /* The puppet keeps one small scale everywhere; anchors only move it. */
+      /* parallax lag: the puppet trails the scroll, then eases back */
+      if (!inSearchPose) {
+        targetY += clamp(signedVelocity, -70, 70) * (mobile ? 1.1 : 1.5);
+      }
 
-      /* Mobile hero: the single-column layout leaves the eyebrow + huge title
-         right where the anchored blob would land, so on small screens we park
-         it in the empty band between the nav and the eyebrow instead of letting
-         it overlap the text. */
+      /* occasional playful hop while travelling between sections */
+      let hop = 0;
+      if (!inCover && !inSearchPose && !reducedMotion) {
+        const hopT = seconds % 11;
+        if (hopT < 0.9) hop = Math.sin((Math.PI * hopT) / 0.9);
+        targetY -= hop * unit * 0.24;
+      }
+
+      /* Mobile hero: the formation blob owns the centre of the free band, so
+         the puppet floats beside it in the top-right corner — separate, as
+         always. */
       if (mobile && inCover && !inSearchPose) {
-        targetX = width * 0.5;
-        targetY = height * 0.2;
-        targetScale = 0.44;
+        targetX = width * 0.85 + pointer.x * 0.3 * unit;
+        targetY = height * 0.115 + bob * 0.6;
+        targetScale = 0.32;
       }
 
       /* Search pose from the reference: the puppet clears the modal and
@@ -366,15 +414,16 @@ export function ParticleMascot({
         Math.sin(seconds * 0.071) * 0.28;
       const autonomousPitch =
         Math.sin(seconds * 0.13) * 0.48 + Math.cos(seconds * 0.083) * 0.2;
-      mascot.rotY = lerp(mascot.rotY, autonomousYaw + pointer.x * 0.5, 0.035);
+      mascot.rotY = lerp(
+        mascot.rotY,
+        autonomousYaw + spinAngle + pointer.x * 0.5,
+        0.035,
+      );
       mascot.rotX = lerp(
         mascot.rotX,
         autonomousPitch + pointer.y * 0.32,
         0.035,
       );
-
-      velocity += (Math.abs(window.scrollY - previousScrollY) - velocity) * 0.1;
-      previousScrollY = window.scrollY;
 
       clickKick *= 0.94;
       const wobbleTarget =
@@ -384,38 +433,19 @@ export function ParticleMascot({
       mascot.wobble = lerp(mascot.wobble, wobbleTarget, 0.08);
 
       const presence = reducedMotion || inSearchPose ? 0 : logoPresence();
-      const alphaTarget = inSearchPose
-        ? 0.98
-        : (mobile ? 0.55 : 0.95) * (1 - presence * 0.94);
+      /* full opacity everywhere — the old mobile 0.55 left the puppet and its
+         eyes washed out */
+      const alphaTarget = inSearchPose ? 0.98 : 0.95 * (1 - presence * 0.94);
       mascot.alpha = lerp(mascot.alpha, alphaTarget, 0.08);
 
-      const radius = unit * mascot.scale;
-      const centerX = mascot.x;
-      const centerY = mascot.y;
-      /* The wide word-morphing formation ("AI", "COMPUTER VISION", …) needs
-         desktop room; on phones it collides with the eyebrow and title, so we
-         drop it there and keep only the compact eyed blob in the top band. */
-      const showFormation = inCover && !inSearchPose && !mobile;
-      const puppetRadius = radius;
-      const puppetCenterX = centerX;
-      const puppetCenterY = centerY;
-      const formationAx = mobile
-        ? FORMATION_ANCHOR.x * 0.72
-        : FORMATION_ANCHOR.x;
-      const formationAy = mobile
-        ? 0.52 + FORMATION_ANCHOR.y * 0.22
-        : FORMATION_ANCHOR.y;
-      const formationCenterX = width * 0.5 + formationAx * 0.86 * (width * 0.5);
-      const formationCenterY =
-        (heroRect?.top ?? 0) +
-        height * 0.5 -
-        formationAy * 0.8 * (height * 0.5);
-      const formationRadius = unit * (mobile ? 0.62 : 1);
-      const formationAlpha = heroRect
-        ? smoothstep(clamp(heroRect.bottom / (height * 0.55)))
-        : 0;
-      clickTarget.x = puppetCenterX;
-      clickTarget.y = puppetCenterY;
+      const puppetRadius = unit * mascot.scale;
+      const puppetCenterX = mascot.x;
+      const puppetCenterY = mascot.y;
+
+      /* squash & stretch: fast scrolls flatten the puppet, hops stretch it */
+      const speedSquash = Math.min(Math.abs(signedVelocity) * 0.006, 0.22);
+      const stretchY = (1 - speedSquash) * (1 + hop * 0.14);
+      const stretchX = (1 + speedSquash * 0.5) * (1 - hop * 0.07);
 
       /* Cover choreography: spend most of the cycle as the original blob,
          then resolve into one crisp particle phrase and breathe back out. */
@@ -503,14 +533,25 @@ export function ParticleMascot({
               formationCenterX + textX3 * formationRadius * textPerspective;
             const textY =
               formationCenterY + (textPoint?.y ?? 0) * formationRadius;
-            const x = lerp(blobX, textX, textMorph);
-            const y = lerp(blobY, textY, textMorph);
+            let x = lerp(blobX, textX, textMorph);
+            let y = lerp(blobY, textY, textMorph);
+
+            /* same local hover-repel used by the AI-section blob: particles
+               push away from the pointer within a small radius */
+            const pdx = x - pointerPx.x;
+            const pdy = y - pointerPx.y;
+            const pdist = Math.max(1, Math.hypot(pdx, pdy));
+            const pinfluence = reducedMotion
+              ? 0
+              : Math.max(0, 1 - pdist / 90);
+            x += (pdx / pdist) * pinfluence * 14;
+            y += (pdy / pdist) * pinfluence * 14;
 
             const size = Math.max(
               0.5,
               point.size *
                 lerp(perspective, textPerspective * 1.22, textMorph) *
-                (mobile ? 0.78 : 1.08),
+                (mobile ? 0.95 : 1.08),
             );
             context.globalAlpha =
               lerp(0.5 + (rz + 1) * 0.22, 0.92, textMorph) *
@@ -538,8 +579,8 @@ export function ParticleMascot({
           context.globalAlpha = (0.5 + (rz + 1) * 0.22) * mascot.alpha;
           context.beginPath();
           context.arc(
-            puppetCenterX + rx * puppetRadius * perspective,
-            puppetCenterY + ry * puppetRadius * perspective,
+            puppetCenterX + rx * puppetRadius * perspective * stretchX,
+            puppetCenterY + ry * puppetRadius * perspective * stretchY,
             Math.max(0.48, point.size * perspective * (mobile ? 0.76 : 0.9)),
             0,
             Math.PI * 2,
@@ -547,66 +588,81 @@ export function ParticleMascot({
           context.fill();
         }
 
-        /* The two-eye face remains legible while the particle shell rotates. */
-        const blink =
-          !reducedMotion &&
-          (Math.sin(seconds * 0.5) > 0.998 || Math.sin(seconds * 0.31) > 0.999)
-            ? 0.08
-            : 1;
-        const eyeRadius = Math.max(5.5, puppetRadius * 0.22);
-        for (const eyeOffset of [-0.27, 0.27]) {
-          const eyeX =
-            puppetCenterX +
-            eyeOffset * puppetRadius +
-            pointer.x * puppetRadius * 0.045;
-          const eyeY =
-            puppetCenterY -
-            puppetRadius * 0.18 +
-            pointer.y * puppetRadius * 0.035;
-          context.globalAlpha = mascot.alpha;
-          context.fillStyle = "#f4f1e8";
-          context.beginPath();
-          context.ellipse(
-            eyeX,
-            eyeY,
-            eyeRadius,
-            eyeRadius * blink,
-            0,
-            0,
-            Math.PI * 2,
-          );
-          context.fill();
+        /* The two-eye face lives on the puppet only — never on the formation. */
+        const eyeBodyX = puppetCenterX;
+        const eyeBodyY = puppetCenterY;
+        const eyeBodyRadius = puppetRadius;
+        const eyeAlpha = mascot.alpha;
+        if (eyeAlpha > 0.03) {
+          const blink =
+            !reducedMotion &&
+            (Math.sin(seconds * 0.5) > 0.998 ||
+              Math.sin(seconds * 0.31) > 0.999)
+              ? 0.08
+              : 1;
+          const eyeRadius = Math.max(5.5, eyeBodyRadius * 0.22);
+          const hasPointer = pointerPx.x > -9000;
+          for (const eyeOffset of [-0.27, 0.27]) {
+            const eyeX =
+              eyeBodyX +
+              eyeOffset * eyeBodyRadius * stretchX +
+              pointer.x * eyeBodyRadius * 0.045;
+            const eyeY =
+              eyeBodyY -
+              eyeBodyRadius * 0.18 * stretchY +
+              pointer.y * eyeBodyRadius * 0.035;
+            context.globalAlpha = eyeAlpha;
+            context.fillStyle = "#f4f1e8";
+            context.beginPath();
+            context.ellipse(
+              eyeX,
+              eyeY,
+              eyeRadius,
+              eyeRadius * blink,
+              0,
+              0,
+              Math.PI * 2,
+            );
+            context.fill();
 
-          const dx = pointerPx.x - eyeX;
-          const dy = pointerPx.y - eyeY;
-          const distance = Math.max(1, Math.hypot(dx, dy));
-          const pupilOffset = eyeRadius * 0.28;
-          const pupilRadius = eyeRadius * 0.42 * (1 + clickKick * 0.45);
-          context.fillStyle = "#101014";
-          context.beginPath();
-          context.ellipse(
-            eyeX + (dx / distance) * pupilOffset,
-            eyeY + (dy / distance) * pupilOffset,
-            pupilRadius,
-            pupilRadius * blink,
-            0,
-            0,
-            Math.PI * 2,
-          );
-          context.fill();
+            /* pupils follow the pointer; with no pointer (touch) they wander */
+            const dx = hasPointer
+              ? pointerPx.x - eyeX
+              : Math.cos(seconds * 0.6 + eyeOffset * 2);
+            const dy = hasPointer
+              ? pointerPx.y - eyeY
+              : Math.sin(seconds * 0.45);
+            const distance = Math.max(1, Math.hypot(dx, dy));
+            const pupilOffset = eyeRadius * 0.28;
+            const pupilRadius = eyeRadius * 0.42 * (1 + clickKick * 0.45);
+            context.fillStyle = "#101014";
+            context.beginPath();
+            context.ellipse(
+              eyeX + (dx / distance) * pupilOffset,
+              eyeY + (dy / distance) * pupilOffset,
+              pupilRadius,
+              pupilRadius * blink,
+              0,
+              0,
+              Math.PI * 2,
+            );
+            context.fill();
+          }
         }
         context.fillStyle = `rgb(${particleRed}, ${particleGreen}, ${particleBlue})`;
       }
 
-      /* keep the click target glued to the puppet */
+      /* keep the click target glued to the puppet (never the formation) */
       if (hitbox) {
         const hitRadius = puppetRadius * 0.95;
         const usable =
-          !searchOpenRef.current && mascot.alpha > 0.25 && hitRadius > 16;
+          !searchOpenRef.current && mascot.alpha > 0.25 && hitRadius > 14;
         hitbox.style.width = `${hitRadius * 2}px`;
         hitbox.style.height = `${hitRadius * 2}px`;
         hitbox.style.transform = `translate(${(puppetCenterX - hitRadius).toFixed(1)}px, ${(puppetCenterY - hitRadius).toFixed(1)}px)`;
         hitbox.style.pointerEvents = usable ? "auto" : "none";
+        clickTarget.x = puppetCenterX;
+        clickTarget.y = puppetCenterY;
       }
 
       context.globalAlpha = 1;
