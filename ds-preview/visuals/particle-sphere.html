@@ -1,0 +1,58 @@
+<!-- @dsCard group="Visuals" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Particle Sphere</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  body { padding: 0; background: #000; display: flex; align-items: center; justify-content: center; min-height: 240px; }
+  canvas { display: block; }
+  .label-overlay { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); font-size: 9px; color: oklch(0.52 0.18 195 / 0.6); font-family: monospace; letter-spacing: 0.08em; }
+  .wrap { position: relative; width: 300px; height: 220px; display: flex; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <canvas id="c" width="300" height="220"></canvas>
+  <div class="label-overlay">PARTICLE_SPHERE — WebGL component</div>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 300, H = 220, R = 80, N = 280;
+let t = 0;
+
+function draw() {
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0,0,W,H);
+
+  const pts = [];
+  for (let i = 0; i < N; i++) {
+    const phi = Math.acos(1 - 2*(i+0.5)/N);
+    const theta = Math.PI * (1 + Math.sqrt(5)) * i + t * 0.006;
+    const x = Math.sin(phi)*Math.cos(theta);
+    const y = Math.sin(phi)*Math.sin(theta);
+    const z = Math.cos(phi);
+    const rx = x, ry = y*Math.cos(0.3) - z*Math.sin(0.3), rz = y*Math.sin(0.3) + z*Math.cos(0.3);
+    const sx = W/2 + rx*R, sy = H/2 + ry*R;
+    const alpha = (rz+1)/2;
+    pts.push({sx,sy,alpha,rz});
+  }
+  pts.sort((a,b)=>a.rz-b.rz);
+  pts.forEach(p => {
+    const size = p.alpha*2.2+0.3;
+    ctx.beginPath();
+    ctx.arc(p.sx, p.sy, size, 0, Math.PI*2);
+    ctx.fillStyle = `oklch(0.52 0.18 195 / ${(p.alpha*0.7+0.1).toFixed(2)})`;
+    ctx.fill();
+  });
+
+  t++;
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!-- @dsCard group="Portfolio Sections" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Skills Section</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .card { background: var(--card); border: 1px solid oklch(0.52 0.18 195 / 0.2); padding: 20px; }
+  .card-title { font-size: 14px; color: var(--primary); font-family: var(--font); display: flex; align-items: center; gap: 6px; margin-bottom: 20px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .col-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-muted); padding-bottom: 8px; margin-bottom: 10px; }
+  .col-title { font-size: 11px; color: var(--primary); font-family: var(--font); }
+  .skill-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--fg); margin-bottom: 6px; }
+  .dot { width: 6px; height: 6px; background: var(--primary); flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="card-title">&#9654; SKILLS_MATRIX</div>
+  <div class="grid3">
+    <div>
+      <div class="col-header"><span class="col-title">FRONTEND</span></div>
+      <div class="skill-item"><div class="dot"></div>React / Next.js</div>
+      <div class="skill-item"><div class="dot"></div>TypeScript</div>
+      <div class="skill-item"><div class="dot"></div>Three.js / WebGL</div>
+      <div class="skill-item"><div class="dot"></div>Tailwind CSS</div>
+      <div class="skill-item"><div class="dot"></div>Framer Motion</div>
+    </div>
+    <div>
+      <div class="col-header"><span class="col-title">BACKEND</span></div>
+      <div class="skill-item"><div class="dot"></div>Node.js / Express</div>
+      <div class="skill-item"><div class="dot"></div>Python / FastAPI</div>
+      <div class="skill-item"><div class="dot"></div>PostgreSQL</div>
+      <div class="skill-item"><div class="dot"></div>Redis</div>
+      <div class="skill-item"><div class="dot"></div>Prisma ORM</div>
+    </div>
+    <div>
+      <div class="col-header"><span class="col-title">DEVOPS</span></div>
+      <div class="skill-item"><div class="dot"></div>Docker / K8s</div>
+      <div class="skill-item"><div class="dot"></div>GitHub Actions</div>
+      <div class="skill-item"><div class="dot"></div>Vercel / Fly.io</div>
+      <div class="skill-item"><div class="dot"></div>AWS / GCP</div>
+      <div class="skill-item"><div class="dot"></div>Cloudinary</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

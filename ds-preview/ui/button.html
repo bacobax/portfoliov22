@@ -1,0 +1,58 @@
+<!-- @dsCard group="UI Primitives" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Button</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px; font-family: var(--font); font-size: 12px; font-weight: 500;
+    padding: 0 16px; height: 36px; border: 1px solid transparent;
+    cursor: pointer; transition: opacity 0.15s; white-space: nowrap;
+  }
+  .btn-default { background: var(--primary); color: #000; border-color: var(--primary); }
+  .btn-outline { background: transparent; color: var(--fg); border-color: var(--border); }
+  .btn-secondary { background: var(--secondary); color: var(--fg); border-color: var(--border-muted); }
+  .btn-destructive { background: var(--destructive); color: var(--fg); border-color: var(--destructive); }
+  .btn-ghost { background: transparent; color: var(--fg); border-color: transparent; }
+  .btn-link { background: transparent; color: var(--primary); border-color: transparent; text-decoration: underline; }
+  .btn-sm { height: 28px; padding: 0 12px; font-size: 11px; }
+  .btn-lg { height: 40px; padding: 0 24px; font-size: 13px; }
+  .btn-icon { width: 36px; height: 36px; padding: 0; }
+  .btn:disabled { opacity: 0.5; pointer-events: none; }
+  .section { margin-bottom: 24px; }
+</style>
+</head>
+<body>
+<div class="section">
+  <div class="label">Variants</div>
+  <div class="row">
+    <button class="btn btn-default">DEFAULT</button>
+    <button class="btn btn-outline">OUTLINE</button>
+    <button class="btn btn-secondary">SECONDARY</button>
+    <button class="btn btn-destructive">DESTRUCTIVE</button>
+    <button class="btn btn-ghost">GHOST</button>
+    <button class="btn btn-link">LINK</button>
+  </div>
+</div>
+<div class="section">
+  <div class="label">Sizes</div>
+  <div class="row">
+    <button class="btn btn-default btn-sm">SMALL</button>
+    <button class="btn btn-default">DEFAULT</button>
+    <button class="btn btn-default btn-lg">LARGE</button>
+    <button class="btn btn-outline btn-icon">+</button>
+  </div>
+</div>
+<div class="section">
+  <div class="label">States</div>
+  <div class="row">
+    <button class="btn btn-default">ACTIVE</button>
+    <button class="btn btn-default" disabled>DISABLED</button>
+    <button class="btn btn-outline" disabled>DISABLED OUTLINE</button>
+  </div>
+</div>
+</body>
+</html>

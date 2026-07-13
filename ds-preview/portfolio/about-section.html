@@ -1,0 +1,97 @@
+<!-- @dsCard group="Portfolio Sections" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About Section</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
+  .card { background: var(--card); border: 1px solid oklch(0.52 0.18 195 / 0.2); padding: 20px; }
+  .profile-row { display: flex; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
+  .avatar {
+    width: 80px; height: 80px; flex-shrink: 0; background: oklch(0.15 0.05 195);
+    border: 1px solid oklch(0.52 0.18 195 / 0.6); position: relative; overflow: hidden;
+  }
+  .avatar-inner { width: 100%; height: 100%; background: oklch(0.18 0.06 195); display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--primary); }
+  .name { font-size: 22px; font-weight: 700; color: var(--fg); margin-bottom: 2px; }
+  .title { font-size: 12px; color: var(--primary); font-family: var(--font); margin-bottom: 6px; }
+  .bio { font-size: 11px; color: var(--muted-fg); line-height: 1.6; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+  .stat { background: var(--secondary); border: 1px solid var(--border-muted); padding: 10px; }
+  .stat-lbl { font-size: 10px; color: var(--muted-fg); font-family: var(--font); display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+  .stat-lbl .dot { width: 8px; height: 8px; color: var(--primary); }
+  .stat-val { font-size: 20px; font-weight: 700; color: var(--fg); }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn { font-family: var(--font); font-size: 11px; padding: 0 12px; height: 30px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid; cursor: pointer; }
+  .btn-primary { background: var(--primary); color: #000; border-color: var(--primary); }
+  .btn-outline { background: transparent; color: var(--fg); border-color: var(--border); }
+  .status-card { padding: 20px; }
+  .status-header { font-size: 11px; color: var(--primary); font-family: var(--font); display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+  .pulse { width: 8px; height: 8px; background: var(--primary); border-radius: 50%; animation: p 1.5s ease-in-out infinite; }
+  @keyframes p{0%,100%{opacity:1}50%{opacity:0.3}}
+  .bar-row { margin-bottom: 10px; }
+  .bar-meta { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted-fg); margin-bottom: 4px; }
+  .bar-track { height: 8px; background: oklch(0.52 0.18 195 / 0.1); border: 1px solid oklch(0.52 0.18 195 / 0.3); }
+  .bar-fill { height: 100%; background: var(--primary); }
+  .deploy-box { margin-top: 14px; background: oklch(0.52 0.18 195 / 0.1); border: 1px solid oklch(0.52 0.18 195 / 0.3); padding: 10px; font-size: 10px; font-family: var(--font); }
+  .deploy-key { color: var(--primary); }
+  .deploy-val { color: var(--muted-fg); }
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="card">
+    <div class="profile-row">
+      <div class="avatar"><div class="avatar-inner">&#10084;&#xFE0F;</div></div>
+      <div>
+        <div class="name">Francesco Bassignana</div>
+        <div class="title">&gt; Full-Stack Developer &amp; ML Engineer</div>
+        <div class="bio">Building AI-powered web systems and immersive 3D interfaces. Passionate about the intersection of machine learning, real-time graphics, and human-computer interaction.</div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-lbl"><span style="color:var(--primary)">&#9670;</span> PROJECTS</div>
+        <div class="stat-val">12+</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl"><span style="color:var(--primary)">&#9670;</span> COMMITS</div>
+        <div class="stat-val">2.4k</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl"><span style="color:var(--primary)">&#9670;</span> EXPERIENCE</div>
+        <div class="stat-val">3 yrs</div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary">&#9993; CONTACT</button>
+      <button class="btn btn-outline">&#128279; GITHUB</button>
+      <button class="btn btn-outline">&#128101; LINKEDIN</button>
+      <button class="btn btn-outline">&#128196; VIEW &amp; DOWNLOAD CV</button>
+    </div>
+  </div>
+  <div class="card status-card">
+    <div class="status-header"><span class="pulse"></span>SYSTEM_STATUS</div>
+    <div class="bar-row">
+      <div class="bar-meta"><span style="color:var(--primary)">CODE_QUALITY</span><span style="color:var(--primary)">92%</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:92%"></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-meta"><span style="color:var(--primary)">PERFORMANCE</span><span style="color:var(--primary)">87%</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:87%"></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-meta"><span style="color:var(--primary)">UPTIME</span><span style="color:var(--primary)">99%</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:99%"></div></div>
+    </div>
+    <div class="deploy-box">
+      <div class="deploy-key">&gt; LAST_DEPLOYMENT:</div>
+      <div class="deploy-val">2024-12-15 @ 14:32 UTC</div>
+      <div class="deploy-key" style="margin-top:6px">&gt; BUILD_STATUS:</div>
+      <div class="deploy-key">SUCCESS ✓</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

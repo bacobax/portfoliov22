@@ -1,0 +1,55 @@
+<!-- @dsCard group="UI Primitives" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Slider</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .section { margin-bottom: 24px; }
+  .field { margin-bottom: 20px; }
+  .lbl { font-size: 11px; color: var(--muted-fg); margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .track { width: 260px; height: 4px; background: var(--secondary); position: relative; border: 1px solid var(--border-muted); }
+  .fill { height: 100%; background: var(--primary); }
+  .thumb {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; background: var(--primary);
+    border: 2px solid var(--bg); cursor: pointer;
+    margin-left: -7px;
+  }
+</style>
+</head>
+<body>
+<div class="section">
+  <div class="label">Slider states</div>
+  <div class="field">
+    <div class="lbl"><span>HUE</span><span style="color:var(--primary)">195</span></div>
+    <div class="track">
+      <div class="fill" style="width:54%"></div>
+      <div class="thumb" style="left:54%"></div>
+    </div>
+  </div>
+  <div class="field">
+    <div class="lbl"><span>SATURATION</span><span style="color:var(--primary)">72%</span></div>
+    <div class="track">
+      <div class="fill" style="width:72%"></div>
+      <div class="thumb" style="left:72%"></div>
+    </div>
+  </div>
+  <div class="field">
+    <div class="lbl"><span>LIGHTNESS</span><span style="color:var(--primary)">45%</span></div>
+    <div class="track">
+      <div class="fill" style="width:45%"></div>
+      <div class="thumb" style="left:45%"></div>
+    </div>
+  </div>
+  <div class="field">
+    <div class="lbl"><span>DISABLED</span><span style="color:var(--muted-fg)">30%</span></div>
+    <div class="track" style="opacity:0.4">
+      <div class="fill" style="width:30%"></div>
+      <div class="thumb" style="left:30%"></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

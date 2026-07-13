@@ -1,0 +1,51 @@
+<!-- @dsCard group="UI Primitives" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Skeleton</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .skeleton {
+    background: var(--secondary);
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  .sk-text { height: 12px; border-radius: 0; margin-bottom: 8px; }
+  .sk-title { height: 18px; width: 60%; }
+  .sk-line-full { width: 100%; }
+  .sk-line-3q { width: 75%; }
+  .sk-line-half { width: 50%; }
+  .sk-avatar { width: 48px; height: 48px; }
+  .sk-card { background: var(--card); border: 1px solid var(--border-muted); padding: 16px; margin-bottom: 12px; }
+  .row { display: flex; gap: 12px; align-items: flex-start; }
+  .flex1 { flex: 1; }
+  .section { margin-bottom: 24px; }
+</style>
+</head>
+<body>
+<div class="section">
+  <div class="label">Profile card loading</div>
+  <div class="sk-card">
+    <div class="row">
+      <div class="skeleton sk-avatar"></div>
+      <div class="flex1">
+        <div class="skeleton sk-text sk-title"></div>
+        <div class="skeleton sk-text sk-line-full"></div>
+        <div class="skeleton sk-text sk-line-3q"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="section">
+  <div class="label">Section skeleton</div>
+  <div class="sk-card">
+    <div class="skeleton sk-text sk-title" style="margin-bottom:16px"></div>
+    <div class="skeleton sk-text sk-line-full"></div>
+    <div class="skeleton sk-text sk-line-full"></div>
+    <div class="skeleton sk-text sk-line-3q"></div>
+    <div class="skeleton sk-text sk-line-half" style="margin-top:8px"></div>
+  </div>
+</div>
+</body>
+</html>

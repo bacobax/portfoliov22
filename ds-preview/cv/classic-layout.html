@@ -1,0 +1,55 @@
+<!-- @dsCard group="CV Components" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Classic CV Layout</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .cv { background: #fff; color: #111; max-width: 680px; padding: 32px; font-family: 'Courier New', monospace; }
+  .cv-header { border-bottom: 2px solid #111; padding-bottom: 12px; margin-bottom: 16px; }
+  .cv-name { font-size: 22px; font-weight: 700; }
+  .cv-title { font-size: 12px; color: #555; }
+  .cv-contact { font-size: 10px; color: #555; margin-top: 4px; display: flex; gap: 12px; }
+  .cv-section { margin-bottom: 16px; }
+  .cv-section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 10px; }
+  .cv-entry { margin-bottom: 10px; }
+  .cv-row { display: flex; justify-content: space-between; }
+  .cv-job { font-size: 12px; font-weight: 700; }
+  .cv-year { font-size: 10px; color: #777; }
+  .cv-company { font-size: 11px; color: #555; }
+  .cv-desc { font-size: 10px; color: #333; line-height: 1.5; margin-top: 3px; }
+  .label { color: var(--muted-fg); font-family: var(--font); margin-bottom: 10px; }
+</style>
+</head>
+<body>
+<div class="label">Classic layout — light print view</div>
+<div class="cv">
+  <div class="cv-header">
+    <div class="cv-name">Francesco Bassignana</div>
+    <div class="cv-title">Full-Stack Developer &amp; ML Engineer</div>
+    <div class="cv-contact">
+      <span>bacobas@icloud.com</span>
+      <span>github.com/bacobax</span>
+      <span>linkedin.com/in/francesco-bassignana</span>
+    </div>
+  </div>
+  <div class="cv-section">
+    <div class="cv-section-title">Experience</div>
+    <div class="cv-entry">
+      <div class="cv-row"><span class="cv-job">Full-Stack Developer</span><span class="cv-year">2023 – Present</span></div>
+      <div class="cv-company">Freelance / Remote</div>
+      <div class="cv-desc">AI-powered web apps, Three.js visualizations, Next.js optimization.</div>
+    </div>
+  </div>
+  <div class="cv-section">
+    <div class="cv-section-title">Education</div>
+    <div class="cv-entry">
+      <div class="cv-row"><span class="cv-job">B.Sc. Computer Science</span><span class="cv-year">2021 – 2024</span></div>
+      <div class="cv-company">University of Turin</div>
+      <div class="cv-desc">Thesis on semantic search with dense vector retrieval. 110/110 cum laude.</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

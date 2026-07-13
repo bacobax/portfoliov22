@@ -1,0 +1,39 @@
+<!-- @dsCard group="Portfolio Sections" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Editor Mode Banner</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .banner {
+    background: oklch(0.52 0.18 195 / 0.15);
+    border: 1px solid oklch(0.52 0.18 195 / 0.5);
+    border-left: 3px solid var(--primary);
+    padding: 10px 16px;
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font); font-size: 11px;
+  }
+  .icon { color: var(--primary); font-size: 14px; }
+  .text { color: var(--fg); }
+  .hint { color: var(--muted-fg); margin-left: 4px; }
+  .section { margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="section">
+  <div class="label">Editor mode active</div>
+  <div class="banner">
+    <span class="icon">&#9998;</span>
+    <span class="text">EDITOR_MODE ACTIVE</span>
+    <span class="hint">— Click any text field to edit content inline. Changes are saved automatically.</span>
+  </div>
+</div>
+<div class="section" style="margin-top:20px">
+  <div class="label">Read-only mode (hidden)</div>
+  <div style="background:var(--card);border:1px solid var(--border-muted);padding:12px;font-size:11px;color:var(--muted-fg);font-family:var(--font)">
+    [ EDITOR_BANNER_HIDDEN — not rendered in read-only mode ]
+  </div>
+</div>
+</body>
+</html>

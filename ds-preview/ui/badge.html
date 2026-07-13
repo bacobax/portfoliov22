@@ -1,0 +1,52 @@
+<!-- @dsCard group="UI Primitives" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Badge</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 2px 8px; font-size: 11px; font-family: var(--font);
+    font-weight: 500; border: 1px solid transparent; white-space: nowrap;
+  }
+  .badge-default { background: var(--primary); color: #000; border-color: var(--primary); }
+  .badge-outline { background: transparent; color: var(--fg); border-color: var(--border); }
+  .badge-secondary { background: var(--secondary); color: var(--fg); border-color: var(--border-muted); }
+  .badge-destructive { background: var(--destructive); color: var(--fg); border-color: var(--destructive); }
+  .badge-primary-outline { background: transparent; color: var(--primary); border-color: oklch(0.52 0.18 195 / 0.5); }
+  .section { margin-bottom: 24px; }
+</style>
+</head>
+<body>
+<div class="section">
+  <div class="label">Variants</div>
+  <div class="row">
+    <span class="badge badge-default">DEFAULT</span>
+    <span class="badge badge-outline">OUTLINE</span>
+    <span class="badge badge-secondary">SECONDARY</span>
+    <span class="badge badge-destructive">DESTRUCTIVE</span>
+  </div>
+</div>
+<div class="section">
+  <div class="label">In-context usage (tech tags)</div>
+  <div class="row">
+    <span class="badge badge-primary-outline">PRODUCTION</span>
+    <span class="badge badge-primary-outline" style="opacity:0.8">BETA</span>
+    <span class="badge badge-primary-outline" style="opacity:0.5">DEVELOPMENT</span>
+    <span class="badge badge-destructive" style="background:transparent;color:var(--destructive);border-color:var(--destructive)">TERMINATED</span>
+  </div>
+</div>
+<div class="section">
+  <div class="label">Tech skill tags</div>
+  <div class="row">
+    <span class="badge badge-primary-outline">React</span>
+    <span class="badge badge-primary-outline">TypeScript</span>
+    <span class="badge badge-primary-outline">Next.js</span>
+    <span class="badge badge-primary-outline">Tailwind</span>
+    <span class="badge badge-primary-outline">Node.js</span>
+  </div>
+</div>
+</body>
+</html>

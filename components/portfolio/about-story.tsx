@@ -20,7 +20,7 @@ const STORY: Chapter[] = [
     knob: 12,
     kick: "( chapter 01 · the student )",
     h: "University of Trento",
-    p: "A master's in Artificial Intelligence Systems — where problem-solving gets formal, and communication gets sharpened by seminar rooms and whiteboards.",
+    p: "I am a master's student in Artificial Intelligence Systems at the University of Trento, strengthening the problem-solving and communication skills I bring to every project.",
     panel: "orbit",
   },
   {
@@ -28,7 +28,7 @@ const STORY: Chapter[] = [
     knob: 85,
     kick: "( chapter 02 · the builder )",
     h: "Systems, not just models",
-    p: "Years of designing and building AI end to end — data in, a model in the middle, and something actually running on the other side.",
+    p: "My master's work has given me extensive experience designing and building AI systems and models end to end — from data and evaluation to something that actually runs.",
     panel: "flow",
   },
   {
@@ -36,7 +36,7 @@ const STORY: Chapter[] = [
     knob: 35,
     kick: "( chapter 03 · the critic )",
     h: "Read. Question. Improve.",
-    p: "Critical thinking as a habit: take a state-of-the-art result, find the patches that don't hold, and ask how it could be pushed further.",
+    p: "Critical thinking is a habit: understand a state-of-the-art discovery, challenge what does not hold, and ask how the underlying idea could be improved.",
     panel: "review",
   },
   {
@@ -44,7 +44,7 @@ const STORY: Chapter[] = [
     knob: 50,
     kick: "( chapter 04 · the range )",
     h: "Four favourite problems",
-    p: "Reinforcement learning, audio & music signal processing, image processing, and generative AI with images. Flip the toggle — every one has both faces.",
+    p: "My favourite research areas are reinforcement learning, audio and music signal processing, image processing, and generative AI for images. Every one has both theoretical and practical faces.",
     panel: "areas",
   },
   {
@@ -52,7 +52,7 @@ const STORY: Chapter[] = [
     knob: 50,
     kick: "( chapter 05 · the duality )",
     h: "Theory that ships",
-    p: "The theoretical intuitions behind SoTA matter to me as much as the deploy: derive it on paper first, then make it run.",
+    p: "The theoretical intuitions behind state-of-the-art discoveries matter to me as much as deployment: understand and derive the idea first, then make it run.",
     panel: "proof",
   },
 ];

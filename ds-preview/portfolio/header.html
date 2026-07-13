@@ -1,0 +1,78 @@
+<!-- @dsCard group="Portfolio Sections" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Portfolio Header</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  body { padding: 0; }
+  header {
+    border-bottom: 1px solid var(--border);
+    background: oklch(0.08 0 0 / 0.8);
+    backdrop-filter: blur(8px);
+    padding: 12px 16px;
+    position: sticky; top: 0;
+  }
+  .inner { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .left { display: flex; align-items: center; gap: 10px; }
+  .terminal-icon { color: var(--primary); font-size: 18px; flex-shrink: 0; }
+  .title { font-size: 14px; font-weight: 700; color: var(--fg); }
+  .status { font-size: 10px; color: var(--muted-fg); }
+  .right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .uptime { font-size: 11px; color: var(--muted-fg); display: flex; align-items: center; gap: 4px; }
+  .pulse { width: 8px; height: 8px; background: var(--primary); border-radius: 50%; animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .time { font-size: 12px; color: var(--primary); font-family: var(--font); }
+  .btn-icon {
+    width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid oklch(0.52 0.18 195 / 0.5); background: var(--card); color: var(--primary);
+    cursor: pointer; font-size: 14px;
+  }
+  .btn-icon-active { border-color: var(--primary); background: oklch(0.52 0.18 195 / 0.2); }
+  .color-dot { width: 20px; height: 20px; background: oklch(0.52 0.18 195); border: 1px solid var(--border); }
+  .preview-note { padding: 8px 16px; font-size: 10px; color: var(--muted-fg); border-bottom: 1px solid var(--border-muted); }
+</style>
+</head>
+<body>
+<div class="preview-note">Sticky header — default (online) state</div>
+<header>
+  <div class="inner">
+    <div class="left">
+      <span class="terminal-icon">&#9002;</span>
+      <div>
+        <div class="title">SYSTEM_PORTFOLIO_v2.0</div>
+        <div class="status">STATUS: ONLINE</div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="uptime"><span class="pulse"></span>UPTIME: 99.9%</div>
+      <span class="time">10:42:17</span>
+      <div class="btn-icon" title="Editor mode">&#128274;</div>
+      <div class="btn-icon" title="Theme toggle">&#9788;</div>
+      <div class="color-dot" title="Accent color"></div>
+    </div>
+  </div>
+</header>
+<div class="preview-note" style="margin-top:12px">Editor mode active</div>
+<header>
+  <div class="inner">
+    <div class="left">
+      <span class="terminal-icon">&#9002;</span>
+      <div>
+        <div class="title">SYSTEM_PORTFOLIO_v2.0</div>
+        <div class="status" style="color:var(--primary)">STATUS: EDITOR_MODE</div>
+      </div>
+    </div>
+    <div class="right">
+      <div class="uptime"><span class="pulse"></span>UPTIME: 99.9%</div>
+      <span class="time">10:42:17</span>
+      <div class="btn-icon btn-icon-active" title="Editor mode">&#128274;</div>
+      <div class="btn-icon" title="Logout">&#x21A6;</div>
+      <div class="btn-icon" title="Theme toggle">&#9788;</div>
+      <div class="color-dot"></div>
+    </div>
+  </div>
+</header>
+</body>
+</html>

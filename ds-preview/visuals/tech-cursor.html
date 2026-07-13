@@ -1,0 +1,53 @@
+<!-- @dsCard group="Visuals" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tech Cursor</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  body { padding: 24px; cursor: none; }
+  #cursor {
+    position: fixed; pointer-events: none; z-index: 99999;
+    transform: translate(-50%,-50%);
+    transition: transform 0.08s ease-out;
+  }
+  .ch { position: absolute; width: 24px; height: 1px; background: oklch(0.52 0.18 195); top: 50%; left: 50%; transform: translate(-50%,-50%); opacity: 0.8; }
+  .cv { position: absolute; width: 1px; height: 24px; background: oklch(0.52 0.18 195); top: 50%; left: 50%; transform: translate(-50%,-50%); opacity: 0.8; }
+  .cd { position: absolute; width: 2px; height: 2px; background: oklch(0.52 0.18 195); top: 50%; left: 50%; transform: translate(-50%,-50%); }
+  .corner { position: absolute; width: 6px; height: 6px; opacity: 0.3; }
+  .tl { top:-12px;left:-12px;border-top:1px solid oklch(0.52 0.18 195);border-left:1px solid oklch(0.52 0.18 195); }
+  .tr { top:-12px;right:-12px;border-top:1px solid oklch(0.52 0.18 195);border-right:1px solid oklch(0.52 0.18 195); }
+  .bl { bottom:-12px;left:-12px;border-bottom:1px solid oklch(0.52 0.18 195);border-left:1px solid oklch(0.52 0.18 195); }
+  .br { bottom:-12px;right:-12px;border-bottom:1px solid oklch(0.52 0.18 195);border-right:1px solid oklch(0.52 0.18 195); }
+
+  .demo-area { width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; border: 1px dashed oklch(0.52 0.18 195 / 0.2); }
+  .demo-text { font-size: 11px; color: var(--muted-fg); font-family: var(--font); }
+  .btn { font-family:var(--font);font-size:11px;padding:0 12px;height:30px;border:1px solid oklch(0.52 0.18 195 / 0.5);background:transparent;color:var(--primary);cursor:none; }
+</style>
+</head>
+<body>
+<div id="cursor">
+  <div class="ch"></div>
+  <div class="cv"></div>
+  <div class="cd"></div>
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+</div>
+
+<div class="label">Custom crosshair cursor (pointer: fine devices only)</div>
+<div class="demo-area">
+  <div class="demo-text">Move your cursor here to preview the tech crosshair</div>
+  <button class="btn">INTERACTIVE ELEMENT</button>
+</div>
+<script>
+const c = document.getElementById('cursor');
+document.addEventListener('mousemove', e => {
+  c.style.left = e.clientX + 'px';
+  c.style.top = e.clientY + 'px';
+});
+</script>
+</body>
+</html>

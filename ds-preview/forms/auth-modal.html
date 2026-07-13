@@ -1,0 +1,38 @@
+<!-- @dsCard group="Forms" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Auth Modal</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .overlay { background: oklch(0.02 0 0 / 0.85); display: flex; align-items: center; justify-content: center; padding: 40px 20px; }
+  .modal { background: var(--card); border: 1px solid var(--border); max-width: 360px; width: 100%; padding: 28px; }
+  .modal-title { font-size: 16px; font-weight: 700; color: var(--primary); font-family: var(--font); margin-bottom: 4px; }
+  .modal-sub { font-size: 11px; color: var(--muted-fg); margin-bottom: 24px; }
+  .field { margin-bottom: 14px; }
+  .lbl { font-size: 10px; color: var(--muted-fg); font-family: var(--font); margin-bottom: 4px; }
+  .inp { width: 100%; background: var(--input); border: 1px solid var(--border); color: var(--fg); font-family: var(--font); font-size: 12px; padding: 7px 10px; height: 34px; outline: none; }
+  .inp:focus { border-color: var(--primary); }
+  .btn { width: 100%; height: 36px; background: var(--primary); color: #000; border: none; font-family: var(--font); font-size: 12px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+  .error { background: oklch(0.55 0.22 25 / 0.1); border: 1px solid oklch(0.55 0.22 25 / 0.5); padding: 8px 10px; font-size: 10px; color: var(--destructive); font-family: var(--font); margin-bottom: 14px; }
+</style>
+</head>
+<body>
+<div class="overlay">
+  <div class="modal">
+    <div class="modal-title">AUTH_REQUIRED</div>
+    <div class="modal-sub">Enter your credentials to enable editor mode.</div>
+    <div class="field">
+      <div class="lbl">USERNAME</div>
+      <input class="inp" type="text" placeholder="admin">
+    </div>
+    <div class="field">
+      <div class="lbl">PASSWORD</div>
+      <input class="inp" type="password" placeholder="••••••••">
+    </div>
+    <button class="btn">AUTHENTICATE →</button>
+  </div>
+</div>
+</body>
+</html>

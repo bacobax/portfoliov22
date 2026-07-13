@@ -1,0 +1,85 @@
+<!-- @dsCard group="Portfolio Sections" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Projects Section</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .card { background: var(--card); border: 1px solid oklch(0.52 0.18 195 / 0.2); padding: 20px; margin-bottom: 12px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .title { font-size: 14px; color: var(--primary); font-family: var(--font); display: flex; align-items: center; gap: 8px; }
+  .badge { font-size: 10px; color: var(--primary); border: 1px solid oklch(0.52 0.18 195 / 0.5); padding: 2px 8px; font-family: var(--font); }
+  .nav { display: flex; gap: 4px; }
+  .nav-btn { width: 28px; height: 28px; border: 1px solid oklch(0.52 0.18 195 / 0.5); background: transparent; color: var(--primary); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .cluster-meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted-fg); font-family: var(--font); margin-bottom: 12px; }
+  .sep { color: var(--primary); }
+  .viz-box { width: 100%; height: 100px; background: #000; border: 1px solid oklch(0.52 0.18 195 / 0.2); margin-bottom: 12px; display: flex; align-items: center; justify-content: center; color: oklch(0.52 0.18 195 / 0.3); font-size: 10px; font-family: var(--font); overflow: hidden; position: relative; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .proj-card { background: var(--card); border: 1px solid oklch(0.52 0.18 195 / 0.2); padding: 14px; cursor: pointer; transition: border-color 0.15s; }
+  .proj-card:hover { border-color: var(--primary); }
+  .proj-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .proj-name { font-size: 13px; font-weight: 700; color: var(--fg); font-family: var(--font); }
+  .status { font-size: 10px; font-family: var(--font); padding: 1px 6px; border: 1px solid; }
+  .st-prod { color: var(--primary); border-color: var(--primary); }
+  .st-beta { color: oklch(0.52 0.18 195 / 0.7); border-color: oklch(0.52 0.18 195 / 0.7); }
+  .st-dev { color: oklch(0.52 0.18 195 / 0.5); border-color: oklch(0.52 0.18 195 / 0.5); }
+  .proj-desc { font-size: 11px; color: var(--muted-fg); margin-bottom: 8px; line-height: 1.5; }
+  .metrics { display: flex; flex-wrap: wrap; gap: 10px; font-size: 10px; font-family: var(--font); }
+  .metric-key { color: var(--muted-fg); }
+  .metric-val { color: var(--primary); }
+  /* particle dots decoration */
+  .dot { position: absolute; border-radius: 50%; background: var(--primary); animation: fl 2s ease-in-out infinite; }
+  @keyframes fl{0%,100%{opacity:0.8;transform:scale(1)}50%{opacity:0.3;transform:scale(0.7)}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="section-header">
+    <div class="title">
+      WEB_PROJECTS
+      <span class="badge">3 ACTIVE</span>
+    </div>
+    <div class="nav">
+      <button class="nav-btn">&#8249;</button>
+      <button class="nav-btn">&#8250;</button>
+    </div>
+  </div>
+  <div class="cluster-meta">
+    <span>WEB</span><span class="sep">|</span><span>PROJECT_CLUSTER</span>
+  </div>
+  <div class="viz-box">
+    <span style="z-index:1">[ PARTICLE_VISUALIZATION ]</span>
+    <div class="dot" style="width:3px;height:3px;top:20%;left:25%;animation-delay:0s"></div>
+    <div class="dot" style="width:2px;height:2px;top:60%;left:70%;animation-delay:0.4s"></div>
+    <div class="dot" style="width:4px;height:4px;top:40%;left:50%;animation-delay:0.8s"></div>
+    <div class="dot" style="width:2px;height:2px;top:75%;left:30%;animation-delay:1.2s"></div>
+    <div class="dot" style="width:3px;height:3px;top:15%;left:80%;animation-delay:0.2s"></div>
+  </div>
+  <div class="grid2">
+    <div class="proj-card">
+      <div class="proj-header">
+        <div class="proj-name">PORTFOLIO_v22</div>
+        <span class="status st-prod">PRODUCTION</span>
+      </div>
+      <div class="proj-desc">Immersive 3D portfolio with spherical Three.js UI and real-time particle systems.</div>
+      <div class="metrics">
+        <span><span class="metric-key">STACK: </span><span class="metric-val">Next.js</span></span>
+        <span><span class="metric-key">PERF: </span><span class="metric-val">98</span></span>
+      </div>
+    </div>
+    <div class="proj-card">
+      <div class="proj-header">
+        <div class="proj-name">SEMANTIC_SEARCH</div>
+        <span class="status st-beta">BETA</span>
+      </div>
+      <div class="proj-desc">Vector-based semantic search engine with streaming results and GPU-accelerated embeddings.</div>
+      <div class="metrics">
+        <span><span class="metric-key">MODEL: </span><span class="metric-val">E5-large</span></span>
+        <span><span class="metric-key">P50: </span><span class="metric-val">120ms</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

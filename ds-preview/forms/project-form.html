@@ -1,0 +1,63 @@
+<!-- @dsCard group="Forms" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Project Form</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .form { background: var(--card); border: 1px solid var(--border); padding: 20px; max-width: 500px; }
+  .form-title { font-size: 13px; color: var(--primary); font-family: var(--font); margin-bottom: 16px; border-bottom: 1px solid var(--border-muted); padding-bottom: 8px; }
+  .field { margin-bottom: 12px; }
+  .lbl { font-size: 10px; color: var(--muted-fg); font-family: var(--font); margin-bottom: 4px; }
+  .inp { width: 100%; background: var(--input); border: 1px solid var(--border); color: var(--fg); font-family: var(--font); font-size: 12px; padding: 6px 10px; height: 32px; outline: none; }
+  .inp:focus { border-color: var(--primary); }
+  .textarea { width: 100%; background: var(--input); border: 1px solid var(--border); color: var(--fg); font-family: var(--font); font-size: 12px; padding: 7px 10px; height: 64px; resize: vertical; outline: none; }
+  .select { width: 100%; background: var(--input); border: 1px solid var(--border); color: var(--fg); font-family: var(--font); font-size: 12px; padding: 6px 10px; height: 32px; outline: none; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .actions { display: flex; gap: 8px; margin-top: 16px; }
+  .btn { font-family: var(--font); font-size: 11px; padding: 0 14px; height: 32px; display: inline-flex; align-items: center; border: 1px solid; cursor: pointer; }
+  .btn-primary { background: var(--primary); color: #000; border-color: var(--primary); }
+  .btn-outline { background: transparent; color: var(--fg); border-color: var(--border); }
+</style>
+</head>
+<body>
+<div class="form">
+  <div class="form-title">EDIT_PROJECT</div>
+  <div class="grid2">
+    <div class="field">
+      <div class="lbl">TITLE</div>
+      <input class="inp" type="text" value="Portfolio v22">
+    </div>
+    <div class="field">
+      <div class="lbl">STATUS</div>
+      <select class="select">
+        <option selected>PRODUCTION</option>
+        <option>BETA</option>
+        <option>DEVELOPMENT</option>
+        <option>ONGOING</option>
+        <option>TERMINATED</option>
+      </select>
+    </div>
+  </div>
+  <div class="field">
+    <div class="lbl">DESCRIPTION</div>
+    <textarea class="textarea">Immersive 3D portfolio with spherical Three.js interface and real-time particle systems.</textarea>
+  </div>
+  <div class="grid2">
+    <div class="field">
+      <div class="lbl">GITHUB_URL</div>
+      <input class="inp" type="url" placeholder="https://github.com/...">
+    </div>
+    <div class="field">
+      <div class="lbl">PROJECT_URL</div>
+      <input class="inp" type="url" placeholder="https://...">
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-primary">SAVE_PROJECT</button>
+    <button class="btn btn-outline">CANCEL</button>
+  </div>
+</div>
+</body>
+</html>

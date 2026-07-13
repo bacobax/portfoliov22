@@ -1,0 +1,51 @@
+<!-- @dsCard group="UI Primitives" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Input / Label</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .section { margin-bottom: 24px; }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+  .lbl { font-size: 11px; color: var(--fg); font-family: var(--font); }
+  .inp {
+    background: var(--input); border: 1px solid var(--border); color: var(--fg);
+    font-family: var(--font); font-size: 12px; padding: 6px 10px; height: 34px;
+    outline: none; width: 260px;
+  }
+  .inp::placeholder { color: var(--muted-fg); }
+  .inp:focus { border-color: var(--primary); }
+  .inp-error { border-color: var(--destructive); }
+  .inp-disabled { opacity: 0.5; pointer-events: none; }
+  .hint { font-size: 10px; color: var(--muted-fg); margin-top: 2px; }
+  .hint-err { color: var(--destructive); }
+</style>
+</head>
+<body>
+<div class="section">
+  <div class="label">States</div>
+  <div class="field">
+    <span class="lbl">DEFAULT</span>
+    <input class="inp" type="text" placeholder="placeholder text">
+  </div>
+  <div class="field">
+    <span class="lbl">WITH_VALUE</span>
+    <input class="inp" type="text" value="Francesco Bassignana">
+  </div>
+  <div class="field">
+    <span class="lbl">FOCUSED</span>
+    <input class="inp" type="text" value="cursor here" style="border-color:var(--primary);box-shadow:0 0 0 2px oklch(0.52 0.18 195 / 0.25)">
+  </div>
+  <div class="field">
+    <span class="lbl">ERROR</span>
+    <input class="inp inp-error" type="text" value="invalid input">
+    <span class="hint hint-err">This field is required.</span>
+  </div>
+  <div class="field">
+    <span class="lbl">DISABLED</span>
+    <input class="inp inp-disabled" type="text" placeholder="unavailable" disabled>
+  </div>
+</div>
+</body>
+</html>

@@ -39,24 +39,30 @@ type ParticleMascotProps = {
   onActivate?: (origin: { x: number; y: number }) => void;
   /** holds the puppet in its semantic-search pose while the dialog is open */
   searchOpen?: boolean;
+  /** gives the puppet a dedicated opening pose or a more animated tour pose */
+  mode?: "default" | "welcome" | "tour";
 };
 
 export function ParticleMascot({
   onActivate,
   searchOpen = false,
+  mode = "default",
 }: ParticleMascotProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hitboxRef = useRef<HTMLButtonElement>(null);
   const onActivateRef = useRef(onActivate);
   const searchOpenRef = useRef(searchOpen);
+  const modeRef = useRef(mode);
   onActivateRef.current = onActivate;
   searchOpenRef.current = searchOpen;
+  modeRef.current = mode;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const hitbox = hitboxRef.current;
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
+    const site = canvas.closest<HTMLElement>(".editorial-site");
 
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
@@ -109,6 +115,7 @@ export function ParticleMascot({
     let animationStartedAt: number | null = null;
     let signedVelocity = 0; // smoothed, direction-preserving scroll speed
     let spinImpulse = 0; // playful barrel-roll fired when crossing sections
+    let tourTraveling = false;
     let lastAnchorIndex = -1;
     let spinAngle = 0;
     const clickTarget = { x: mascot.x, y: mascot.y };
@@ -296,7 +303,10 @@ export function ParticleMascot({
       sampleAnchors();
 
       const mobile = width <= 760;
+      const compactHero = width <= 960;
       const inSearchPose = searchOpenRef.current;
+      const inWelcomePose = modeRef.current === "welcome";
+      const inTourPose = modeRef.current === "tour";
       const heroRect = anchors[0]?.element.getBoundingClientRect();
       const inCover = Boolean(
         heroRect &&
@@ -327,15 +337,15 @@ export function ParticleMascot({
       spinImpulse *= 0.92;
 
       /* hero formation geometry (also drives the unified mobile pose) */
-      const formationCenterX = mobile
+      const formationCenterX = compactHero
         ? width * 0.5
         : width * 0.5 + FORMATION_ANCHOR.x * 0.86 * (width * 0.5);
       const formationCenterY =
         (heroRect?.top ?? 0) +
-        (mobile
+        (compactHero
           ? height * 0.22
           : height * 0.5 - FORMATION_ANCHOR.y * 0.8 * (height * 0.5));
-      const formationRadius = mobile
+      const formationRadius = compactHero
         ? Math.min(width * 0.24, height * 0.125)
         : unit;
       const formationAlpha = heroRect
@@ -345,7 +355,9 @@ export function ParticleMascot({
          screen size — it never merges with the eyed puppet. On mobile it is
          simply centred in the free band above the hero title. */
       const showFormation =
-        !inSearchPose && (mobile ? formationAlpha > 0.04 : inCover);
+        !inSearchPose &&
+        !inWelcomePose &&
+        (compactHero ? formationAlpha > 0.04 : inCover);
 
       let ax = state.x;
       let ay = state.y;
@@ -381,7 +393,7 @@ export function ParticleMascot({
       /* Mobile hero: the formation blob owns the centre of the free band, so
          the puppet floats beside it in the top-right corner — separate, as
          always. */
-      if (mobile && inCover && !inSearchPose) {
+      if (compactHero && inCover && !inSearchPose) {
         targetX = width * 0.85 + pointer.x * 0.3 * unit;
         targetY = height * 0.115 + bob * 0.6;
         targetScale = 0.32;
@@ -393,6 +405,20 @@ export function ParticleMascot({
         targetX = Math.min(126, Math.max(92, width * 0.085));
         targetY = Math.min(112, Math.max(84, height * 0.11));
         targetScale = mobile ? 0.46 : 0.5;
+      }
+      if (inWelcomePose) {
+        targetX = width * 0.5 + pointer.x * 0.16 * unit;
+        targetY = height * (mobile ? 0.52 : 0.56) + bob * 0.45;
+        targetScale = mobile ? 1.04 : 1.38;
+      }
+      const surfAmount =
+        inTourPose && tourTraveling
+          ? clamp(Math.abs(signedVelocity) / 18, 0.18, 1)
+          : 0;
+      if (surfAmount > 0 && !reducedMotion) {
+        targetX += Math.sin(seconds * 10.5) * unit * 0.18 * surfAmount;
+        targetY += Math.sin(seconds * 16) * unit * 0.07 * surfAmount;
+        targetScale *= 1 - surfAmount * 0.16;
       }
       if (!initialised) {
         mascot.x = targetX;
@@ -416,7 +442,10 @@ export function ParticleMascot({
         Math.sin(seconds * 0.13) * 0.48 + Math.cos(seconds * 0.083) * 0.2;
       mascot.rotY = lerp(
         mascot.rotY,
-        autonomousYaw + spinAngle + pointer.x * 0.5,
+        autonomousYaw +
+          spinAngle +
+          pointer.x * 0.5 +
+          (inTourPose && tourTraveling ? Math.sin(seconds * 3.8) * 0.5 : 0),
         0.035,
       );
       mascot.rotX = lerp(
@@ -427,12 +456,27 @@ export function ParticleMascot({
 
       clickKick *= 0.94;
       const wobbleTarget =
-        (inCover && !inSearchPose ? state.w : 0.045) +
-        Math.min(velocity * (inCover ? 0.012 : 0.0015), inCover ? 1.4 : 0.08) +
+        (inWelcomePose
+          ? 0.5
+          : inCover && !inSearchPose
+            ? state.w
+            : inTourPose
+              ? 0.16
+              : 0.045) +
+        Math.min(
+          velocity *
+            (inTourPose && tourTraveling
+              ? 0.014
+              : inCover
+                ? 0.012
+                : 0.0015),
+          inTourPose && tourTraveling ? 1.2 : inCover ? 1.4 : 0.08,
+        ) +
         clickKick * (inCover ? 1.8 : 0.18);
       mascot.wobble = lerp(mascot.wobble, wobbleTarget, 0.08);
 
-      const presence = reducedMotion || inSearchPose ? 0 : logoPresence();
+      const presence =
+        reducedMotion || inSearchPose || inTourPose ? 0 : logoPresence();
       /* full opacity everywhere — the old mobile 0.55 left the puppet and its
          eyes washed out */
       const alphaTarget = inSearchPose ? 0.98 : 0.95 * (1 - presence * 0.94);
@@ -441,6 +485,12 @@ export function ParticleMascot({
       const puppetRadius = unit * mascot.scale;
       const puppetCenterX = mascot.x;
       const puppetCenterY = mascot.y;
+
+      if (site) {
+        site.style.setProperty("--mascot-x", `${puppetCenterX.toFixed(1)}px`);
+        site.style.setProperty("--mascot-y", `${puppetCenterY.toFixed(1)}px`);
+        site.style.setProperty("--mascot-r", `${puppetRadius.toFixed(1)}px`);
+      }
 
       /* squash & stretch: fast scrolls flatten the puppet, hops stretch it */
       const speedSquash = Math.min(Math.abs(signedVelocity) * 0.006, 0.22);
@@ -563,6 +613,34 @@ export function ParticleMascot({
           }
         }
 
+        /* During autopilot travel, a curved particle wake makes Mote look as
+           if he is physically surfing the document rather than teleporting
+           between anchors. */
+        if (inTourPose && tourTraveling && !reducedMotion) {
+          const direction = signedVelocity >= 0 ? 1 : -1;
+          const wakeLength = 10 + Math.round(surfAmount * 8);
+          for (let wakeIndex = 1; wakeIndex <= wakeLength; wakeIndex += 1) {
+            const distance = wakeIndex * (5 + surfAmount * 5);
+            const wakeX =
+              puppetCenterX +
+              Math.sin(seconds * 8 - wakeIndex * 0.7) *
+                puppetRadius *
+                (0.22 + wakeIndex * 0.018);
+            const wakeY = puppetCenterY - direction * distance;
+            context.globalAlpha =
+              mascot.alpha * (1 - wakeIndex / (wakeLength + 1)) * 0.55;
+            context.beginPath();
+            context.arc(
+              wakeX,
+              wakeY,
+              Math.max(0.7, 2.6 - wakeIndex * 0.09),
+              0,
+              Math.PI * 2,
+            );
+            context.fill();
+          }
+        }
+
         /* The puppet is always its own small, tightly packed sphere. */
         const puppetPointStep = mobile ? 2 : 3;
         for (
@@ -656,7 +734,10 @@ export function ParticleMascot({
       if (hitbox) {
         const hitRadius = puppetRadius * 0.95;
         const usable =
-          !searchOpenRef.current && mascot.alpha > 0.25 && hitRadius > 14;
+          modeRef.current === "default" &&
+          !searchOpenRef.current &&
+          mascot.alpha > 0.25 &&
+          hitRadius > 14;
         hitbox.style.width = `${hitRadius * 2}px`;
         hitbox.style.height = `${hitRadius * 2}px`;
         hitbox.style.transform = `translate(${(puppetCenterX - hitRadius).toFixed(1)}px, ${(puppetCenterY - hitRadius).toFixed(1)}px)`;
@@ -692,10 +773,25 @@ export function ParticleMascot({
       if (reducedMotion) draw(0);
     };
 
+    const onTourBurst = (event: Event) => {
+      const detail = (event as CustomEvent<{ direction?: number }>).detail;
+      clickKick = 1.35;
+      spinImpulse += (detail?.direction ?? 1) * 1.35;
+      if (reducedMotion) draw(0);
+    };
+
+    const onTourMotion = (event: Event) => {
+      tourTraveling = Boolean(
+        (event as CustomEvent<{ traveling?: boolean }>).detail?.traveling,
+      );
+    };
+
     resize();
     window.addEventListener("resize", resize);
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("portfolio:mascot-burst", onTourBurst);
+    window.addEventListener("portfolio:tour-motion", onTourMotion);
     hitbox?.addEventListener("click", onHitboxClick);
     draw(0);
 
@@ -705,7 +801,12 @@ export function ParticleMascot({
       window.removeEventListener("resize", resize);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("portfolio:mascot-burst", onTourBurst);
+      window.removeEventListener("portfolio:tour-motion", onTourMotion);
       hitbox?.removeEventListener("click", onHitboxClick);
+      site?.style.removeProperty("--mascot-x");
+      site?.style.removeProperty("--mascot-y");
+      site?.style.removeProperty("--mascot-r");
     };
   }, []);
 
@@ -714,15 +815,25 @@ export function ParticleMascot({
       <canvas
         ref={canvasRef}
         id="gl"
-        className={searchOpen ? "semantic-search-open" : undefined}
+        className={`${searchOpen ? "semantic-search-open" : ""} ${mode === "welcome" ? "mascot-welcome" : mode === "tour" ? "mascot-touring" : ""}`.trim()}
         aria-hidden="true"
       />
       <button
         ref={hitboxRef}
         type="button"
         className="mascot-hitbox"
-        aria-label="Search the portfolio"
-        title="Search the portfolio"
+        disabled={mode !== "default"}
+        aria-hidden={mode !== "default" || undefined}
+        aria-label={
+          mode === "default"
+            ? "Search the portfolio"
+            : "Mote, the portfolio guide"
+        }
+        title={
+          mode === "default"
+            ? "Search the portfolio"
+            : "Mote, the portfolio guide"
+        }
       />
     </>
   );

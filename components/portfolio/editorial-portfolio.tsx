@@ -20,6 +20,11 @@ import { ColorPicker } from "@/components/color-picker";
 import { EditableText } from "@/components/editable-text";
 import { AboutStory } from "@/components/portfolio/about-story";
 import { AiParticleMorph } from "@/components/portfolio/ai-particle-morph";
+import {
+  GuidedTourHud,
+  TOUR_STEPS,
+  TourWelcome,
+} from "@/components/portfolio/guided-tour";
 import { ParticleMascot } from "@/components/portfolio/particle-mascot";
 import type {
   ExperienceEntry,
@@ -86,6 +91,14 @@ type ProjectRecord = {
   project: Project;
 };
 
+type ProjectGroup = "ai" | "software-web";
+
+const PROJECT_PREVIEW_LIMIT = 5;
+const PROJECT_GROUPS: Array<{ id: ProjectGroup; label: string }> = [
+  { id: "ai", label: "AI" },
+  { id: "software-web", label: "Software & Web" },
+];
+
 const cleanLabel = (value: string) =>
   value.replaceAll("_", " ").replace(/\s+/g, " ").trim();
 const projectSummary = (value: string) => {
@@ -132,12 +145,35 @@ function ProjectPreview({
 function ExperiencePanel({
   entry,
   index,
+  isEditorMode = false,
+  onChange,
 }: {
   entry: ExperienceEntry;
   index: number;
+  isEditorMode?: boolean;
+  onChange?: (entry: ExperienceEntry) => void;
 }) {
+  const updateTag = (tagIndex: number, value: string) => {
+    onChange?.({
+      ...entry,
+      tags: entry.tags.map((tag, index) =>
+        index === tagIndex ? value : tag,
+      ),
+    });
+  };
+
+  const removeTag = (tagIndex: number) => {
+    onChange?.({
+      ...entry,
+      tags: entry.tags.filter((_, index) => index !== tagIndex),
+    });
+  };
+
   return (
-    <div className="panel editorial-experience-panel" aria-hidden="true">
+    <div
+      className="panel editorial-experience-panel"
+      aria-label={`Technologies used at ${cleanLabel(entry.company)}`}
+    >
       <div className="p-head">
         <span>{cleanLabel(entry.company)}</span>
         <span className="dotrow">
@@ -149,11 +185,45 @@ function ExperiencePanel({
       <div className="experience-viz-number">
         {String(index + 1).padStart(2, "0")}
       </div>
-      <div className="experience-viz-grid">
+      <ul className="experience-viz-grid" aria-label="Experience tags">
         {entry.tags.map((tag, tagIndex) => (
-          <span key={`${tag}-${tagIndex}`}>{cleanLabel(tag)}</span>
+          <li key={`${tag}-${tagIndex}`}>
+            {isEditorMode && onChange ? (
+              <>
+                <EditableText
+                  as="span"
+                  value={tag}
+                  onChange={(value) => updateTag(tagIndex, value)}
+                  isEditorMode
+                  className="editable-field"
+                />
+                <button
+                  type="button"
+                  className="experience-tag-remove"
+                  aria-label={`Remove ${cleanLabel(tag)} tag`}
+                  onClick={() => removeTag(tagIndex)}
+                >
+                  <Trash2 size={11} />
+                </button>
+              </>
+            ) : (
+              cleanLabel(tag)
+            )}
+          </li>
         ))}
-      </div>
+        {isEditorMode && onChange && (
+          <li className="experience-tag-add">
+            <button
+              type="button"
+              onClick={() =>
+                onChange({ ...entry, tags: [...entry.tags, "New tag"] })
+              }
+            >
+              <Plus size={11} /> Add tag
+            </button>
+          </li>
+        )}
+      </ul>
       <div className="experience-viz-line">
         <i />
       </div>
@@ -162,6 +232,76 @@ function ExperiencePanel({
         <span>portfolio record</span>
       </div>
     </div>
+  );
+}
+
+function AiCodingSection() {
+  return (
+    <section
+      className="sec ai-coding"
+      id="ai-coding"
+      data-editorial-theme="dark"
+      data-mascot='{"x":0.92,"y":-0.72,"s":0.12,"w":0.35}'
+    >
+      <div className="wrap">
+        <SectionLabel>AI-assisted engineering</SectionLabel>
+        <div className="ai-intro">
+          <h2 className="h2">
+            Faster loops.
+            <br />
+            <span className="thin">Same accountability.</span>
+          </h2>
+          <p>
+            I use leading AI coding systems to move from question to working
+            evidence faster — exploring approaches, implementing, debugging and
+            refining without outsourcing the decisions that make the work
+            dependable.
+          </p>
+        </div>
+        <figure
+          className="ai-morph-stage"
+          aria-label="A particle blob that periodically resolves into the Claude Code and Codex logos"
+        >
+          <AiParticleMorph />
+        </figure>
+        <div className="ai-notes">
+          <article className="ai-note">
+            <span className="ai-tool-index mono">01 · Claude Code</span>
+            <h3>
+              Long-context collaboration,
+              <br />
+              inside the codebase.
+            </h3>
+            <p>
+              Claude Code helps me trace systems, test competing approaches and
+              carry substantial changes across a project without losing the
+              thread. I use that speed to inspect more options — then validate
+              the one worth keeping.
+            </p>
+            <span className="ai-tool-note mono">
+              Architecture · constraints · review — still mine.
+            </span>
+          </article>
+          <article className="ai-note">
+            <span className="ai-tool-index mono">02 · Codex</span>
+            <h3>
+              Implementation momentum,
+              <br />
+              with verification attached.
+            </h3>
+            <p>
+              Codex lets me turn a precise intent into edits, checks and focused
+              iterations quickly. It shortens the distance between an idea and
+              something I can run, challenge and improve — not the distance
+              between a decision and its owner.
+            </p>
+            <span className="ai-tool-note mono">
+              Product judgment · validation · final quality — still mine.
+            </span>
+          </article>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -202,6 +342,11 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
   const [navScrolled, setNavScrolled] = useState(false);
   const [activeExperience, setActiveExperience] = useState(0);
   const [activeProject, setActiveProject] = useState(0);
+  const [activeProjectGroup, setActiveProjectGroup] =
+    useState<ProjectGroup>("ai");
+  const [expandedProjectGroups, setExpandedProjectGroups] = useState<
+    Record<ProjectGroup, boolean>
+  >({ ai: false, "software-web": false });
   const [darkSection, setDarkSection] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchOrigin, setSearchOrigin] = useState<{
@@ -212,7 +357,17 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
   const procGridRef = useRef<HTMLDivElement>(null);
   const procFillRef = useRef<HTMLElement>(null);
   const procStepRefs = useRef<Array<HTMLElement | null>>([]);
-  const manifestoWrapRef = useRef<HTMLDivElement>(null);
+  const [tourWelcomeOpen, setTourWelcomeOpen] = useState(true);
+  const [tourActive, setTourActive] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
+  const [tourPaused, setTourPaused] = useState(false);
+  const [tourTraveling, setTourTraveling] = useState(false);
+  const [tourProgress, setTourProgress] = useState(0);
+  const tourStepRef = useRef(0);
+  const tourPausedRef = useRef(false);
+  const tourTravelingRef = useRef(false);
+  const tourElapsedRef = useRef(0);
+  const tourManualNavigationRef = useRef(false);
 
   const experienceCount = content?.experienceLog.length ?? 0;
 
@@ -229,6 +384,231 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
       ) ?? [],
     [content],
   );
+
+  const groupedProjectRecords = useMemo<Record<ProjectGroup, ProjectRecord[]>>(
+    () => ({
+      ai: projectRecords.filter(
+        (record) => record.categoryId.toLowerCase() === "ai",
+      ),
+      "software-web": projectRecords.filter(
+        (record) => record.categoryId.toLowerCase() !== "ai",
+      ),
+    }),
+    [projectRecords],
+  );
+
+  const activeProjectRecords = groupedProjectRecords[activeProjectGroup];
+  const activeProjectsExpanded = expandedProjectGroups[activeProjectGroup];
+  const visibleProjectRecords = activeProjectsExpanded
+    ? activeProjectRecords
+    : activeProjectRecords.slice(0, PROJECT_PREVIEW_LIMIT);
+
+  const getTourTargetTop = (index: number) => {
+    const step = TOUR_STEPS[index];
+    const target = document.getElementById(step.target);
+    if (!target) return window.scrollY;
+    const top = target.getBoundingClientRect().top + window.scrollY;
+    return Math.max(
+      0,
+      top + target.offsetHeight * step.focus - window.innerHeight * 0.5,
+    );
+  };
+
+  const setTourTravelState = (traveling: boolean) => {
+    if (tourTravelingRef.current === traveling) return;
+    tourTravelingRef.current = traveling;
+    setTourTraveling(traveling);
+    window.dispatchEvent(
+      new CustomEvent("portfolio:tour-motion", { detail: { traveling } }),
+    );
+  };
+
+  const goToTourStep = (index: number) => {
+    const next = Math.min(TOUR_STEPS.length - 1, Math.max(0, index));
+    tourManualNavigationRef.current = true;
+    tourElapsedRef.current = 0;
+    setTourTravelState(false);
+    setTourProgress(0);
+    setTourStep(next);
+  };
+
+  const startTour = () => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+    tourElapsedRef.current = 0;
+    setTourProgress(0);
+    setTourStep(0);
+    setTourPaused(false);
+    setTourTravelState(false);
+    setTourWelcomeOpen(false);
+    setTourActive(true);
+  };
+
+  const exitTour = () => {
+    setTourActive(false);
+    setTourPaused(false);
+    setTourTravelState(false);
+    setTourProgress(0);
+    document
+      .querySelectorAll(".tour-target-active")
+      .forEach((element) => element.classList.remove("tour-target-active"));
+  };
+
+  useEffect(() => {
+    tourStepRef.current = tourStep;
+    tourPausedRef.current = tourPaused;
+  }, [tourPaused, tourStep]);
+
+  useEffect(() => {
+    if (!tourWelcomeOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.scrollTo({ top: 0, behavior: "auto" });
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [tourWelcomeOpen]);
+
+  useEffect(() => {
+    if (!tourActive) return;
+    let frame = 0;
+    let previousTime = performance.now();
+    const reducedTourMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const tick = (time: number) => {
+      const delta = Math.min(100, time - previousTime);
+      previousTime = time;
+      const activeIndex = tourStepRef.current;
+      const activeStep = TOUR_STEPS[activeIndex];
+      const effectiveTravelDuration = reducedTourMotion
+        ? Math.min(350, activeStep.travelDuration)
+        : activeStep.travelDuration;
+      const totalDuration =
+        activeStep.talkDuration + effectiveTravelDuration;
+      if (!tourPausedRef.current && totalDuration > 0) {
+        tourElapsedRef.current += delta;
+        const nextProgress = Math.min(1, tourElapsedRef.current / totalDuration);
+        setTourProgress(nextProgress);
+
+        if (
+          tourElapsedRef.current > activeStep.talkDuration &&
+          activeIndex < TOUR_STEPS.length - 1
+        ) {
+          setTourTravelState(true);
+          const travelProgress = Math.min(
+            1,
+            (tourElapsedRef.current - activeStep.talkDuration) /
+              effectiveTravelDuration,
+          );
+          const easedTravel = reducedTourMotion
+            ? 1
+            : travelProgress * travelProgress * (3 - 2 * travelProgress);
+          const from = getTourTargetTop(activeIndex);
+          const to = getTourTargetTop(activeIndex + 1);
+          window.scrollTo({ top: from + (to - from) * easedTravel });
+        } else {
+          setTourTravelState(false);
+        }
+
+        if (nextProgress >= 1) {
+          tourElapsedRef.current = 0;
+          setTourTravelState(false);
+          setTourProgress(0);
+          setTourStep((current) =>
+            Math.min(TOUR_STEPS.length - 1, current + 1),
+          );
+        }
+      }
+      frame = window.requestAnimationFrame(tick);
+    };
+    frame = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frame);
+  }, [tourActive]);
+
+  useEffect(() => {
+    if (!tourActive) return;
+    tourElapsedRef.current = 0;
+    setTourProgress(0);
+    const step = TOUR_STEPS[tourStep];
+    const target = document.getElementById(step.target);
+    document
+      .querySelectorAll(".tour-target-active")
+      .forEach((element) => element.classList.remove("tour-target-active"));
+    target?.classList.add("tour-target-active");
+
+    if (target) {
+      window.scrollTo({
+        top: getTourTargetTop(tourStep),
+        behavior:
+          tourManualNavigationRef.current &&
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+            ? "smooth"
+            : "auto",
+      });
+    }
+    tourManualNavigationRef.current = false;
+
+    let actionTimer: number | undefined;
+    if (step.action === "experience" && experienceCount > 1) {
+      actionTimer = window.setTimeout(() => setActiveExperience(1), 1100);
+    }
+    if (step.action === "projects") {
+      const group = groupedProjectRecords["software-web"].length
+        ? "software-web"
+        : "ai";
+      selectProjectGroup(group);
+      actionTimer = window.setTimeout(() => {
+        if (groupedProjectRecords[group].length > 1) setActiveProject(1);
+      }, 1700);
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("portfolio:mascot-burst", {
+        detail: { direction: tourStep % 2 === 0 ? 1 : -1 },
+      }),
+    );
+
+    return () => {
+      if (actionTimer) window.clearTimeout(actionTimer);
+      target?.classList.remove("tour-target-active");
+    };
+    // The grouped records are stable for the loaded content; this effect is
+    // intentionally driven by the tour stop, not by animation state changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tourActive, tourStep]);
+
+  useEffect(() => {
+    if (!tourActive) return;
+    const pauseForUser = () => setTourPaused(true);
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.matches("input, textarea, select, [contenteditable='true']")) {
+        return;
+      }
+      if (event.key === "Escape") exitTour();
+      if (event.key === "ArrowRight") goToTourStep(tourStepRef.current + 1);
+      if (event.key === "ArrowLeft") goToTourStep(tourStepRef.current - 1);
+      if (event.key === " ") {
+        event.preventDefault();
+        setTourPaused((paused) => !paused);
+      }
+    };
+    window.addEventListener("wheel", pauseForUser, { passive: true });
+    window.addEventListener("touchstart", pauseForUser, { passive: true });
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("wheel", pauseForUser);
+      window.removeEventListener("touchstart", pauseForUser);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+    // Keyboard navigation reads the current step through refs; rebinding on
+    // every animation render would repeatedly detach the global controls.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tourActive]);
+
+  useEffect(() => {
+    if (activeProject >= visibleProjectRecords.length) setActiveProject(0);
+  }, [activeProject, visibleProjectRecords.length]);
 
   const skillTags = useMemo(
     () =>
@@ -276,7 +656,8 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
   /* dark/light background: driven by whichever themed section sits at the
      viewport centre. The previous IntersectionObserver compared ratios of
      very differently-sized sections and (with sparse thresholds) skipped
-     events, leaving the education → manifesto transition stuck or flickery. */
+     events, leaving transitions between differently sized sections stuck or
+     flickery. */
   useEffect(() => {
     const sections = Array.from(
       document.querySelectorAll<HTMLElement>("[data-editorial-theme]"),
@@ -385,36 +766,6 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
     };
   }, [content]);
 
-  /* manifesto — slow parallax drift while it crosses the viewport */
-  useEffect(() => {
-    const wrap = manifestoWrapRef.current;
-    const section = wrap?.parentElement;
-    if (!wrap || !section) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let ticking = false;
-    const frame = () => {
-      ticking = false;
-      const rect = section.getBoundingClientRect();
-      const progress = Math.min(
-        1,
-        Math.max(
-          0,
-          (window.innerHeight - rect.top) / (window.innerHeight + rect.height),
-        ),
-      );
-      wrap.style.transform = `translateY(${(-progress * 6).toFixed(2)}%)`;
-    };
-    const onScroll = () => {
-      if (!ticking) {
-        ticking = true;
-        window.requestAnimationFrame(frame);
-      }
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    frame();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [content]);
-
   const scrollToExperience = (index: number) => {
     setActiveExperience(index);
     const wrap = svcWrapRef.current;
@@ -443,15 +794,37 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
   };
 
   const closeMenu = () => setMenuOpen(false);
+  const selectProjectGroup = (group: ProjectGroup) => {
+    setActiveProjectGroup(group);
+    setActiveProject(0);
+  };
+  const handleProjectTabKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    group: ProjectGroup,
+  ) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
+      return;
+    }
+    event.preventDefault();
+    const currentIndex = PROJECT_GROUPS.findIndex((item) => item.id === group);
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? PROJECT_GROUPS.length - 1
+          : event.key === "ArrowRight"
+            ? (currentIndex + 1) % PROJECT_GROUPS.length
+            : (currentIndex - 1 + PROJECT_GROUPS.length) %
+              PROJECT_GROUPS.length;
+    const nextGroup = PROJECT_GROUPS[nextIndex].id;
+    selectProjectGroup(nextGroup);
+    document.getElementById(`project-tab-${nextGroup}`)?.focus();
+  };
   const profileName = content?.profileData.name || "Portfolio";
   const displayName = cleanLabel(profileName);
   const nameWords = displayName.split(" ").filter(Boolean);
   const firstName = nameWords[0] || profileName;
   const remainingName = nameWords.slice(1).join(" ");
-  const heroBio = (content?.profileData.bio || "")
-    .split(/(?<=[.!?])\s+/)
-    .slice(0, 2)
-    .join(" ");
 
   if (!content && props.isContentLoading) {
     return (
@@ -466,12 +839,35 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
 
   return (
     <div
-      className={`editorial-site ${darkSection ? "editorial-dark" : ""} ${theme === "light" ? "editorial-soft" : ""} ${menuOpen ? "menu-open" : ""}`}
+      className={`editorial-site ${darkSection ? "editorial-dark" : ""} ${theme === "light" ? "editorial-soft" : ""} ${menuOpen ? "menu-open" : ""} ${tourWelcomeOpen ? "tour-welcome-open" : ""} ${tourActive ? "tour-running" : ""}`}
     >
       <a className="skip-link" href="#main">
         Skip to content
       </a>
-      <ParticleMascot onActivate={openSearchFrom} searchOpen={searchOpen} />
+      {tourWelcomeOpen && (
+        <TourWelcome
+          onStart={startTour}
+          onSkip={() => setTourWelcomeOpen(false)}
+        />
+      )}
+      {tourActive && (
+        <GuidedTourHud
+          stepIndex={tourStep}
+          progress={tourProgress}
+          paused={tourPaused}
+          traveling={tourTraveling}
+          onPrevious={() => goToTourStep(tourStep - 1)}
+          onNext={() => goToTourStep(tourStep + 1)}
+          onTogglePause={() => setTourPaused((paused) => !paused)}
+          onExit={exitTour}
+          onReplay={() => goToTourStep(0)}
+        />
+      )}
+      <ParticleMascot
+        onActivate={tourActive || tourWelcomeOpen ? undefined : openSearchFrom}
+        searchOpen={searchOpen}
+        mode={tourWelcomeOpen ? "welcome" : tourActive ? "tour" : "default"}
+      />
       <SemanticSearch
         theme={theme}
         open={searchOpen}
@@ -483,7 +879,10 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
         }
       />
 
-      <header className={`nav ${navScrolled ? "scrolled" : ""}`}>
+      <header
+        className={`nav ${navScrolled ? "scrolled" : ""}`}
+        aria-hidden={tourWelcomeOpen || undefined}
+      >
         <div className="nav-inner">
           <a className="brand" href="#top" onClick={closeMenu}>
             {firstName.toLowerCase()}
@@ -534,7 +933,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
         </p>
       </nav>
 
-      <main id="main">
+      <main id="main" aria-hidden={tourWelcomeOpen || undefined}>
         {props.contentError && (
           <div className="content-error" role="alert">
             <span>{props.contentError}</span>
@@ -601,7 +1000,6 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
                 <a className="btn" href="#contact">
                   Get in touch <span className="arr">→</span>
                 </a>
-                <p className="hero-sub">{heroBio}</p>
               </div>
             </div>
             <div className="hero-spacer" aria-hidden="true" />
@@ -636,19 +1034,20 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
                 />
               </h2>
               <div className="intro-side">
-                {isEditorMode ? (
-                  <EditableText
-                    value={content?.profileData.bio || ""}
-                    onChange={(value) =>
-                      props.onUpdateProfileField("bio", value)
-                    }
-                    isEditorMode
-                    multiline
-                    className="editable-field"
-                  />
-                ) : (
-                  <p>{content?.profileData.bio}</p>
-                )}
+                <div className="about-identity">
+                  <div className="about-portrait">
+                    <Image
+                      src={profilePicture}
+                      alt={`${displayName} portrait`}
+                      sizes="(max-width: 760px) 96px, 144px"
+                      priority
+                    />
+                  </div>
+                  <div>
+                    <span className="mono">Profile / 2026</span>
+                    <p>{displayName}</p>
+                  </div>
+                </div>
                 <div className="about-ctas">
                   <a className="btn" href={`mailto:${EMAIL}`}>
                     Email me <span className="arr">→</span>
@@ -673,37 +1072,24 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
               </div>
             </div>
 
-            <AboutStory />
-
-            <div className="profile-feature">
-              <div className="profile-copy">
-                <span className="mono">Current profile</span>
-                <h3>
-                  {isEditorMode ? (
-                    <EditableText
-                      as="span"
-                      value={profileName}
-                      onChange={(value) =>
-                        props.onUpdateProfileField("name", value)
-                      }
-                      isEditorMode
-                      className="editable-field"
-                    />
-                  ) : (
-                    displayName
-                  )}
-                </h3>
-                <p>{content?.profileData.bio}</p>
-              </div>
-              <div className="profile-image-wrap">
-                <Image
-                  src={profilePicture}
-                  alt={`${displayName} portrait`}
-                  sizes="(max-width: 960px) 100vw, 42vw"
-                  priority
+            {isEditorMode && (
+              <div className="profile-source-editor">
+                <span className="mono">
+                  CV / search description — hidden from the public portfolio
+                </span>
+                <EditableText
+                  value={content?.profileData.bio || ""}
+                  onChange={(value) =>
+                    props.onUpdateProfileField("bio", value)
+                  }
+                  isEditorMode
+                  multiline
+                  className="editable-field"
                 />
               </div>
-            </div>
+            )}
+
+            <AboutStory />
 
             <div className="metric-grid">
               <div className="metric">
@@ -856,11 +1242,6 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
                             <p className="svc-tag mono">( {entry.year} )</p>
                             <h3>{cleanLabel(entry.title)}</h3>
                             <p>{entry.description}</p>
-                            <ul className="svc-caps">
-                              {entry.tags.map((tag) => (
-                                <li key={tag}>{cleanLabel(tag)}</li>
-                              ))}
-                            </ul>
                             <span className="pill">
                               {cleanLabel(entry.company)}
                             </span>
@@ -874,7 +1255,14 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
                           className={`svc-viz ${activeExperience === index ? "active" : ""}`}
                           key={`${entry.title}-viz`}
                         >
-                          <ExperiencePanel entry={entry} index={index} />
+                          <ExperiencePanel
+                            entry={entry}
+                            index={index}
+                            isEditorMode={isEditorMode}
+                            onChange={(updatedEntry) =>
+                              props.onChangeExperience(index, updatedEntry)
+                            }
+                          />
                         </div>
                       ))}
                     </div>
@@ -971,62 +1359,6 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
                           />
                         </div>
                       )}
-                      <ul className="svc-caps">
-                        {entry.tags.map((tag, tagIndex) => (
-                          <li key={`${tag}-${tagIndex}`}>
-                            {isEditorMode ? (
-                              <>
-                                <EditableText
-                                  as="span"
-                                  value={tag}
-                                  onChange={(value) =>
-                                    props.onChangeExperience(index, {
-                                      ...entry,
-                                      tags: entry.tags.map((current, idx) =>
-                                        idx === tagIndex ? value : current,
-                                      ),
-                                    })
-                                  }
-                                  isEditorMode
-                                  className="editable-field"
-                                />
-                                <button
-                                  type="button"
-                                  className="editor-icon-btn"
-                                  title="Remove tag"
-                                  onClick={() =>
-                                    props.onChangeExperience(index, {
-                                      ...entry,
-                                      tags: entry.tags.filter(
-                                        (_, idx) => idx !== tagIndex,
-                                      ),
-                                    })
-                                  }
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                              </>
-                            ) : (
-                              cleanLabel(tag)
-                            )}
-                          </li>
-                        ))}
-                        {isEditorMode && (
-                          <li className="editor-add-tag">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                props.onChangeExperience(index, {
-                                  ...entry,
-                                  tags: [...entry.tags, "New tag"],
-                                })
-                              }
-                            >
-                              <Plus size={12} /> Add tag
-                            </button>
-                          </li>
-                        )}
-                      </ul>
                       <span className="pill">
                         {isEditorMode ? (
                           <EditableText
@@ -1046,7 +1378,14 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
                         )}
                       </span>
                     </div>
-                    <ExperiencePanel entry={entry} index={index} />
+                    <ExperiencePanel
+                      entry={entry}
+                      index={index}
+                      isEditorMode={isEditorMode}
+                      onChange={(updatedEntry) =>
+                        props.onChangeExperience(index, updatedEntry)
+                      }
+                    />
                   </article>
                 ))}
                 {isEditorMode && (
@@ -1144,27 +1483,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
           </div>
         </section>
 
-        <section
-          className="manifesto"
-          id="manifesto"
-          data-editorial-theme="dark"
-          data-mascot='{"x":0.3,"y":-0.08,"s":1.25,"w":1.1}'
-        >
-          <div className="wrap" ref={manifestoWrapRef}>
-            <span className="mono">( Profile )</span>
-            <h2>
-              <span className="mani-line">
-                <span>
-                  {cleanLabel(content?.profileData.title || "Portfolio")}
-                </span>
-              </span>
-              <span className="mani-line hollow">
-                <span>{displayName}</span>
-              </span>
-            </h2>
-            <p>{content?.profileData.bio}</p>
-          </div>
-        </section>
+        <AiCodingSection />
 
         <section
           className="sec"
@@ -1179,105 +1498,165 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
               <br />
               shipped.
             </h2>
-            {projectRecords.length ? (
-              <div className="work-grid">
-                <ul className="work-list">
-                  {projectRecords.map((record, index) => {
-                    const detailHref = `/projects/${record.categoryId}/${toProjectSlug(record.project.title)}?theme=${theme}`;
-                    return (
-                      <li
-                        className={`work-item ${activeProject === index ? "active" : ""}`}
-                        key={`${record.categoryId}-${record.project.title}-${index}`}
-                        onMouseEnter={() => setActiveProject(index)}
-                        onFocus={() => setActiveProject(index)}
-                      >
-                        <button
-                          type="button"
-                          className="work-btn"
-                          aria-expanded={activeProject === index}
-                          onClick={() => setActiveProject(index)}
+            <div
+              className="project-tabs"
+              role="tablist"
+              aria-label="Project categories"
+            >
+              {PROJECT_GROUPS.map((group) => (
+                <button
+                  type="button"
+                  role="tab"
+                  id={`project-tab-${group.id}`}
+                  aria-controls={`project-panel-${group.id}`}
+                  aria-selected={activeProjectGroup === group.id}
+                  tabIndex={activeProjectGroup === group.id ? 0 : -1}
+                  key={group.id}
+                  onClick={() => selectProjectGroup(group.id)}
+                  onKeyDown={(event) =>
+                    handleProjectTabKeyDown(event, group.id)
+                  }
+                >
+                  <span>{group.label}</span>
+                  <span className="project-tab-count">
+                    {String(groupedProjectRecords[group.id].length).padStart(
+                      2,
+                      "0",
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div
+              role="tabpanel"
+              id={`project-panel-${activeProjectGroup}`}
+              aria-labelledby={`project-tab-${activeProjectGroup}`}
+            >
+              {visibleProjectRecords.length ? (
+                <div className="work-grid">
+                  <ul className="work-list">
+                    {visibleProjectRecords.map((record, index) => {
+                      const detailHref = `/projects/${record.categoryId}/${toProjectSlug(record.project.title)}?theme=${theme}`;
+                      return (
+                        <li
+                          className={`work-item ${activeProject === index ? "active" : ""}`}
+                          key={`${record.categoryId}-${record.project.title}-${record.projectIndex}`}
+                          onMouseEnter={() => setActiveProject(index)}
+                          onFocus={() => setActiveProject(index)}
                         >
-                          <span className="idx">
-                            {String(index + 1).padStart(2, "0")}
-                          </span>
-                          <span className="name">{record.project.title}</span>
-                          <span className="cat">
-                            {cleanLabel(record.categoryName)}
-                          </span>
-                          <span className="ext">↗</span>
-                        </button>
-                        <div className="work-desc">
-                          <p>{projectSummary(record.project.description)}</p>
-                          <div className="project-actions">
-                            <Link href={detailHref}>View project</Link>
-                            {record.project.githubUrl && (
-                              <a
-                                href={record.project.githubUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                Repository
-                              </a>
-                            )}
-                            {record.project.projectUrl && (
-                              <a
-                                href={record.project.projectUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                Live
-                              </a>
-                            )}
-                            {isEditorMode && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    props.onEditProject(
-                                      record.categoryIndex,
-                                      record.projectIndex,
-                                    )
-                                  }
+                          <button
+                            type="button"
+                            className="work-btn"
+                            aria-expanded={activeProject === index}
+                            onClick={() => setActiveProject(index)}
+                          >
+                            <span className="idx">
+                              {String(index + 1).padStart(2, "0")}
+                            </span>
+                            <span className="name">{record.project.title}</span>
+                            <span className="cat">
+                              {cleanLabel(record.categoryName)}
+                            </span>
+                            <span className="ext">↗</span>
+                          </button>
+                          <div className="work-desc">
+                            <p>{projectSummary(record.project.description)}</p>
+                            <div className="project-actions">
+                              <Link href={detailHref}>View project</Link>
+                              {record.project.githubUrl && (
+                                <a
+                                  href={record.project.githubUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
                                 >
-                                  <Edit3 size={14} /> Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    props.onDeleteProject(
-                                      record.categoryIndex,
-                                      record.projectIndex,
-                                    )
-                                  }
+                                  Repository
+                                </a>
+                              )}
+                              {record.project.projectUrl && (
+                                <a
+                                  href={record.project.projectUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
                                 >
-                                  <Trash2 size={14} /> Delete
-                                </button>
-                              </>
-                            )}
+                                  Live
+                                </a>
+                              )}
+                              {isEditorMode && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      props.onEditProject(
+                                        record.categoryIndex,
+                                        record.projectIndex,
+                                      )
+                                    }
+                                  >
+                                    <Edit3 size={14} /> Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      props.onDeleteProject(
+                                        record.categoryIndex,
+                                        record.projectIndex,
+                                      )
+                                    }
+                                  >
+                                    <Trash2 size={14} /> Delete
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="mobile-project-preview">
-                          <ProjectPreview record={record} active />
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <div className="work-view" aria-hidden="true">
-                  <div className="pv-frame">
-                    {projectRecords.map((record, index) => (
-                      <ProjectPreview
-                        record={record}
-                        active={activeProject === index}
-                        key={`${record.project.title}-preview`}
-                      />
-                    ))}
+                          <div className="mobile-project-preview">
+                            <ProjectPreview record={record} active />
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="work-view" aria-hidden="true">
+                    <div className="pv-frame">
+                      {visibleProjectRecords.map((record, index) => (
+                        <ProjectPreview
+                          record={record}
+                          active={activeProject === index}
+                          key={`${record.categoryId}-${record.project.title}-preview`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <p className="empty-copy">No projects are available yet.</p>
-            )}
+              ) : (
+                <p className="empty-copy">
+                  No projects are available in this category yet.
+                </p>
+              )}
+              {activeProjectRecords.length > PROJECT_PREVIEW_LIMIT && (
+                <button
+                  type="button"
+                  className="project-reveal"
+                  aria-expanded={activeProjectsExpanded}
+                  onClick={() => {
+                    setExpandedProjectGroups((groups) => ({
+                      ...groups,
+                      [activeProjectGroup]: !activeProjectsExpanded,
+                    }));
+                    if (activeProjectsExpanded) setActiveProject(0);
+                  }}
+                >
+                  <span>
+                    {activeProjectsExpanded ? "Show fewer" : "Show all"}
+                  </span>
+                  <span className="mono">
+                    {activeProjectsExpanded
+                      ? "↑"
+                      : `+${activeProjectRecords.length - PROJECT_PREVIEW_LIMIT}`}
+                  </span>
+                </button>
+              )}
+            </div>
             {isEditorMode && content && (
               <div className="add-project-row">
                 {content.projectCategories.map((category, index) => (
@@ -1377,72 +1756,6 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
                 )}
               </div>
             )}
-          </div>
-        </section>
-
-        <section
-          className="sec ai-coding"
-          id="ai-coding"
-          data-editorial-theme="dark"
-          data-mascot='{"x":0.92,"y":-0.72,"s":0.12,"w":0.35}'
-        >
-          <div className="wrap">
-            <SectionLabel>AI-assisted engineering</SectionLabel>
-            <div className="ai-intro">
-              <h2 className="h2">
-                Faster loops.
-                <br />
-                <span className="thin">Same accountability.</span>
-              </h2>
-              <p>
-                I use leading AI coding systems to move from question to working
-                evidence faster — exploring approaches, implementing, debugging
-                and refining without outsourcing the decisions that make the
-                work dependable.
-              </p>
-            </div>
-            <figure
-              className="ai-morph-stage"
-              aria-label="A particle blob that periodically resolves into the Claude Code and Codex logos"
-            >
-              <AiParticleMorph />
-            </figure>
-            <div className="ai-notes">
-              <article className="ai-note">
-                <span className="ai-tool-index mono">01 · Claude Code</span>
-                <h3>
-                  Long-context collaboration,
-                  <br />
-                  inside the codebase.
-                </h3>
-                <p>
-                  Claude Code helps me trace systems, test competing approaches
-                  and carry substantial changes across a project without losing
-                  the thread. I use that speed to inspect more options — then
-                  validate the one worth keeping.
-                </p>
-                <span className="ai-tool-note mono">
-                  Architecture · constraints · review — still mine.
-                </span>
-              </article>
-              <article className="ai-note">
-                <span className="ai-tool-index mono">02 · Codex</span>
-                <h3>
-                  Implementation momentum,
-                  <br />
-                  with verification attached.
-                </h3>
-                <p>
-                  Codex lets me turn a precise intent into edits, checks and
-                  focused iterations quickly. It shortens the distance between
-                  an idea and something I can run, challenge and improve — not
-                  the distance between a decision and its owner.
-                </p>
-                <span className="ai-tool-note mono">
-                  Product judgment · validation · final quality — still mine.
-                </span>
-              </article>
-            </div>
           </div>
         </section>
 
@@ -1567,7 +1880,11 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
         </footer>
       </main>
 
-      <div className="utility-dock" aria-label="Portfolio controls">
+      <div
+        className="utility-dock"
+        aria-label="Portfolio controls"
+        aria-hidden={tourWelcomeOpen || undefined}
+      >
         <ColorPicker
           defaultH={props.accentColor.h}
           defaultS={props.accentColor.s}

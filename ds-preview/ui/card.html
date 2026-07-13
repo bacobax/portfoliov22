@@ -1,0 +1,47 @@
+<!-- @dsCard group="UI Primitives" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Card</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .section { margin-bottom: 24px; }
+  .card { background: var(--card); border: 1px solid var(--border-muted); padding: 20px; }
+  .card-hover { border-color: var(--border); }
+  .card-accent { border-color: var(--primary); }
+  .card-primary-bg { background: oklch(0.52 0.18 195 / 0.1); border-color: oklch(0.52 0.18 195 / 0.3); }
+  .card-title { font-size: 14px; font-weight: 700; color: var(--fg); margin-bottom: 4px; }
+  .card-subtitle { font-size: 11px; color: var(--muted-fg); margin-bottom: 12px; }
+  .card-body { font-size: 12px; color: var(--muted-fg); line-height: 1.6; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+</style>
+</head>
+<body>
+<div class="section">
+  <div class="label">Variants</div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">DEFAULT CARD</div>
+      <div class="card-subtitle">bg-card / border-primary/20</div>
+      <div class="card-body">Standard surface used for all portfolio sections and project entries.</div>
+    </div>
+    <div class="card card-hover">
+      <div class="card-title">HOVER STATE</div>
+      <div class="card-subtitle">border-primary/50 on hover</div>
+      <div class="card-body">Projects and interactive cards elevate the border on cursor enter.</div>
+    </div>
+    <div class="card card-accent">
+      <div class="card-title">ACCENT BORDER</div>
+      <div class="card-subtitle">border-primary (full)</div>
+      <div class="card-body">Active editor mode or selected state uses the full primary border.</div>
+    </div>
+    <div class="card card-primary-bg">
+      <div class="card-title">PRIMARY TINT</div>
+      <div class="card-subtitle">bg-primary/10 + border-primary/30</div>
+      <div class="card-body">Used in the deployment log widget and system status panel.</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

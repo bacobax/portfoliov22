@@ -1,0 +1,43 @@
+<!-- @dsCard group="Portfolio Sections" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Section Tabs</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; flex-wrap: wrap; }
+  .tab {
+    font-family: var(--font); font-size: 11px; padding: 0 12px; height: 32px;
+    display: inline-flex; align-items: center; border: 1px solid var(--border);
+    background: transparent; color: var(--fg); cursor: pointer; white-space: nowrap;
+  }
+  .tab-active { background: var(--primary); color: #000; border-color: var(--primary); }
+  .section { margin-bottom: 24px; }
+</style>
+</head>
+<body>
+<div class="section">
+  <div class="label">ALL active</div>
+  <div class="tabs">
+    <button class="tab tab-active">[ALL]</button>
+    <button class="tab">[ABOUT]</button>
+    <button class="tab">[EXPERIENCE]</button>
+    <button class="tab">[EDUCATION]</button>
+    <button class="tab">[PROJECTS]</button>
+    <button class="tab">[SKILLS]</button>
+  </div>
+</div>
+<div class="section">
+  <div class="label">PROJECTS active</div>
+  <div class="tabs">
+    <button class="tab">[ALL]</button>
+    <button class="tab">[ABOUT]</button>
+    <button class="tab">[EXPERIENCE]</button>
+    <button class="tab">[EDUCATION]</button>
+    <button class="tab tab-active">[PROJECTS]</button>
+    <button class="tab">[SKILLS]</button>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!-- @dsCard group="CV Components" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Print Toolbar</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .toolbar {
+    background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .btn { font-family: var(--font); font-size: 11px; padding: 0 12px; height: 30px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid; cursor: pointer; }
+  .btn-primary { background: var(--primary); color: #000; border-color: var(--primary); }
+  .btn-outline { background: transparent; color: var(--fg); border-color: var(--border); }
+  .btn-ghost { background: transparent; color: var(--primary); border-color: transparent; }
+  .sep { width: 1px; height: 20px; background: var(--border); }
+  .layout-toggle { display: flex; gap: 4px; }
+  .ltog { font-size: 10px; padding: 4px 10px; font-family: var(--font); border: 1px solid var(--border); background: transparent; color: var(--muted-fg); cursor: pointer; }
+  .ltog-active { border-color: var(--primary); color: var(--primary); background: oklch(0.52 0.18 195 / 0.1); }
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <button class="btn btn-primary">&#128196; PRINT / DOWNLOAD</button>
+  <div class="sep"></div>
+  <div class="layout-toggle">
+    <button class="ltog ltog-active">CLASSIC</button>
+    <button class="ltog">RESUME</button>
+  </div>
+  <div class="sep"></div>
+  <button class="btn btn-outline">&#8592; BACK</button>
+  <button class="btn btn-ghost">SHARE &#8599;</button>
+</div>
+</body>
+</html>

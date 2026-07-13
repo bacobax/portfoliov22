@@ -1,0 +1,54 @@
+<!-- @dsCard group="Forms" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Education Form</title>
+<link rel="stylesheet" href="../_base.css">
+<style>
+  .form { background: var(--card); border: 1px solid var(--border); padding: 20px; max-width: 480px; }
+  .form-title { font-size: 13px; color: var(--primary); font-family: var(--font); margin-bottom: 16px; border-bottom: 1px solid var(--border-muted); padding-bottom: 8px; }
+  .field { margin-bottom: 12px; }
+  .lbl { font-size: 10px; color: var(--muted-fg); font-family: var(--font); margin-bottom: 4px; }
+  .inp { width: 100%; background: var(--input); border: 1px solid var(--border); color: var(--fg); font-family: var(--font); font-size: 12px; padding: 6px 10px; height: 32px; outline: none; }
+  .inp:focus { border-color: var(--primary); }
+  .textarea { width: 100%; background: var(--input); border: 1px solid var(--border); color: var(--fg); font-family: var(--font); font-size: 12px; padding: 7px 10px; height: 60px; resize: vertical; outline: none; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .actions { display: flex; gap: 8px; margin-top: 16px; }
+  .btn { font-family: var(--font); font-size: 11px; padding: 0 14px; height: 32px; display: inline-flex; align-items: center; border: 1px solid; cursor: pointer; }
+  .btn-primary { background: var(--primary); color: #000; border-color: var(--primary); }
+  .btn-outline { background: transparent; color: var(--fg); border-color: var(--border); }
+</style>
+</head>
+<body>
+<div class="form">
+  <div class="form-title">EDIT_EDUCATION</div>
+  <div class="field">
+    <div class="lbl">DEGREE / QUALIFICATION</div>
+    <input class="inp" type="text" value="B.Sc. Computer Science">
+  </div>
+  <div class="grid2">
+    <div class="field">
+      <div class="lbl">INSTITUTION</div>
+      <input class="inp" type="text" value="University of Turin">
+    </div>
+    <div class="field">
+      <div class="lbl">YEAR</div>
+      <input class="inp" type="text" value="2021 — 2024">
+    </div>
+  </div>
+  <div class="field">
+    <div class="lbl">DESCRIPTION</div>
+    <textarea class="textarea">Thesis on semantic search with dense vector retrieval.</textarea>
+  </div>
+  <div class="field">
+    <div class="lbl">GRADE (optional)</div>
+    <input class="inp" type="text" placeholder="e.g. 110/110 cum laude">
+  </div>
+  <div class="actions">
+    <button class="btn btn-primary">SAVE</button>
+    <button class="btn btn-outline">CANCEL</button>
+  </div>
+</div>
+</body>
+</html>
