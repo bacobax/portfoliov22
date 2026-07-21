@@ -436,6 +436,11 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
   };
 
   const startTour = () => {
+    /* The tour owns the viewport from this point onward. Without marking the
+       initial restoration as complete, exiting the tour wakes the deferred
+       restore effect and jumps back to the stale pre-tour position (usually
+       the top), which looks like a full page reload. */
+    scrollRestoredRef.current = true;
     try {
       window.sessionStorage.setItem(TOUR_SEEN_SESSION_KEY, "true");
     } catch {
@@ -461,6 +466,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
   };
 
   const exitTour = () => {
+    scrollRestoredRef.current = true;
     setTourActive(false);
     setTourPaused(false);
     setTourTravelState(false);
