@@ -110,7 +110,7 @@ export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
       "(prefers-reduced-motion: reduce)",
     ).matches
     const mobile = window.matchMedia("(max-width: 760px)").matches
-    const count = mobile ? 1800 : 3400
+    const count = mobile ? 2600 : 4800
 
     const sphere = makeSphere(count)
     const logoShapes: Record<"codex" | "claude", Float32Array> = {
@@ -134,8 +134,6 @@ export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
     let pointerX = -9999
     let pointerY = -9999
     let frame = 0
-    let lastDrawAt = -Infinity
-    const frameInterval = 1000 / 30
     let startTime = 0
     let reportedShape: Shape | null = null
 
@@ -166,15 +164,6 @@ export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
     }
 
     const draw = (time: number) => {
-      if (
-        !reducedMotion &&
-        time > 0 &&
-        time - lastDrawAt < frameInterval
-      ) {
-        frame = window.requestAnimationFrame(draw)
-        return
-      }
-      if (time > 0) lastDrawAt = time
       if (!startTime) startTime = time
       context.clearRect(0, 0, width, height)
       presence += ((visible ? 1 : 0) - presence) * (reducedMotion ? 1 : 0.06)
