@@ -114,7 +114,8 @@ export function TourWelcome({ onStart, onSkip }: TourWelcomeProps) {
         </h1>
         <p>
           Meet Mote, the particle puppet. He can take you on a forty-second
-          speed-run—or you can explore at your own pace.
+          speed-run, hooking each section and hauling it into view—or you can
+          explore at your own pace.
         </p>
       </div>
 
@@ -171,7 +172,7 @@ export function GuidedTourHud({
       <div className="tour-topbar">
         <div className="tour-status mono">
           <span className="tour-status-dot" />
-          Mote / {isLast ? "complete" : paused ? "waiting" : traveling ? "scroll-surfing" : "talking"}
+          Mote / {isLast ? "complete" : paused ? "waiting" : traveling ? "hook engaged" : "talking"}
         </div>
         <div className="tour-map" aria-label={`Stop ${stepIndex + 1} of ${TOUR_STEPS.length}`}>
           {TOUR_STEPS.map((item, index) => (

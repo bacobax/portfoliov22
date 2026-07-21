@@ -116,6 +116,7 @@ export function ParticleMascot({
     let signedVelocity = 0; // smoothed, direction-preserving scroll speed
     let spinImpulse = 0; // playful barrel-roll fired when crossing sections
     let tourTraveling = false;
+    let hookGrip = 0;
     let lastAnchorIndex = -1;
     let spinAngle = 0;
     const clickTarget = { x: mascot.x, y: mascot.y };
@@ -333,6 +334,13 @@ export function ParticleMascot({
       velocity += (Math.abs(scrollDelta) - velocity) * 0.1;
       signedVelocity += (scrollDelta - signedVelocity) * 0.14;
       previousScrollY = window.scrollY;
+      const hookTarget =
+        !inWelcomePose && !inSearchPose
+          ? tourTraveling
+            ? 1
+            : clamp(Math.abs(signedVelocity) / 28, 0, 0.88)
+          : 0;
+      hookGrip = lerp(hookGrip, hookTarget, reducedMotion ? 1 : 0.16);
       spinAngle += spinImpulse * 0.16;
       spinImpulse *= 0.92;
 
@@ -613,32 +621,122 @@ export function ParticleMascot({
           }
         }
 
-        /* During autopilot travel, a curved particle wake makes Mote look as
-           if he is physically surfing the document rather than teleporting
-           between anchors. */
-        if (inTourPose && tourTraveling && !reducedMotion) {
-          const direction = signedVelocity >= 0 ? 1 : -1;
-          const wakeLength = 10 + Math.round(surfAmount * 8);
-          for (let wakeIndex = 1; wakeIndex <= wakeLength; wakeIndex += 1) {
-            const distance = wakeIndex * (5 + surfAmount * 5);
-            const wakeX =
-              puppetCenterX +
-              Math.sin(seconds * 8 - wakeIndex * 0.7) *
-                puppetRadius *
-                (0.22 + wakeIndex * 0.018);
-            const wakeY = puppetCenterY - direction * distance;
-            context.globalAlpha =
-              mascot.alpha * (1 - wakeIndex / (wakeLength + 1)) * 0.55;
-            context.beginPath();
-            context.arc(
-              wakeX,
-              wakeY,
-              Math.max(0.7, 2.6 - wakeIndex * 0.09),
-              0,
-              Math.PI * 2,
-            );
-            context.fill();
-          }
+        /* Mote scrolls by grappling the document above him and hauling it up.
+           The old dotted wake read as an anatomical tail; this is deliberately
+           a solid cable, a swivel, and a large J-shaped hook with a visible
+           section-grip rail. */
+        if (hookGrip > 0.025) {
+          const scrollDirection = signedVelocity >= 0 ? 1 : -1;
+          const toolDirection = scrollDirection >= 0 ? -1 : 1;
+          const toolReach = Math.max(
+            puppetRadius * 2.8,
+            Math.min(height * 0.31, 112 + hookGrip * 86),
+          );
+          const hookSize = Math.max(13, puppetRadius * 0.42);
+          const sway = reducedMotion
+            ? 0
+            : Math.sin(seconds * 8.5) * puppetRadius * 0.16 * hookGrip;
+          const hookX = puppetCenterX + sway + puppetRadius * 0.32;
+          const hookY = clamp(
+            puppetCenterY + toolDirection * toolReach,
+            hookSize * 2,
+            height - hookSize * 2,
+          );
+          const deltaX = hookX - puppetCenterX;
+          const deltaY = hookY - puppetCenterY;
+          const cableLength = Math.max(1, Math.hypot(deltaX, deltaY));
+          const cableStartX =
+            puppetCenterX + (deltaX / cableLength) * puppetRadius * 0.72;
+          const cableStartY =
+            puppetCenterY + (deltaY / cableLength) * puppetRadius * 0.72;
+          const cableEndY = hookY - toolDirection * hookSize * 0.5;
+          const toolAlpha = mascot.alpha * smoothstep(clamp(hookGrip));
+          const toolColor = `rgb(${particleRed}, ${particleGreen}, ${particleBlue})`;
+
+          context.save();
+          context.globalAlpha = toolAlpha * 0.92;
+          context.strokeStyle = toolColor;
+          context.fillStyle = toolColor;
+          context.lineCap = "round";
+          context.lineJoin = "round";
+
+          /* braided cable */
+          context.lineWidth = Math.max(1.5, hookSize * 0.13);
+          context.beginPath();
+          context.moveTo(cableStartX, cableStartY);
+          context.bezierCurveTo(
+            cableStartX - puppetRadius * 0.34,
+            lerp(cableStartY, cableEndY, 0.32),
+            hookX + puppetRadius * 0.26,
+            lerp(cableStartY, cableEndY, 0.72),
+            hookX,
+            cableEndY,
+          );
+          context.stroke();
+
+          /* connector swivel at Mote's hand/tool socket */
+          context.globalAlpha = toolAlpha;
+          context.beginPath();
+          context.arc(
+            cableStartX,
+            cableStartY,
+            Math.max(3, hookSize * 0.22),
+            0,
+            Math.PI * 2,
+          );
+          context.fill();
+          context.globalAlpha = toolAlpha * 0.45;
+          context.beginPath();
+          context.arc(
+            cableStartX,
+            cableStartY,
+            Math.max(5, hookSize * 0.36),
+            0,
+            Math.PI * 2,
+          );
+          context.stroke();
+
+          /* the short rail is the edge of the section being dragged */
+          context.globalAlpha = toolAlpha * 0.44;
+          context.lineWidth = Math.max(1, hookSize * 0.09);
+          context.beginPath();
+          context.moveTo(hookX - hookSize * 1.35, hookY);
+          context.lineTo(hookX + hookSize * 1.35, hookY);
+          context.stroke();
+
+          /* unmistakable industrial J hook */
+          context.globalAlpha = toolAlpha;
+          context.lineWidth = Math.max(2.6, hookSize * 0.24);
+          context.beginPath();
+          context.moveTo(hookX, hookY - toolDirection * hookSize * 0.78);
+          context.lineTo(hookX, hookY + toolDirection * hookSize * 0.52);
+          context.bezierCurveTo(
+            hookX,
+            hookY + toolDirection * hookSize * 1.35,
+            hookX + hookSize * 1.22,
+            hookY + toolDirection * hookSize * 1.28,
+            hookX + hookSize * 1.12,
+            hookY + toolDirection * hookSize * 0.42,
+          );
+          context.stroke();
+
+          /* pointed hook tip */
+          context.beginPath();
+          context.moveTo(
+            hookX + hookSize * 0.82,
+            hookY + toolDirection * hookSize * 0.48,
+          );
+          context.lineTo(
+            hookX + hookSize * 1.18,
+            hookY + toolDirection * hookSize * 0.36,
+          );
+          context.lineTo(
+            hookX + hookSize * 1.08,
+            hookY + toolDirection * hookSize * 0.72,
+          );
+          context.closePath();
+          context.fill();
+          context.restore();
         }
 
         /* The puppet is always its own small, tightly packed sphere. */
@@ -784,6 +882,7 @@ export function ParticleMascot({
       tourTraveling = Boolean(
         (event as CustomEvent<{ traveling?: boolean }>).detail?.traveling,
       );
+      if (reducedMotion) draw(0);
     };
 
     resize();

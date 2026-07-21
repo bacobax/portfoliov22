@@ -32,6 +32,11 @@
 ============================================================ */
 *,*::before,*::after{box-sizing:border-box}
 html{scroll-behavior:auto}
+html,body{
+  /* Keep a fast upward gesture inside the portfolio instead of handing it to
+     the browser's pull-to-refresh navigation. */
+  overscroll-behavior-y:none;
+}
 html,.editorial-site{margin:0;padding:0}
 .editorial-site{
   --bg:var(--paper); --fg:var(--ink); --rule:var(--line);

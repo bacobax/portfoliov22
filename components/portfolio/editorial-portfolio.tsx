@@ -94,6 +94,8 @@ type ProjectRecord = {
 type ProjectGroup = "ai" | "software-web";
 
 const PROJECT_PREVIEW_LIMIT = 5;
+const TOUR_SEEN_SESSION_KEY = "portfolio:mote-tour-seen";
+const SCROLL_POSITION_SESSION_KEY = "portfolio:last-scroll-y";
 const PROJECT_GROUPS: Array<{ id: ProjectGroup; label: string }> = [
   { id: "ai", label: "AI" },
   { id: "software-web", label: "Software & Web" },
@@ -357,7 +359,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
   const procGridRef = useRef<HTMLDivElement>(null);
   const procFillRef = useRef<HTMLElement>(null);
   const procStepRefs = useRef<Array<HTMLElement | null>>([]);
-  const [tourWelcomeOpen, setTourWelcomeOpen] = useState(true);
+  const [tourWelcomeOpen, setTourWelcomeOpen] = useState(false);
   const [tourActive, setTourActive] = useState(false);
   const [tourStep, setTourStep] = useState(0);
   const [tourPaused, setTourPaused] = useState(false);
@@ -368,6 +370,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
   const tourTravelingRef = useRef(false);
   const tourElapsedRef = useRef(0);
   const tourManualNavigationRef = useRef(false);
+  const scrollRestoredRef = useRef(false);
 
   const experienceCount = content?.experienceLog.length ?? 0;
 
@@ -433,6 +436,11 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
   };
 
   const startTour = () => {
+    try {
+      window.sessionStorage.setItem(TOUR_SEEN_SESSION_KEY, "true");
+    } catch {
+      // The tour still works when storage is unavailable (private/locked mode).
+    }
     window.scrollTo({ top: 0, behavior: "auto" });
     tourElapsedRef.current = 0;
     setTourProgress(0);
@@ -441,6 +449,15 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
     setTourTravelState(false);
     setTourWelcomeOpen(false);
     setTourActive(true);
+  };
+
+  const skipTourWelcome = () => {
+    try {
+      window.sessionStorage.setItem(TOUR_SEEN_SESSION_KEY, "true");
+    } catch {
+      // Dismissing the overlay must never depend on storage access.
+    }
+    setTourWelcomeOpen(false);
   };
 
   const exitTour = () => {
@@ -452,6 +469,16 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
       .querySelectorAll(".tour-target-active")
       .forEach((element) => element.classList.remove("tour-target-active"));
   };
+
+  useEffect(() => {
+    try {
+      setTourWelcomeOpen(
+        window.sessionStorage.getItem(TOUR_SEEN_SESSION_KEY) !== "true",
+      );
+    } catch {
+      setTourWelcomeOpen(true);
+    }
+  }, []);
 
   useEffect(() => {
     tourStepRef.current = tourStep;
@@ -467,6 +494,74 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
       document.body.style.overflow = previousOverflow;
     };
   }, [tourWelcomeOpen]);
+
+  useEffect(() => {
+    if (
+      scrollRestoredRef.current ||
+      props.isContentLoading ||
+      !content ||
+      tourWelcomeOpen ||
+      tourActive
+    ) {
+      return;
+    }
+
+    let savedScrollY = 0;
+    try {
+      savedScrollY = Number.parseFloat(
+        window.sessionStorage.getItem(SCROLL_POSITION_SESSION_KEY) ?? "0",
+      );
+    } catch {
+      // Native scroll restoration remains the fallback without storage.
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      if (Number.isFinite(savedScrollY) && savedScrollY > 0) {
+        const maximumScroll = Math.max(
+          0,
+          document.documentElement.scrollHeight - window.innerHeight,
+        );
+        window.scrollTo({
+          top: Math.min(savedScrollY, maximumScroll),
+          behavior: "auto",
+        });
+      }
+      scrollRestoredRef.current = true;
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [content, props.isContentLoading, tourActive, tourWelcomeOpen]);
+
+  useEffect(() => {
+    const rememberScrollPosition = () => {
+      if (!scrollRestoredRef.current || tourWelcomeOpen || tourActive) return;
+      try {
+        window.sessionStorage.setItem(
+          SCROLL_POSITION_SESSION_KEY,
+          String(Math.max(0, window.scrollY)),
+        );
+      } catch {
+        // Scrolling must remain unaffected if browser storage is unavailable.
+      }
+    };
+
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        rememberScrollPosition();
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("pagehide", rememberScrollPosition);
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pagehide", rememberScrollPosition);
+    };
+  }, [tourActive, tourWelcomeOpen]);
 
   useEffect(() => {
     if (!tourActive) return;
@@ -847,7 +942,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
       {tourWelcomeOpen && (
         <TourWelcome
           onStart={startTour}
-          onSkip={() => setTourWelcomeOpen(false)}
+          onSkip={skipTourWelcome}
         />
       )}
       {tourActive && (
