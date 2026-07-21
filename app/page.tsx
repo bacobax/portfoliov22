@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -111,6 +117,32 @@ type EditingProjectState = {
 
 type AuthResult = { success: boolean; error?: string };
 
+const CONTENT_CACHE_KEY = "portfolio:content-cache:v1";
+let memoryContentCache: PortfolioContent | null = null;
+
+const cachePortfolioContent = (content: PortfolioContent) => {
+  memoryContentCache = content;
+  try {
+    window.sessionStorage.setItem(CONTENT_CACHE_KEY, JSON.stringify(content));
+  } catch {
+    // The live API remains authoritative when browser storage is unavailable.
+  }
+};
+
+const readPortfolioContentCache = (): PortfolioContent | null => {
+  if (memoryContentCache) return memoryContentCache;
+  try {
+    const cached = window.sessionStorage.getItem(CONTENT_CACHE_KEY);
+    if (!cached) return null;
+    const parsed = JSON.parse(cached) as PortfolioContent;
+    const normalized = withDerivedContent(withDefaultCustomColor(parsed));
+    memoryContentCache = normalized;
+    return normalized;
+  } catch {
+    return null;
+  }
+};
+
 export default function TechDashboardPortfolio() {
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
   const router = useRouter();
@@ -129,7 +161,12 @@ export default function TechDashboardPortfolio() {
   const [editingEducationIndex, setEditingEducationIndex] = useState<
     number | null
   >(null);
-  const [content, setContent] = useState<PortfolioContent | null>(null);
+  /* Always render a complete document on the first frame. The live payload is
+     layered onto this synchronously from cache and then refreshed from the
+     API, so a browser recovery can never expose the full-page loading screen. */
+  const [content, setContent] = useState<PortfolioContent | null>(() =>
+    withDerivedContent(cloneDefaultContent()),
+  );
   const [isContentLoading, setIsContentLoading] = useState(true);
   const [contentError, setContentError] = useState<string | null>(null);
   const [sessionThemeOverrides, setSessionThemeOverrides] = useState<
@@ -172,6 +209,7 @@ export default function TechDashboardPortfolio() {
         if (shouldPersist) {
           void persistContent(updated);
         }
+        cachePortfolioContent(updated);
         return updated;
       });
     },
@@ -187,18 +225,28 @@ export default function TechDashboardPortfolio() {
         throw new Error(`Failed to load content: ${response.status}`);
       }
       const data = (await response.json()) as { content?: PortfolioContent };
-      if (data.content) {
-        setContent(withDerivedContent(withDefaultCustomColor(data.content)));
-      } else {
-        setContent(withDerivedContent(cloneDefaultContent()));
-      }
+      const nextContent = data.content
+        ? withDerivedContent(withDefaultCustomColor(data.content))
+        : withDerivedContent(cloneDefaultContent());
+      cachePortfolioContent(nextContent);
+      setContent(nextContent);
     } catch (error) {
       console.error("Failed to load content", error);
       setContentError("Unable to load portfolio content.");
-      setContent(withDerivedContent(cloneDefaultContent()));
+      const fallbackContent = withDerivedContent(cloneDefaultContent());
+      cachePortfolioContent(fallbackContent);
+      setContent(fallbackContent);
     } finally {
       setIsContentLoading(false);
     }
+  }, []);
+
+  /* Hydrate the last successful public payload before the browser paints. A
+     tab recovery or App Router remount can then refresh in the background
+     without flashing the full-page loading placeholder. */
+  useLayoutEffect(() => {
+    const cachedContent = readPortfolioContentCache();
+    if (cachedContent) setContent(cachedContent);
   }, []);
 
   const accentColor = useMemo(() => {

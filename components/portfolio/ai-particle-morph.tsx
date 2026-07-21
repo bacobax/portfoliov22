@@ -110,7 +110,7 @@ export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
       "(prefers-reduced-motion: reduce)",
     ).matches
     const mobile = window.matchMedia("(max-width: 760px)").matches
-    const count = mobile ? 2600 : 4800
+    const count = mobile ? 1800 : 3400
 
     const sphere = makeSphere(count)
     const logoShapes: Record<"codex" | "claude", Float32Array> = {
@@ -134,6 +134,8 @@ export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
     let pointerX = -9999
     let pointerY = -9999
     let frame = 0
+    let lastDrawAt = -Infinity
+    const frameInterval = 1000 / 30
     let startTime = 0
     let reportedShape: Shape | null = null
 
@@ -142,8 +144,12 @@ export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
       width = Math.max(1, rect.width)
       height = Math.max(1, rect.height)
       dpr = Math.min(window.devicePixelRatio || 1, 1.6)
-      canvas.width = Math.round(width * dpr)
-      canvas.height = Math.round(height * dpr)
+      const pixelWidth = Math.round(width * dpr)
+      const pixelHeight = Math.round(height * dpr)
+      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth
+        canvas.height = pixelHeight
+      }
       canvas.style.width = `${width}px`
       canvas.style.height = `${height}px`
       context.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -160,9 +166,23 @@ export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
     }
 
     const draw = (time: number) => {
+      if (
+        !reducedMotion &&
+        time > 0 &&
+        time - lastDrawAt < frameInterval
+      ) {
+        frame = window.requestAnimationFrame(draw)
+        return
+      }
+      if (time > 0) lastDrawAt = time
       if (!startTime) startTime = time
       context.clearRect(0, 0, width, height)
       presence += ((visible ? 1 : 0) - presence) * (reducedMotion ? 1 : 0.06)
+
+      if (!visible && presence < 0.012) {
+        if (!reducedMotion) frame = window.requestAnimationFrame(draw)
+        return
+      }
 
       const seconds = reducedMotion ? HOLD_SECONDS : (time - startTime) / 1000
 

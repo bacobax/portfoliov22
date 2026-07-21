@@ -67,9 +67,8 @@ export function ParticleMascot({
     const reducedMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
-    const pointCount = window.matchMedia("(max-width: 760px)").matches
-      ? 2200
-      : 5200;
+    const initialMobile = window.matchMedia("(max-width: 760px)").matches;
+    const pointCount = initialMobile ? 1500 : 3600;
     const points: Point[] = Array.from({ length: pointCount }, (_, index) => {
       const fraction = (index + 0.5) / pointCount;
       const phi = Math.acos(1 - 2 * fraction);
@@ -88,6 +87,8 @@ export function ParticleMascot({
     let height = window.innerHeight;
     let dpr = Math.min(window.devicePixelRatio || 1, 1.6);
     let frame = 0;
+    let lastDrawAt = -Infinity;
+    const frameInterval = 1000 / 30;
     let anchors: AnchorElement[] = [];
     let logoStages: HTMLElement[] = [];
     let anchorRefreshAt = 0;
@@ -185,14 +186,17 @@ export function ParticleMascot({
     const resize = () => {
       width = window.innerWidth;
       height = window.innerHeight;
-      dpr = Math.min(window.devicePixelRatio || 1, 1.6);
-      canvas.width = Math.max(1, Math.round(width * dpr));
-      canvas.height = Math.max(1, Math.round(height * dpr));
+      dpr = Math.min(window.devicePixelRatio || 1, initialMobile ? 1.35 : 1.5);
+      const pixelWidth = Math.max(1, Math.round(width * dpr));
+      const pixelHeight = Math.max(1, Math.round(height * dpr));
+      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth;
+        canvas.height = pixelHeight;
+      }
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       context.setTransform(dpr, 0, 0, dpr, 0, 0);
       anchorRefreshAt = 0;
-      buildParticleWords();
     };
 
     const refreshAnchors = (time: number) => {
@@ -298,6 +302,15 @@ export function ParticleMascot({
     };
 
     const draw = (time: number) => {
+      if (
+        !reducedMotion &&
+        time > 0 &&
+        time - lastDrawAt < frameInterval
+      ) {
+        frame = window.requestAnimationFrame(draw);
+        return;
+      }
+      if (time > 0) lastDrawAt = time;
       context.clearRect(0, 0, width, height);
       refreshAnchors(time);
       sampleAnchors();
@@ -759,8 +772,18 @@ export function ParticleMascot({
       if (reducedMotion) draw(0);
     };
 
+    let resizeTimer: number | null = null;
+    const onResize = () => {
+      if (resizeTimer !== null) window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        resizeTimer = null;
+        resize();
+      }, 140);
+    };
+
+    buildParticleWords();
     resize();
-    window.addEventListener("resize", resize);
+    window.addEventListener("resize", onResize);
     window.addEventListener("pointermove", onPointerMove, { passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("portfolio:mascot-burst", onTourBurst);
@@ -771,7 +794,8 @@ export function ParticleMascot({
     return () => {
       window.cancelAnimationFrame(frame);
       if (staticTimer !== null) window.clearTimeout(staticTimer);
-      window.removeEventListener("resize", resize);
+      if (resizeTimer !== null) window.clearTimeout(resizeTimer);
+      window.removeEventListener("resize", onResize);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("portfolio:mascot-burst", onTourBurst);
