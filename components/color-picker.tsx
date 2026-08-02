@@ -1,9 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { Card } from "@/components/ui/card"
-import { Slider } from "@/components/ui/slider"
-import { Palette } from "lucide-react"
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react"
+import { Check, Palette, X } from "lucide-react"
 
 interface ColorPickerProps {
   onColorChange: (h: number, s: number, l: number) => void
@@ -14,6 +12,38 @@ interface ColorPickerProps {
   onPersistDefault?: (color: { h: number; s: number; l: number }) => void
 }
 
+type ThemeColor = { h: number; s: number; l: number }
+
+const PRESETS: ThemeColor[] = [
+  { h: 180, s: 97, l: 74 },
+  { h: 65, s: 88, l: 67 },
+  { h: 263, s: 86, l: 75 },
+  { h: 335, s: 87, l: 67 },
+  { h: 28, s: 92, l: 64 },
+]
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(Math.round(value), min), max)
+}
+
+function hslToHex({ h, s, l }: ThemeColor) {
+  const saturation = s / 100
+  const lightness = l / 100
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation
+  const x = chroma * (1 - Math.abs(((h / 60) % 2) - 1))
+  const match = lightness - chroma / 2
+  const [red, green, blue] =
+    h < 60 ? [chroma, x, 0] :
+      h < 120 ? [x, chroma, 0] :
+        h < 180 ? [0, chroma, x] :
+          h < 240 ? [0, x, chroma] :
+            h < 300 ? [x, 0, chroma] : [chroma, 0, x]
+
+  return `#${[red, green, blue]
+    .map((channel) => Math.round((channel + match) * 255).toString(16).padStart(2, "0"))
+    .join("")}`.toUpperCase()
+}
+
 export function ColorPicker({
   onColorChange,
   defaultH = 25,
@@ -22,166 +52,194 @@ export function ColorPicker({
   canPersist = false,
   onPersistDefault,
 }: ColorPickerProps) {
-  const [hue, setHue] = useState(defaultH)
-  const [saturation, setSaturation] = useState(defaultS)
-  const [lightness, setLightness] = useState(defaultL)
+  const [color, setColor] = useState<ThemeColor>({
+    h: clamp(defaultH, 0, 360),
+    s: clamp(defaultS, 0, 100),
+    l: clamp(defaultL, 20, 90),
+  })
   const [isOpen, setIsOpen] = useState(false)
   const pickerRef = useRef<HTMLDivElement | null>(null)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const panelId = useId()
 
   useEffect(() => {
-    setHue(defaultH)
-    setSaturation(defaultS)
-    setLightness(defaultL)
+    setColor({
+      h: clamp(defaultH, 0, 360),
+      s: clamp(defaultS, 0, 100),
+      l: clamp(defaultL, 20, 90),
+    })
   }, [defaultH, defaultS, defaultL])
 
-  const handleHueChange = (value: number[]) => {
-    setHue(value[0])
-    onColorChange(value[0], saturation, lightness)
-  }
-
-  const handleSaturationChange = (value: number[]) => {
-    setSaturation(value[0])
-    onColorChange(hue, value[0], lightness)
-  }
-
-  const handleLightnessChange = (value: number[]) => {
-    setLightness(value[0])
-    onColorChange(hue, saturation, value[0])
-  }
-
   useEffect(() => {
-    if (!isOpen) {
-      return
-    }
+    if (!isOpen) return
 
-    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+    const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null
-      if (!pickerRef.current || (target && pickerRef.current.contains(target))) {
-        return
-      }
-
+      if (target && !pickerRef.current?.contains(target)) setIsOpen(false)
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
       setIsOpen(false)
+      triggerRef.current?.focus()
     }
 
-    document.addEventListener("mousedown", handleClickOutside)
-    document.addEventListener("touchstart", handleClickOutside)
-
+    document.addEventListener("pointerdown", handlePointerDown)
+    document.addEventListener("keydown", handleKeyDown)
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside)
-      document.removeEventListener("touchstart", handleClickOutside)
+      document.removeEventListener("pointerdown", handlePointerDown)
+      document.removeEventListener("keydown", handleKeyDown)
     }
   }, [isOpen])
 
+  const updateColor = (nextColor: ThemeColor) => {
+    const normalized = {
+      h: clamp(nextColor.h, 0, 360),
+      s: clamp(nextColor.s, 0, 100),
+      l: clamp(nextColor.l, 20, 90),
+    }
+    setColor(normalized)
+    onColorChange(normalized.h, normalized.s, normalized.l)
+  }
+
+  const colorValue = `hsl(${color.h} ${color.s}% ${color.l}%)`
+  const pickerStyle = { "--picker-accent": colorValue } as CSSProperties
+
   return (
-    <div ref={pickerRef} className="relative">
+    <div ref={pickerRef} className="color-picker" style={pickerStyle}>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-2 border border-primary/50 bg-card hover:border-primary transition-colors"
-        title="Color Picker"
+        className="color-picker-trigger"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-label="Choose accent color"
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+        title="Choose accent color"
       >
-        <Palette className="w-5 h-5 text-primary" />
+        <span className="color-picker-trigger-icon" aria-hidden="true">
+          <Palette />
+          <i />
+        </span>
+        <span>Color</span>
       </button>
 
       {isOpen && (
-        <Card className="absolute right-0 top-12 w-72 p-4 bg-card border-primary/50 z-50 shadow-lg">
-          <h4 className="text-sm font-mono text-primary mb-4 flex items-center gap-2">
-            <Palette className="w-4 h-4" />
-            ACCENT_COLOR
-          </h4>
-
-          <div className="space-y-4">
-            {/* Hue Slider */}
+        <div id={panelId} className="color-picker-panel" role="dialog" aria-label="Accent color picker">
+          <div className="color-picker-heading">
             <div>
-              <div className="flex justify-between text-xs font-mono mb-2">
-                <span className="text-muted-foreground">HUE</span>
-                <span className="text-primary">{hue}°</span>
-              </div>
-              <Slider value={[hue]} onValueChange={handleHueChange} min={0} max={360} step={1} className="w-full" />
-              <div
-                className="h-2 mt-2 rounded"
-                style={{
-                  background:
-                    "linear-gradient(to right, hsl(0, 100%, 50%), hsl(60, 100%, 50%), hsl(120, 100%, 50%), hsl(180, 100%, 50%), hsl(240, 100%, 50%), hsl(300, 100%, 50%), hsl(360, 100%, 50%))",
-                }}
-              />
+              <span className="mono">Interface / Accent</span>
+              <h2>Set the signal.</h2>
             </div>
+            <button
+              type="button"
+              className="color-picker-close"
+              onClick={() => {
+                setIsOpen(false)
+                triggerRef.current?.focus()
+              }}
+              aria-label="Close color picker"
+            >
+              <X />
+            </button>
+          </div>
 
-            {/* Saturation Slider */}
+          <div className="color-picker-readout" aria-live="polite">
+            <span className="color-picker-sample" aria-hidden="true" />
             <div>
-              <div className="flex justify-between text-xs font-mono mb-2">
-                <span className="text-muted-foreground">SATURATION</span>
-                <span className="text-primary">{saturation}%</span>
-              </div>
-              <Slider
-                value={[saturation]}
-                onValueChange={handleSaturationChange}
-                min={0}
-                max={100}
-                step={1}
-                className="w-full"
-              />
-              <div
-                className="h-2 mt-2 rounded"
-                style={{
-                  background: `linear-gradient(to right, hsl(${hue}, 0%, ${lightness}%), hsl(${hue}, 100%, ${lightness}%))`,
-                }}
-              />
+              <strong>{hslToHex(color)}</strong>
+              <span>HSL {color.h} / {color.s} / {color.l}</span>
             </div>
+          </div>
 
-            {/* Lightness Slider */}
+          <div className="color-picker-controls">
+            <label className="color-picker-control">
+              <span><b>Hue</b><output>{color.h}°</output></span>
+              <input
+                className="color-range color-range-hue"
+                type="range"
+                aria-label="Hue"
+                min="0"
+                max="360"
+                step="1"
+                value={color.h}
+                onInput={(event) => updateColor({ ...color, h: Number(event.currentTarget.value) })}
+              />
+            </label>
+
+            <label className="color-picker-control">
+              <span><b>Saturation</b><output>{color.s}%</output></span>
+              <input
+                className="color-range color-range-saturation"
+                style={{
+                  background: `linear-gradient(90deg, hsl(${color.h} 0% ${color.l}%), hsl(${color.h} 100% ${color.l}%))`,
+                }}
+                type="range"
+                aria-label="Saturation"
+                min="0"
+                max="100"
+                step="1"
+                value={color.s}
+                onInput={(event) => updateColor({ ...color, s: Number(event.currentTarget.value) })}
+              />
+            </label>
+
+            <label className="color-picker-control">
+              <span><b>Lightness</b><output>{color.l}%</output></span>
+              <input
+                className="color-range color-range-lightness"
+                style={{
+                  background: `linear-gradient(90deg, hsl(${color.h} ${color.s}% 10%), hsl(${color.h} ${color.s}% 50%), hsl(${color.h} ${color.s}% 90%))`,
+                }}
+                type="range"
+                aria-label="Lightness"
+                min="20"
+                max="90"
+                step="1"
+                value={color.l}
+                onInput={(event) => updateColor({ ...color, l: Number(event.currentTarget.value) })}
+              />
+            </label>
+          </div>
+
+          <div className="color-picker-presets">
+            <span className="mono">Quick signals</span>
             <div>
-              <div className="flex justify-between text-xs font-mono mb-2">
-                <span className="text-muted-foreground">LIGHTNESS</span>
-                <span className="text-primary">{lightness}%</span>
-              </div>
-              <Slider
-                value={[lightness]}
-                onValueChange={handleLightnessChange}
-                min={30}
-                max={90}
-                step={1}
-                className="w-full"
-              />
-              <div
-                className="h-2 mt-2 rounded"
-                style={{
-                  background: `linear-gradient(to right, hsl(${hue}, ${saturation}%, 0%), hsl(${hue}, ${saturation}%, 50%), hsl(${hue}, ${saturation}%, 100%))`,
-                }}
-              />
+              {PRESETS.map((preset) => {
+                const isSelected = preset.h === color.h && preset.s === color.s && preset.l === color.l
+                return (
+                  <button
+                    key={`${preset.h}-${preset.s}-${preset.l}`}
+                    type="button"
+                    className={isSelected ? "selected" : undefined}
+                    style={{ backgroundColor: `hsl(${preset.h} ${preset.s}% ${preset.l}%)` }}
+                    onClick={() => updateColor(preset)}
+                    aria-label={`Use ${hslToHex(preset)} accent`}
+                    aria-pressed={isSelected}
+                  >
+                    {isSelected && <Check />}
+                  </button>
+                )
+              })}
             </div>
+          </div>
 
-            {/* Color Preview */}
-            <div className="mt-4 p-3 border border-primary/30 bg-secondary/50">
-              <p className="text-xs font-mono text-muted-foreground mb-2">PREVIEW:</p>
-              <div
-                className="h-12 rounded border-2"
-                style={{
-                  backgroundColor: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
-                  borderColor: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
-                }}
-              />
-              <p className="text-xs font-mono text-primary mt-2">
-                hsl({hue}, {saturation}%, {lightness}%)
-              </p>
-            </div>
-
+          <div className="color-picker-footer">
+            <p>{canPersist ? "Changes preview instantly." : "Preview lasts for this visit."}</p>
             {canPersist && onPersistDefault && (
               <button
                 type="button"
+                className="color-picker-save"
                 onClick={() => {
-                  onPersistDefault({ h: hue, s: saturation, l: lightness })
+                  onPersistDefault(color)
                   setIsOpen(false)
                 }}
-                className="w-full px-3 py-2 border border-primary/50 bg-card hover:border-primary transition-colors text-xs font-mono text-primary"
               >
-                SET AS DEFAULT
+                Save accent <span aria-hidden="true">↗</span>
               </button>
             )}
           </div>
-        </Card>
+        </div>
       )}
-
     </div>
   )
 }

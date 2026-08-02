@@ -7,7 +7,7 @@
   --ink:#101014;            /* near-black */
   --ink-2:#1b1b22;
   --cream:#f4f1e8;
-  --volt:#f4ee62;           /* small electric accent */
+  --volt:var(--portfolio-accent,#f4ee62); /* user-selectable electric accent */
   --night:#0d0d12;
   --night-2:#15151d;
   --line:rgba(16,16,20,.22);
@@ -853,9 +853,59 @@ ul{list-style:none}
 .utility-dock>button:hover{background:rgba(171,166,241,.18)}
 .utility-dock svg{width:18px;height:18px}
 .utility-dock span{font-family:var(--font-mono);font-size:.58rem;letter-spacing:.05em;text-transform:uppercase}
-.utility-dock>div>button{height:48px;width:48px;border:0!important;border-radius:10px!important;background:transparent!important}
-.utility-dock>div>button:hover{background:rgba(171,166,241,.18)!important}
-.utility-dock>div>div{bottom:58px!important;top:auto!important;color:var(--foreground);cursor:auto!important}
+
+/* Accent picker — designed as part of the editorial utility dock. */
+.color-picker{position:relative;align-self:stretch}
+.utility-dock .color-picker-trigger{
+  min-width:58px;height:48px;display:grid;place-items:center;gap:1px;border-radius:10px;padding:5px 8px;color:inherit;
+  transition:background-color .22s var(--ease)
+}
+.utility-dock .color-picker-trigger:hover,.utility-dock .color-picker-trigger[aria-expanded="true"]{background:rgba(171,166,241,.18)}
+.color-picker-trigger-icon{position:relative;display:block;width:18px;height:18px}
+.color-picker-trigger-icon i{position:absolute;right:-2px;bottom:-2px;width:7px;height:7px;border:1.5px solid var(--night);border-radius:50%;background:var(--picker-accent)}
+.color-picker-panel{
+  position:fixed;right:18px;bottom:91px;width:min(360px,calc(100vw - 24px));max-height:calc(100svh - 110px);overflow-y:auto;padding:22px;border:1px solid rgba(171,166,241,.32);
+  border-radius:20px;background:rgba(13,13,18,.97);color:var(--cream);cursor:auto;
+  box-shadow:0 28px 80px -30px rgba(0,0,0,.75);backdrop-filter:blur(18px);animation:colorPickerIn .3s var(--ease) both
+}
+.color-picker-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.color-picker-heading .mono{display:block;color:var(--picker-accent);font-size:.56rem;opacity:.9}
+.color-picker-heading h2{margin-top:7px;font-size:1.55rem;line-height:1;letter-spacing:-.04em}
+.color-picker-close{width:34px;height:34px;display:grid;place-items:center;border:1px solid rgba(244,241,232,.14);border-radius:50%;opacity:.72;transition:opacity .2s,background-color .2s}
+.color-picker-close:hover{opacity:1;background:rgba(171,166,241,.16)}
+.color-picker-close svg{width:15px;height:15px}
+.color-picker-readout{display:grid;grid-template-columns:78px 1fr;align-items:center;gap:16px;margin-top:22px;padding:10px;border:1px solid rgba(244,241,232,.12);border-radius:14px;background:rgba(255,255,255,.025)}
+.color-picker-sample{height:58px;border-radius:9px;background:var(--picker-accent);box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+.color-picker-readout strong{display:block;font-size:1.25rem;line-height:1;letter-spacing:-.02em}
+.color-picker-readout div span{display:block;margin-top:7px;color:rgba(244,241,232,.52);font-family:var(--font-mono);font-size:.56rem;letter-spacing:.08em;text-transform:uppercase}
+.color-picker-controls{display:grid;gap:18px;margin-top:22px}
+.color-picker-control{display:grid;gap:9px}
+.color-picker-control>span{display:flex;align-items:center;justify-content:space-between;font-family:var(--font-mono);font-size:.62rem;letter-spacing:.07em;text-transform:uppercase}
+.color-picker-control b{font-weight:500;color:rgba(244,241,232,.64)}
+.color-picker-control output{min-width:42px;color:var(--cream);text-align:right;font-variant-numeric:tabular-nums}
+.color-range{
+  width:100%;height:12px;margin:0;border:0;border-radius:99px;outline:0;appearance:none;-webkit-appearance:none;cursor:pointer;
+  background:rgba(244,241,232,.16);box-shadow:inset 0 0 0 1px rgba(244,241,232,.12)
+}
+.color-range-hue{background:linear-gradient(90deg,#f25d5d,#f2e45d,#65e36f,#5de0e3,#5d75f2,#cf5df2,#f25d72)}
+.color-range::-webkit-slider-thumb{width:20px;height:20px;border:3px solid var(--cream);border-radius:50%;appearance:none;-webkit-appearance:none;background:var(--picker-accent);box-shadow:0 2px 9px rgba(0,0,0,.48);transition:scale .18s var(--ease)}
+.color-range::-moz-range-thumb{width:14px;height:14px;border:3px solid var(--cream);border-radius:50%;background:var(--picker-accent);box-shadow:0 2px 9px rgba(0,0,0,.48);transition:scale .18s var(--ease)}
+.color-range:hover::-webkit-slider-thumb{scale:1.12}.color-range:hover::-moz-range-thumb{scale:1.12}
+.color-range:focus-visible{outline:2px solid var(--picker-accent);outline-offset:4px}
+.color-picker-presets{margin-top:22px;padding-top:17px;border-top:1px solid rgba(244,241,232,.12)}
+.color-picker-presets>.mono{display:block;color:rgba(244,241,232,.5);font-size:.54rem}
+.color-picker-presets>div{display:flex;gap:8px;margin-top:11px}
+.color-picker-presets button{width:36px;height:36px;display:grid;place-items:center;border:2px solid transparent;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);transition:transform .2s var(--ease),border-color .2s}
+.color-picker-presets button:hover{transform:translateY(-3px)}
+.color-picker-presets button.selected{border-color:var(--cream)}
+.color-picker-presets button svg{width:15px;height:15px;color:var(--night);stroke-width:3}
+.color-picker-footer{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-top:20px}
+.color-picker-footer p{max-width:17ch;color:rgba(244,241,232,.48);font-family:var(--font-mono);font-size:.55rem;line-height:1.4;text-transform:uppercase}
+.color-picker-save{min-height:38px;display:inline-flex;align-items:center;gap:12px;padding:9px 13px;border-radius:9px;background:var(--picker-accent);color:var(--night);font-family:var(--font-mono);font-size:.61rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;transition:transform .2s var(--ease)}
+.color-picker-save:hover{transform:translateY(-2px)}
+.color-picker-save span{font-size:.88rem}
+@keyframes colorPickerIn{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.color-picker-panel{animation:none}.color-picker-presets button,.color-picker-save{transition:none}}
 
 /* ============================================================
    MASCOT HITBOX — invisible round button riding along the puppet
@@ -928,7 +978,7 @@ ul{list-style:none}
 @media(max-width:760px){
   .about-identity{gap:14px}.about-portrait{width:96px;flex-basis:96px;border-radius:11px}
   .project-tabs button{min-height:62px;padding:13px 14px;font-size:.92rem}.project-tab-count{font-size:.62rem}
-  .utility-dock{left:auto;right:10px;bottom:10px;padding:5px;gap:2px}.utility-dock>button{min-width:42px;width:42px;height:42px;padding:5px}.utility-dock>button span{display:none}.utility-dock>div>button{width:42px;height:42px}
+  .utility-dock{left:auto;right:10px;bottom:10px;padding:5px;gap:2px}.utility-dock>button{min-width:42px;width:42px;height:42px;padding:5px}.utility-dock>button span{display:none}.utility-dock .color-picker-trigger{min-width:42px;width:42px;height:42px;padding:5px}.utility-dock .color-picker-trigger>span:last-child{display:none}.color-picker-panel{right:10px;bottom:67px}
   .editorial-site .foot-base{padding-bottom:92px}.content-error{top:68px}
   .tour-welcome-screen{padding:18px}
   .tour-welcome-head>.mono{font-size:.56rem}.tour-live{font-size:.5rem}
