@@ -18,7 +18,7 @@ export default async function CvPage() {
       id: p.id,
       name: p.name,
       layout: p.layout,
-      data: createCvData(p.content),
+      data: createCvData(p.content, p),
     }))
 
   return (

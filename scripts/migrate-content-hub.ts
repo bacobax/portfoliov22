@@ -12,8 +12,10 @@ import {
   type ContentHubDocument,
   type SharedCvSection,
 } from "../lib/content-hub"
-import { migrateCvContent } from "../lib/cv-content"
-import { cvPresetSchema, type CvPreset } from "../lib/cv-presets"
+import { migrateContentHubV2ToV3 } from "../lib/content-hub-v3-migration"
+import { cvContentSchema, migrateCvContent } from "../lib/cv-content"
+import { createRegionalPreset, type CvPreset } from "../lib/cv-presets"
+import { legacyLayoutMap } from "../lib/content-hub-v3-migration"
 import {
   persistedPortfolioContentSchema,
   withDefaultCustomColor,
@@ -38,15 +40,22 @@ const resolvedPresetsFromRaw = (raw: Record<string, unknown> | null): CvPreset[]
     if (!candidate || typeof candidate !== "object") return []
     const preset = candidate as Record<string, unknown>
     const content = preset.content
-    const migrated = {
-      ...preset,
-      content:
-        content && typeof content === "object"
-          ? migrateCvContent(content as Parameters<typeof migrateCvContent>[0])
-          : content,
-    }
-    const parsed = cvPresetSchema.safeParse(migrated)
-    return parsed.success ? [parsed.data as CvPreset] : []
+    if (!content || typeof content !== "object") return []
+    const parsedContent = cvContentSchema.safeParse(
+      migrateCvContent(content as Parameters<typeof migrateCvContent>[0]),
+    )
+    const legacyLayout = preset.layout === "resume" ? "resume" : "classic"
+    if (!parsedContent.success) return []
+    const migrated = createRegionalPreset({
+      name: String(preset.name ?? "Migrated CV"),
+      country: "Italy",
+      locale: "en",
+      layout: legacyLayoutMap[legacyLayout],
+      sourceContent: parsedContent.data,
+    })
+    migrated.id = String(preset.id ?? migrated.id)
+    migrated.visible = preset.visible !== false
+    return [migrated]
   })
 }
 
@@ -83,11 +92,46 @@ async function main() {
     .collection<{ _id: string } & Document>(CONTENT_HUB_COLLECTION)
     .findOne({ _id: CONTENT_HUB_ID })
   if (existing && !repair) {
-    const parsed = contentHubDocumentSchema.safeParse(existing)
-    if (!parsed.success) throw new Error(`Existing content hub is invalid: ${parsed.error.message}`)
-    const referenceErrors = validateHubReferences(parsed.data as ReturnType<typeof createInitialHub>)
-    console.log(JSON.stringify({ status: "already-migrated", dryRun, revision: existing.revision, referenceErrors }, null, 2))
-    process.exitCode = referenceErrors.length === 0 ? 0 : 1
+    if (existing.schemaVersion === 2) {
+      const now = new Date().toISOString()
+      const migrated = migrateContentHubV2ToV3(existing, now)
+      const referenceErrors = validateHubReferences(migrated)
+      const report = {
+        status: dryRun ? "v3-dry-run" : "migrated-to-v3",
+        fromSchemaVersion: 2,
+        schemaVersion: migrated.schemaVersion,
+        revision: migrated.revision,
+        presetCount: migrated.presets.length,
+        sharedSectionCount: migrated.sharedSections.length,
+        legacyLayouts: (existing.presets as Array<{ layout?: unknown }>).map((preset) => preset.layout),
+        regionalLayouts: migrated.presets.map((preset) => preset.layout),
+        targetCountries: [...new Set(migrated.presets.map((preset) => preset.targetCountry))],
+        referenceErrors,
+      }
+      if (referenceErrors.length > 0) throw new Error("V3 migration has dangling references")
+      if (!dryRun) {
+        await db.collection<{ _id: string } & Document>("content_hub_backups").insertOne({
+          _id: `content-hub-v2-${now}`,
+          createdAt: now,
+          source: "content_hub_v2",
+          document: existing,
+        })
+        const result = await db
+          .collection<{ _id: string } & Document>(CONTENT_HUB_COLLECTION)
+          .replaceOne(
+            { _id: CONTENT_HUB_ID, schemaVersion: 2, revision: existing.revision },
+            migrated as ContentHubDocument & Document,
+          )
+        if (result.modifiedCount !== 1) throw new Error("Content hub changed during v3 migration")
+      }
+      console.log(JSON.stringify(report, null, 2))
+    } else {
+      const parsed = contentHubDocumentSchema.safeParse(existing)
+      if (!parsed.success) throw new Error(`Existing content hub is invalid: ${parsed.error.message}`)
+      const referenceErrors = validateHubReferences(parsed.data as ReturnType<typeof createInitialHub>)
+      console.log(JSON.stringify({ status: "already-migrated", dryRun, revision: existing.revision, referenceErrors }, null, 2))
+      process.exitCode = referenceErrors.length === 0 ? 0 : 1
+    }
   } else {
     const backup = repair
       ? await db

@@ -30,11 +30,21 @@ import type {
   CvTagGroup,
   CvLinkItem,
 } from "@/lib/cv-content"
-import { emptyCvContent } from "@/lib/cv-content"
 import type { CvPreset, CvLayoutId } from "@/lib/cv-presets"
+import { changePresetLanguage, changePresetTemplate, createRegionalPreset } from "@/lib/cv-presets"
 import { createCvData } from "@/lib/cv-data-transform"
-import { ClassicLayout } from "@/components/cv/classic-layout"
-import { ResumeLayout } from "@/components/cv/resume-layout"
+import { RegionalCvLayout } from "@/components/cv/regional-layout"
+import {
+  COUNTRY_LOCALES,
+  CV_COUNTRIES,
+  CV_TEMPLATES,
+  CV_TEMPLATE_BY_ID,
+  isCvCountry,
+  templateForCountry,
+  type CvCountry,
+  type CvLocale,
+  type CvPersonalField,
+} from "@/lib/cv-templates"
 import profilePicture from "@/app/prof_pic.jpeg"
 import {
   CONTENT_HUB_CHANNEL,
@@ -70,6 +80,7 @@ export default function CvEditorPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [presets, setPresets] = useState<CvPreset[]>([])
+  const [canonicalCvSeed, setCanonicalCvSeed] = useState<CvContent | null>(null)
   const [activePresetId, setActivePresetId] = useState("")
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -89,17 +100,56 @@ export default function CvEditorPage() {
     presetIds: string[]
     showcase: boolean
   } | null>(null)
+  const [newPreset, setNewPreset] = useState<{
+    step: 1 | 2 | 3
+    countryQuery: string
+    country: CvCountry
+    layout: CvLayoutId
+    locale: CvLocale
+    name: string
+    showPhoto: boolean
+  } | null>(null)
+  const [pendingTemplate, setPendingTemplate] = useState<CvLayoutId | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const revisionRef = useRef<number | null>(null)
   const activePresetIdRef = useRef("")
   const pendingPresetsRef = useRef<{ presets: CvPreset[]; activePresetId: string } | null>(null)
   const saveChainRef = useRef<Promise<void>>(Promise.resolve())
+  const regionalDialogOpen = newPreset !== null || pendingTemplate !== null
 
   /* ── show default cursor on CV editor ── */
   useEffect(() => {
     document.body.classList.add("cv-cursor-visible")
     return () => { document.body.classList.remove("cv-cursor-visible") }
   }, [])
+
+  useEffect(() => {
+    if (!regionalDialogOpen) return
+    const previous = document.activeElement as HTMLElement | null
+    const dialog = document.querySelector<HTMLElement>(".cv-template-dialog, .cv-template-confirm")
+    const focusableSelector = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])"
+    const focusables = () => Array.from(dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])
+    requestAnimationFrame(() => focusables()[0]?.focus())
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setNewPreset(null)
+        setPendingTemplate(null)
+        return
+      }
+      if (event.key !== "Tab") return
+      const items = focusables()
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.removeEventListener("keydown", onKeyDown)
+      previous?.focus()
+    }
+  }, [regionalDialogOpen])
 
   useEffect(() => {
     activePresetIdRef.current = activePresetId
@@ -124,6 +174,7 @@ export default function CvEditorPage() {
       if (!response.ok) throw new Error(data.error || "Failed to load data")
       const loaded: CvPreset[] = data.presets ?? []
       setPresets(loaded)
+      if (data.canonicalCvSeed) setCanonicalCvSeed(data.canonicalCvSeed as CvContent)
       if (typeof data.revision === "number") {
         revisionRef.current = data.revision
         setRevision(data.revision)
@@ -338,21 +389,39 @@ export default function CvEditorPage() {
   )
 
   const renameSection = useCallback(
-    (sectionId: string, title: string) => { updateSectionById(sectionId, (s) => ({ ...s, title })) },
+    (sectionId: string, title: string) => { updateSectionById(sectionId, (s) => ({ ...s, title, titleMode: "custom" })) },
     [updateSectionById],
   )
 
   /* ── preset CRUD ── */
   const createPreset = () => {
-    const preset: CvPreset = {
-      id: uid(),
-      name: `Preset ${presets.length + 1}`,
-      layout: "classic",
-      visible: true,
-      content: emptyCvContent(),
-    }
-    updatePresets((prev) => [...prev, preset])
+    const country: CvCountry = "Italy"
+    const layout = templateForCountry(country)
+    setNewPreset({
+      step: 1,
+      countryQuery: country,
+      country,
+      layout,
+      locale: COUNTRY_LOCALES[country][0],
+      name: `Italy CV ${presets.length + 1}`,
+      showPhoto: CV_TEMPLATE_BY_ID[layout].defaultOptions.showPhoto,
+    })
+  }
+
+  const confirmCreatePreset = () => {
+    if (!newPreset) return
+    const preset = createRegionalPreset({
+      name: newPreset.name.trim(),
+      country: newPreset.country,
+      locale: newPreset.locale,
+      layout: newPreset.layout,
+      sourceContent: canonicalCvSeed ?? presets[0]?.content,
+    })
+    preset.regionalOptions.showPhoto = newPreset.showPhoto
+    activePresetIdRef.current = preset.id
     setActivePresetId(preset.id)
+    updatePresets((prev) => [...prev, preset])
+    setNewPreset(null)
   }
 
   const deletePreset = (id: string) => {
@@ -368,17 +437,30 @@ export default function CvEditorPage() {
   }
 
   const setPresetLayout = (id: string, layout: CvLayoutId) => {
-    updatePresets((prev) => prev.map((p) => (p.id === id ? { ...p, layout } : p)))
+    updatePresets((prev) => prev.map((p) => (p.id === id ? changePresetTemplate(p, layout) : p)))
   }
 
   const renamePreset = (id: string, name: string) => {
     updatePresets((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)))
   }
 
+  const updatePresetMetadata = (id: string, updater: (preset: CvPreset) => CvPreset) => {
+    updatePresets((prev) => prev.map((preset) => preset.id === id ? updater(preset) : preset))
+  }
+
+  const togglePersonalField = (id: string, field: CvPersonalField) => {
+    updatePresetMetadata(id, (preset) => {
+      const selected = new Set(preset.regionalOptions.personalFields)
+      if (selected.has(field)) selected.delete(field)
+      else selected.add(field)
+      return { ...preset, regionalOptions: { ...preset.regionalOptions, personalFields: [...selected] } }
+    })
+  }
+
   /* ── derived ── */
   const activePreset = presets.find((p) => p.id === activePresetId)
   const cv = activePreset?.content
-  const previewData = activePreset ? createCvData(activePreset.content) : null
+  const previewData = activePreset ? createCvData(activePreset.content, activePreset) : null
 
   /* ── guards ── */
   if (!isAuthenticated) return null
@@ -400,6 +482,149 @@ export default function CvEditorPage() {
           void refreshFromHub()
         }}
       />
+      {newPreset && (
+        <div className="cv-create-layer" role="presentation">
+          <div className="cv-create-dialog cv-template-dialog" role="dialog" aria-modal="true" aria-labelledby="new-cv-title">
+            <div className="cv-create-dialog__head">
+              <div>
+                <span>Step {newPreset.step} of 3 · Atlas-backed CV</span>
+                <h2 id="new-cv-title">Create a regional CV</h2>
+              </div>
+              <button type="button" onClick={() => setNewPreset(null)} aria-label="Cancel CV creation"><X className="w-5 h-5" /></button>
+            </div>
+
+            {newPreset.step === 1 && (
+              <section className="cv-wizard-step" aria-labelledby="country-step-title">
+                <h3 id="country-step-title">Where will you apply?</h3>
+                <p>The country selects the locally familiar format. You can override it in the next step.</p>
+                <label className="cv-field">
+                  <span className="cv-field__label">Search or choose a target country</span>
+                  <input
+                    className="cv-field__input"
+                    list="cv-country-options"
+                    value={newPreset.countryQuery}
+                    onChange={(event) => {
+                      const countryQuery = event.target.value
+                      if (!isCvCountry(countryQuery)) {
+                        setNewPreset({ ...newPreset, countryQuery })
+                        return
+                      }
+                      const country = countryQuery
+                      const layout = templateForCountry(country)
+                      setNewPreset({
+                        ...newPreset,
+                        countryQuery,
+                        country,
+                        layout,
+                        locale: COUNTRY_LOCALES[country][0],
+                        name: `${country} CV ${presets.length + 1}`,
+                        showPhoto: CV_TEMPLATE_BY_ID[layout].defaultOptions.showPhoto,
+                      })
+                    }}
+                  />
+                  <datalist id="cv-country-options">
+                    {CV_COUNTRIES.map((country) => <option key={country} value={country} />)}
+                  </datalist>
+                </label>
+                <div className="cv-recommendation">
+                  <span>Recommended format</span>
+                  <strong>{CV_TEMPLATE_BY_ID[templateForCountry(newPreset.country)].label}</strong>
+                </div>
+              </section>
+            )}
+
+            {newPreset.step === 2 && (
+              <section className="cv-wizard-step" aria-labelledby="template-step-title">
+                <h3 id="template-step-title">Choose the visual convention</h3>
+                <p>The recommended format is marked. Every alternative remains available as an explicit override.</p>
+                <div className="cv-template-grid">
+                  {CV_TEMPLATES.map((template) => {
+                    const recommended = template.id === templateForCountry(newPreset.country)
+                    const selected = template.id === newPreset.layout
+                    return (
+                      <button
+                        type="button"
+                        key={template.id}
+                        className={`cv-template-card ${selected ? "cv-template-card--selected" : ""}`}
+                        aria-pressed={selected}
+                        onClick={() => setNewPreset({
+                          ...newPreset,
+                          layout: template.id,
+                          showPhoto: template.defaultOptions.showPhoto,
+                        })}
+                      >
+                        <span className="cv-template-card__preview" style={{ "--card-accent": template.accent } as React.CSSProperties} aria-hidden="true"><i /><i /><i /></span>
+                        <span className="cv-template-card__copy">
+                          <strong>{template.shortLabel}</strong>
+                          <small>{template.pageGuidance}</small>
+                          <em>{recommended ? "Recommended" : template.conventions[0]}</em>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
+
+            {newPreset.step === 3 && (
+              <section className="cv-wizard-step" aria-labelledby="details-step-title">
+                <h3 id="details-step-title">Name and language</h3>
+                <p>Only headings and recognized dates are localized. Your authored content stays unchanged.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <FieldWithHint label="CV name" value={newPreset.name} onChange={(name) => setNewPreset({ ...newPreset, name })} />
+                  <label className="cv-field">
+                    <span className="cv-field__label">Document language</span>
+                    <select className="cv-field__input" value={newPreset.locale} onChange={(event) => setNewPreset({ ...newPreset, locale: event.target.value as CvLocale })}>
+                      {COUNTRY_LOCALES[newPreset.country].map((locale) => <option key={locale} value={locale}>{new Intl.DisplayNames(["en"], { type: "language" }).of(locale) ?? locale}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <label className="cv-option-row">
+                  <input type="checkbox" checked={newPreset.showPhoto} onChange={(event) => setNewPreset({ ...newPreset, showPhoto: event.target.checked })} />
+                  <span><strong>Show profile photo</strong><small>Optional even where locally common; you can change this later.</small></span>
+                </label>
+                <div className="cv-recommendation">
+                  <span>{newPreset.country}</span>
+                  <strong>{CV_TEMPLATE_BY_ID[newPreset.layout].label}</strong>
+                </div>
+              </section>
+            )}
+
+            <div className="cv-wizard-actions">
+              <button type="button" className="cv-btn" onClick={() => newPreset.step === 1 ? setNewPreset(null) : setNewPreset({ ...newPreset, step: (newPreset.step - 1) as 1 | 2 })}>
+                {newPreset.step === 1 ? "Cancel" : "Back"}
+              </button>
+              {newPreset.step < 3 ? (
+                <button
+                  type="button"
+                  className="cv-btn cv-btn--primary"
+                  disabled={newPreset.step === 1 && !isCvCountry(newPreset.countryQuery)}
+                  onClick={() => setNewPreset({ ...newPreset, step: (newPreset.step + 1) as 2 | 3 })}
+                >
+                  Continue
+                </button>
+              ) : (
+                <button type="button" className="cv-btn cv-btn--primary" disabled={!newPreset.name.trim()} onClick={confirmCreatePreset}>Create from canonical content</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {pendingTemplate && activePreset && (
+        <div className="cv-create-layer" role="presentation">
+          <div className="cv-create-dialog cv-template-confirm" role="alertdialog" aria-modal="true" aria-labelledby="template-change-title">
+            <div className="cv-create-dialog__head">
+              <div><span>Template change</span><h2 id="template-change-title">Apply {CV_TEMPLATE_BY_ID[pendingTemplate].shortLabel}?</h2></div>
+              <button type="button" onClick={() => setPendingTemplate(null)} aria-label="Cancel template change"><X className="w-5 h-5" /></button>
+            </div>
+            <p>This applies the recommended section order and placement. Canonical content, selected items, visibility, personal-data choices, custom headings and wording remain intact.</p>
+            <div className="cv-wizard-actions">
+              <button type="button" className="cv-btn" onClick={() => setPendingTemplate(null)}>Keep current</button>
+              <button type="button" className="cv-btn cv-btn--primary" onClick={() => { setPresetLayout(activePreset.id, pendingTemplate); setPendingTemplate(null) }}>Apply template</button>
+            </div>
+          </div>
+        </div>
+      )}
       {pendingEntity && (
         <div className="cv-create-layer" role="presentation">
           <div className="cv-create-dialog" role="dialog" aria-modal="true" aria-labelledby="cv-create-title">
@@ -525,7 +750,7 @@ export default function CvEditorPage() {
             >
               {!preset.visible && <EyeOff className="w-3 h-3" />}
               {preset.name}
-              <span className="cv-preset-tab__layout">{preset.layout}</span>
+              <span className="cv-preset-tab__layout">{CV_TEMPLATE_BY_ID[preset.layout].shortLabel}</span>
             </button>
           ))}
           <button type="button" onClick={createPreset} className="cv-preset-tab cv-preset-tab--add">
@@ -561,11 +786,34 @@ export default function CvEditorPage() {
                       onChange={(e) => renamePreset(activePreset.id, e.target.value)} />
                   </div>
                   <div className="cv-field">
-                    <label className="cv-field__label">Layout</label>
+                    <label className="cv-field__label">Target country</label>
+                    <select className="cv-field__input" value={activePreset.targetCountry}
+                      onChange={(e) => {
+                        const country = e.target.value as CvCountry
+                        updatePresetMetadata(activePreset.id, (preset) => ({
+                          ...preset,
+                          targetCountry: country,
+                          documentLanguage: COUNTRY_LOCALES[country].includes(preset.documentLanguage)
+                            ? preset.documentLanguage
+                            : COUNTRY_LOCALES[country][0],
+                        }))
+                      }}>
+                      {CV_COUNTRIES.map((country) => <option key={country} value={country}>{country}</option>)}
+                    </select>
+                  </div>
+                  <div className="cv-field">
+                    <label className="cv-field__label">Regional template</label>
                     <select className="cv-field__input" value={activePreset.layout}
-                      onChange={(e) => setPresetLayout(activePreset.id, e.target.value as CvLayoutId)}>
-                      <option value="classic">Classic</option>
-                      <option value="resume">Résumé</option>
+                      onChange={(e) => setPendingTemplate(e.target.value as CvLayoutId)}>
+                      {CV_TEMPLATES.map((template) => <option key={template.id} value={template.id}>{template.shortLabel}{template.id === templateForCountry(activePreset.targetCountry) ? " · recommended" : ""}</option>)}
+                    </select>
+                    {activePreset.layout !== templateForCountry(activePreset.targetCountry) && <span className="cv-field__hint">Explicit regional override</span>}
+                  </div>
+                  <div className="cv-field">
+                    <label className="cv-field__label">Document language</label>
+                    <select className="cv-field__input" value={activePreset.documentLanguage}
+                      onChange={(e) => updatePresetMetadata(activePreset.id, (preset) => changePresetLanguage(preset, e.target.value as CvLocale))}>
+                      {COUNTRY_LOCALES[activePreset.targetCountry].map((locale) => <option key={locale} value={locale}>{new Intl.DisplayNames(["en"], { type: "language" }).of(locale) ?? locale}</option>)}
                     </select>
                   </div>
                   <div className="cv-field">
@@ -584,6 +832,38 @@ export default function CvEditorPage() {
                     </div>
                   </div>
                 </div>
+                <div className="cv-regional-settings">
+                  <div className="cv-field">
+                    <label className="cv-field__label">Target role override</label>
+                    <input className="cv-field__input" value={activePreset.targetRoleOverride ?? ""}
+                      placeholder={cv.title || "Role title"}
+                      onChange={(e) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, targetRoleOverride: e.target.value || undefined }))} />
+                  </div>
+                  <div className="cv-field">
+                    <label className="cv-field__label">Preset summary override</label>
+                    <textarea className="cv-field__input cv-field__textarea" rows={3} value={activePreset.summaryOverride ?? ""}
+                      placeholder="Leave empty to use the canonical profile summary"
+                      onChange={(e) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, summaryOverride: e.target.value || undefined }))} />
+                  </div>
+                  <div className="cv-option-grid">
+                    <label className="cv-option-row"><input type="checkbox" checked={activePreset.regionalOptions.showPhoto} onChange={(e) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, regionalOptions: { ...preset.regionalOptions, showPhoto: e.target.checked } }))} /><span><strong>Profile photo</strong><small>Optional in every template</small></span></label>
+                    <label className="cv-option-row"><input type="checkbox" checked={activePreset.regionalOptions.showSignature} onChange={(e) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, regionalOptions: { ...preset.regionalOptions, showSignature: e.target.checked } }))} /><span><strong>Dated signature</strong><small>Common in tabular applications</small></span></label>
+                  </div>
+                  {activePreset.regionalOptions.showSignature && <FieldWithHint label="Document date / place" value={activePreset.regionalOptions.documentDate} onChange={(documentDate) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, regionalOptions: { ...preset.regionalOptions, documentDate } }))} />}
+                  <div className="cv-field">
+                    <label className="cv-field__label">Optional footer</label>
+                    <textarea className="cv-field__input cv-field__textarea" rows={2} value={activePreset.regionalOptions.customFooter}
+                      onChange={(e) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, regionalOptions: { ...preset.regionalOptions, customFooter: e.target.value } }))} />
+                    {activePreset.targetCountry === "Italy" && <span className="cv-field__hint">No generic GDPR consent is added automatically. Add wording only when the specific application requires it.</span>}
+                  </div>
+                  <fieldset className="cv-personal-fields">
+                    <legend>Optional personal details shown in this CV</legend>
+                    {(["dateOfBirth", "placeOfBirth", "nationality", "workAuthorization", "drivingLicences", "references"] as CvPersonalField[]).map((field) => (
+                      <label key={field}><input type="checkbox" checked={activePreset.regionalOptions.personalFields.includes(field)} onChange={() => togglePersonalField(activePreset.id, field)} /> {field.replace(/([A-Z])/g, " $1").replace(/^./, (letter) => letter.toUpperCase())}</label>
+                    ))}
+                  </fieldset>
+                  <div className="cv-page-guidance"><span>Format guidance</span><strong>{CV_TEMPLATE_BY_ID[activePreset.layout].pageGuidance}</strong><small>Content is never truncated automatically.</small></div>
+                </div>
               </EditorCard>
 
               {/* ─── Profile ─── */}
@@ -595,6 +875,26 @@ export default function CvEditorPage() {
                   <FieldWithHint label="Email" value={cv.email || ""} onChange={(v) => updateProfile("email", v || undefined)} />
                   <FieldWithHint label="Phone" value={cv.phone || ""} onChange={(v) => updateProfile("phone", v || undefined)} />
                   <FieldWithHint label="P.IVA" value={cv.piva || ""} onChange={(v) => updateProfile("piva", v || undefined)} />
+                  <FieldWithHint label="Date of birth (optional)" value={cv.profileExtras?.dateOfBirth || ""} onChange={(dateOfBirth) => updateProfile("profileExtras", { drivingLicences: [], references: [], ...cv.profileExtras, dateOfBirth: dateOfBirth || undefined })} />
+                  <FieldWithHint label="Place of birth (optional)" value={cv.profileExtras?.placeOfBirth || ""} onChange={(placeOfBirth) => updateProfile("profileExtras", { drivingLicences: [], references: [], ...cv.profileExtras, placeOfBirth: placeOfBirth || undefined })} />
+                  <FieldWithHint label="Nationality (optional)" value={cv.profileExtras?.nationality || ""} onChange={(nationality) => updateProfile("profileExtras", { drivingLicences: [], references: [], ...cv.profileExtras, nationality: nationality || undefined })} />
+                  <FieldWithHint label="Work authorization (optional)" value={cv.profileExtras?.workAuthorization || ""} onChange={(workAuthorization) => updateProfile("profileExtras", { drivingLicences: [], references: [], ...cv.profileExtras, workAuthorization: workAuthorization || undefined })} />
+                  <FieldWithHint label="Driving licences (comma-separated)" value={(cv.profileExtras?.drivingLicences ?? []).join(", ")} onChange={(value) => updateProfile("profileExtras", { references: [], ...cv.profileExtras, drivingLicences: value.split(",").map((item) => item.trim()).filter(Boolean) })} />
+                </div>
+                <div className="cv-field mt-3">
+                  <label className="cv-field__label">References — one per line: Name | Role | Organization | Email | Phone</label>
+                  <textarea
+                    className="cv-field__input cv-field__textarea"
+                    rows={3}
+                    value={(cv.profileExtras?.references ?? []).map((reference) => [reference.name, reference.role, reference.organization, reference.email ?? "", reference.phone ?? ""].join(" | ")).join("\n")}
+                    onChange={(event) => updateProfile("profileExtras", {
+                      drivingLicences: [], ...cv.profileExtras,
+                      references: event.target.value.split("\n").filter((line) => line.trim()).map((line, index) => {
+                        const [name = "", role = "", organization = "", email = "", phone = ""] = line.split("|").map((part) => part.trim())
+                        return { id: cv.profileExtras?.references[index]?.id ?? uid(), name, role, organization, email: email || undefined, phone: phone || undefined }
+                      }),
+                    })}
+                  />
                 </div>
               </EditorCard>
 
@@ -657,12 +957,11 @@ export default function CvEditorPage() {
                 <span className="cv-editor-preview-zoom-label">{Math.round(previewZoom * 100)}%</span>
                 <button type="button" className="cv-editor-preview-zoom-btn"
                   onClick={() => setPreviewZoom((z) => Math.min(1, z + 0.1))}>+</button>
-                <span className="cv-editor-preview-header__layout">{activePreset.layout}</span>
+                <span className="cv-editor-preview-header__layout">{CV_TEMPLATE_BY_ID[activePreset.layout].shortLabel} · {CV_TEMPLATE_BY_ID[activePreset.layout].pageGuidance}</span>
               </div>
             </div>
             <div className="cv-editor-preview-scaler" style={{ zoom: previewZoom } as React.CSSProperties}>
-              {previewData && activePreset.layout === "classic" && <ClassicLayout data={previewData} profilePicture={profilePicture} />}
-              {previewData && activePreset.layout === "resume" && <ResumeLayout data={previewData} profilePicture={profilePicture} />}
+              {previewData && <RegionalCvLayout layout={activePreset.layout} data={previewData} profilePicture={profilePicture} />}
             </div>
           </aside>
         </div>
@@ -1431,6 +1730,39 @@ const editorStyles = `
   .cv-create-targets label { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; font-size: 12px; }
   .cv-create-targets input { width: 18px; height: 18px; }
   .cv-create-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  .cv-template-dialog { width: min(880px, 100%); }
+  .cv-template-confirm { width: min(560px, 100%); }
+  .cv-template-confirm > p { color: #475569; font-size: 13px; line-height: 1.6; }
+  .cv-wizard-step h3 { margin: 0; font-size: 18px; color: #0f172a; }
+  .cv-wizard-step > p { margin: 5px 0 18px; color: #64748b; font-size: 12px; }
+  .cv-recommendation { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 15px; padding: 13px 15px; border-left: 4px solid #2563eb; background: #eff6ff; }
+  .cv-recommendation span { color: #64748b; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+  .cv-recommendation strong { font-size: 13px; text-align: right; }
+  .cv-template-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+  .cv-template-card { min-height: 112px; display: grid; grid-template-columns: 72px minmax(0,1fr); align-items: stretch; gap: 12px; padding: 10px; border: 1px solid #cbd5e1; background: #fff; text-align: left; cursor: pointer; }
+  .cv-template-card:hover { border-color: #64748b; }
+  .cv-template-card--selected { border: 2px solid #2563eb; padding: 9px; box-shadow: 0 8px 22px rgba(37,99,235,.12); }
+  .cv-template-card__preview { display: flex; flex-direction: column; gap: 5px; padding: 10px 8px; border-left: 7px solid var(--card-accent); background: #f8fafc; box-shadow: inset 0 0 0 1px #e2e8f0; }
+  .cv-template-card__preview i { display: block; height: 4px; background: #cbd5e1; } .cv-template-card__preview i:first-child { width: 65%; height: 8px; background: var(--card-accent); }
+  .cv-template-card__copy { display: flex; min-width: 0; flex-direction: column; justify-content: center; }
+  .cv-template-card__copy strong { font-size: 13px; color: #0f172a; }
+  .cv-template-card__copy small { margin-top: 4px; color: #64748b; font-size: 10px; }
+  .cv-template-card__copy em { width: fit-content; margin-top: 8px; padding: 2px 6px; background: #e2e8f0; color: #334155; font-size: 9px; font-style: normal; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+  .cv-template-card--selected .cv-template-card__copy em { background: #dbeafe; color: #1d4ed8; }
+  .cv-wizard-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 22px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+  .cv-option-row { min-height: 52px; display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid #cbd5e1; background: #fff; }
+  .cv-option-row input { width: 18px; height: 18px; }
+  .cv-option-row span { display: flex; flex-direction: column; } .cv-option-row strong { color: #0f172a; font-size: 12px; } .cv-option-row small { color: #64748b; font-size: 10px; }
+  .cv-regional-settings { display: grid; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+  .cv-option-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+  .cv-personal-fields { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 12px; border: 1px solid #cbd5e1; }
+  .cv-personal-fields legend { padding: 0 5px; color: #475569; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+  .cv-personal-fields label { display: flex; align-items: center; gap: 6px; min-height: 32px; font-size: 11px; }
+  .cv-personal-fields input { width: 16px; height: 16px; }
+  .cv-field__hint { display: block; margin-top: 4px; color: #64748b; font-size: 10px; line-height: 1.4; }
+  .cv-page-guidance { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 11px 13px; background: #f1f5f9; }
+  .cv-page-guidance span { color: #64748b; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+  .cv-page-guidance strong { font-size: 11px; } .cv-page-guidance small { grid-column: 1 / -1; color: #64748b; font-size: 9px; }
   .cv-editor-conflict {
     min-height: 52px;
     display: flex;
@@ -2241,6 +2573,9 @@ const editorStyles = `
     .section-organizer { grid-template-columns: 1fr; }
   }
   @media screen and (max-width: 768px) {
+    .cv-create-layer { padding: 0; align-items: stretch; }
+    .cv-create-dialog { max-height: 100svh; }
+    .cv-template-grid, .cv-option-grid { grid-template-columns: 1fr; }
     .cv-editor-bar {
       flex-direction: column;
       gap: 8px;

@@ -2,16 +2,29 @@ import { z } from "zod"
 
 import {
   cvContentSchema,
+  cvProfileExtrasSchema,
   cvSectionDataSchema,
   type CvContent,
   type CvLogEntry,
+  type CvProfileExtras,
   type CvSectionData,
 } from "@/lib/cv-content"
 import {
   cvPresetSchema,
-  type CvLayoutId,
   type CvPreset,
 } from "@/lib/cv-presets"
+import {
+  COUNTRY_LOCALES,
+  CV_COUNTRIES,
+  CV_LOCALES,
+  CV_TEMPLATE_BY_ID,
+  CV_TEMPLATE_IDS,
+  inferCvCountry,
+  type CvCountry,
+  type CvLayoutId,
+  type CvLocale,
+  type CvRegionalOptions,
+} from "@/lib/cv-templates"
 import {
   persistedPortfolioContentSchema,
   portfolioContentSchema,
@@ -27,7 +40,7 @@ import {
 
 export const CONTENT_HUB_COLLECTION = "content_hub"
 export const CONTENT_HUB_ID = "primary"
-export const CONTENT_HUB_SCHEMA_VERSION = 2 as const
+export const CONTENT_HUB_SCHEMA_VERSION = 3 as const
 
 export type CvBindingSource =
   | "profile"
@@ -50,6 +63,7 @@ export interface CvPresetSectionConfig {
   source: CvBindingSource
   sourceId?: string
   title: string
+  titleMode?: "template" | "custom"
   type: CvSectionData["type"]
   placement: "sidebar" | "main"
   visible: boolean
@@ -65,6 +79,12 @@ export interface CvPresetConfig {
   id: string
   name: string
   layout: CvLayoutId
+  targetCountry: CvCountry
+  documentLanguage: CvLocale
+  templateVersion: number
+  targetRoleOverride?: string
+  summaryOverride?: string
+  regionalOptions: CvRegionalOptions
   visible: boolean
   sections: CvPresetSectionConfig[]
   overrides: Record<string, CvEntityOverride>
@@ -77,6 +97,7 @@ export interface ContentHubDocument {
   createdAt: string
   updatedAt: string
   portfolio: PortfolioContent
+  cvProfileExtras: CvProfileExtras
   sharedSections: SharedCvSection[]
   presets: CvPresetConfig[]
 }
@@ -84,6 +105,7 @@ export interface ContentHubDocument {
 const sharedCvSectionSchema = z.object({
   id: z.string().min(1),
   title: z.string(),
+  titleMode: z.enum(["template", "custom"]).optional(),
   type: z.enum(["log", "tags", "text", "links", "simple-list"]),
   data: cvSectionDataSchema,
 })
@@ -101,6 +123,7 @@ const cvPresetSectionConfigSchema = z.object({
   ]),
   sourceId: z.string().optional(),
   title: z.string(),
+  titleMode: z.enum(["template", "custom"]).optional(),
   type: z.enum(["log", "tags", "text", "links", "simple-list"]),
   placement: z.enum(["sidebar", "main"]),
   visible: z.boolean(),
@@ -110,7 +133,22 @@ const cvPresetSectionConfigSchema = z.object({
 const cvPresetConfigSchema = z.object({
   id: z.string().min(1),
   name: z.string(),
-  layout: z.enum(["classic", "resume"]),
+  layout: z.enum(CV_TEMPLATE_IDS),
+  targetCountry: z.enum(CV_COUNTRIES),
+  documentLanguage: z.enum(CV_LOCALES),
+  templateVersion: z.number().int().positive(),
+  targetRoleOverride: z.string().optional(),
+  summaryOverride: z.string().optional(),
+  regionalOptions: z.object({
+    showPhoto: z.boolean(),
+    personalFields: z.array(z.enum([
+      "dateOfBirth", "placeOfBirth", "nationality", "workAuthorization",
+      "drivingLicences", "references",
+    ])),
+    showSignature: z.boolean(),
+    documentDate: z.string(),
+    customFooter: z.string(),
+  }),
   visible: z.boolean(),
   sections: z.array(cvPresetSectionConfigSchema),
   overrides: z.record(
@@ -119,6 +157,14 @@ const cvPresetConfigSchema = z.object({
       url: z.string().optional(),
     }),
   ),
+}).superRefine((preset, ctx) => {
+  if (!COUNTRY_LOCALES[preset.targetCountry].includes(preset.documentLanguage)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["documentLanguage"],
+      message: `${preset.documentLanguage} is not offered for ${preset.targetCountry}`,
+    })
+  }
 })
 
 export const contentHubDocumentSchema = z.object({
@@ -128,6 +174,7 @@ export const contentHubDocumentSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   portfolio: portfolioContentSchema,
+  cvProfileExtras: cvProfileExtrasSchema,
   sharedSections: z.array(sharedCvSectionSchema),
   presets: z.array(cvPresetConfigSchema),
 })
@@ -398,9 +445,11 @@ export function materializeCvPreset(
     email: contact.email,
     phone: contact.phone,
     piva: contact.piva,
+    profileExtras: hub.cvProfileExtras,
     sections: preset.sections.map((section) => ({
       id: section.id,
       title: section.title,
+      titleMode: section.titleMode,
       type: section.type,
       placement: section.placement,
       visible: section.visible,
@@ -411,6 +460,12 @@ export function materializeCvPreset(
     id: preset.id,
     name: preset.name,
     layout: preset.layout,
+    targetCountry: preset.targetCountry,
+    documentLanguage: preset.documentLanguage,
+    templateVersion: preset.templateVersion,
+    targetRoleOverride: preset.targetRoleOverride,
+    summaryOverride: preset.summaryOverride,
+    regionalOptions: clone(preset.regionalOptions),
     visible: preset.visible,
     content: cvContentSchema.parse(content),
   }
@@ -418,6 +473,46 @@ export function materializeCvPreset(
 
 export function materializeCvPresets(hub: ContentHubDocument): CvPreset[] {
   return hub.presets.map((preset) => materializeCvPreset(hub, preset))
+}
+
+export function canonicalCvSeedFromHub(hub: ContentHubDocument): CvContent {
+  const country = inferCvCountry(hub.portfolio.contactData.location)
+  const seenShared = new Set<string>()
+  const sharedConfigs = hub.presets.flatMap((preset) => preset.sections.flatMap((section) => {
+    if (section.source !== "shared" || !section.sourceId || seenShared.has(section.sourceId)) return []
+    seenShared.add(section.sourceId)
+    return [{ ...clone(section), visible: true }]
+  }))
+  for (const section of hub.sharedSections) {
+    if (seenShared.has(section.id)) continue
+    sharedConfigs.push({
+      id: section.id,
+      source: "shared",
+      sourceId: section.id,
+      title: section.title,
+      titleMode: "custom",
+      type: section.type,
+      placement: "main",
+      visible: true,
+      itemIds: [],
+    })
+  }
+  const seed: CvPresetConfig = {
+    id: "canonical-seed",
+    name: "Canonical seed",
+    layout: "southern_european",
+    targetCountry: country,
+    documentLanguage: "en",
+    templateVersion: 1,
+    regionalOptions: clone(CV_TEMPLATE_BY_ID.southern_european.defaultOptions),
+    visible: false,
+    sections: [
+      ...defaultSectionConfigs(hub.portfolio),
+      ...sharedConfigs,
+    ],
+    overrides: {},
+  }
+  return materializeCvPreset(hub, seed).content
 }
 
 const sourceForSection = (sectionId: string): CvBindingSource => {
@@ -462,6 +557,7 @@ const defaultSectionConfigs = (portfolio: PortfolioContent): CvPresetSectionConf
     id: "profile",
     source: "profile",
     title: "Profile",
+    titleMode: "template",
     type: "text",
     placement: "sidebar",
     visible: true,
@@ -471,6 +567,7 @@ const defaultSectionConfigs = (portfolio: PortfolioContent): CvPresetSectionConf
     id: "skills",
     source: "skills",
     title: "Skills",
+    titleMode: "template",
     type: "tags",
     placement: "sidebar",
     visible: true,
@@ -480,6 +577,7 @@ const defaultSectionConfigs = (portfolio: PortfolioContent): CvPresetSectionConf
     id: "links",
     source: "links",
     title: "Links",
+    titleMode: "template",
     type: "links",
     placement: "sidebar",
     visible: true,
@@ -489,6 +587,7 @@ const defaultSectionConfigs = (portfolio: PortfolioContent): CvPresetSectionConf
     id: "experience",
     source: "experience",
     title: "Experience",
+    titleMode: "template",
     type: "log",
     placement: "main",
     visible: true,
@@ -498,6 +597,7 @@ const defaultSectionConfigs = (portfolio: PortfolioContent): CvPresetSectionConf
     id: "projects",
     source: "projects",
     title: "Projects",
+    titleMode: "template",
     type: "log",
     placement: "main",
     visible: true,
@@ -509,6 +609,7 @@ const defaultSectionConfigs = (portfolio: PortfolioContent): CvPresetSectionConf
     id: "education",
     source: "education",
     title: "Education",
+    titleMode: "template",
     type: "log",
     placement: "main",
     visible: true,
@@ -529,6 +630,7 @@ export function createInitialHub(
     createdAt: now,
     updatedAt: now,
     portfolio,
+    cvProfileExtras: { drivingLicences: [], references: [] },
     sharedSections: [],
     presets: [],
   }
@@ -538,7 +640,11 @@ export function createInitialHub(
       {
         id: stableContentId("preset", ["standard"]),
         name: "Standard",
-        layout: "classic",
+        layout: "germanic_tabular",
+        targetCountry: inferCvCountry(portfolio.contactData.location),
+        documentLanguage: "en",
+        templateVersion: 1,
+        regionalOptions: clone(CV_TEMPLATE_BY_ID.germanic_tabular.defaultOptions),
         visible: true,
         sections: defaultSectionConfigs(portfolio),
         overrides: {},
@@ -546,7 +652,11 @@ export function createInitialHub(
       {
         id: stableContentId("preset", ["resume"]),
         name: "Résumé",
-        layout: "resume",
+        layout: "southern_european",
+        targetCountry: inferCvCountry(portfolio.contactData.location),
+        documentLanguage: "en",
+        templateVersion: 1,
+        regionalOptions: clone(CV_TEMPLATE_BY_ID.southern_european.defaultOptions),
         visible: true,
         sections: defaultSectionConfigs(portfolio),
         overrides: {},
@@ -695,6 +805,12 @@ export function reconcileResolvedPresets(
       id: resolved.id,
       name: resolved.name,
       layout: resolved.layout,
+      targetCountry: resolved.targetCountry,
+      documentLanguage: resolved.documentLanguage,
+      templateVersion: resolved.templateVersion,
+      targetRoleOverride: resolved.targetRoleOverride,
+      summaryOverride: resolved.summaryOverride,
+      regionalOptions: clone(resolved.regionalOptions),
       visible: resolved.visible,
       sections: [],
       overrides: clone(previous?.overrides ?? {}),
@@ -707,6 +823,9 @@ export function reconcileResolvedPresets(
       hub.portfolio.contactData.email = resolved.content.email ?? ""
       hub.portfolio.contactData.phone = resolved.content.phone ?? ""
       hub.portfolio.contactData.piva = resolved.content.piva ?? ""
+      if (resolved.content.profileExtras) {
+        hub.cvProfileExtras = clone(resolved.content.profileExtras)
+      }
     }
 
     for (const section of resolved.content.sections) {
@@ -717,6 +836,7 @@ export function reconcileResolvedPresets(
         source,
         sourceId: previousSection?.sourceId,
         title: section.title,
+        titleMode: section.titleMode ?? previousSection?.titleMode ?? "custom",
         type: section.type,
         placement: section.placement,
         visible: section.visible,

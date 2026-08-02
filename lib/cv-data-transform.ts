@@ -1,5 +1,7 @@
 import type { CvContent, CvSection, CvSectionData } from "@/lib/cv-content"
 import type { CvData, CvDisplaySection, CvDisplayContent } from "@/components/cv/cv-types"
+import type { CvPreset } from "@/lib/cv-presets"
+import { labelsForLocale, type CvLocale } from "@/lib/cv-templates"
 
 export const splitSentences = (value: string): string[] =>
   value
@@ -28,7 +30,18 @@ export const formatLabel = (value: string): string => {
 }
 
 /** Transform raw section data → display-ready content */
-function transformSectionData(data: CvSectionData): CvDisplayContent {
+const localizeDate = (value: string, locale: CvLocale): string => {
+  const normalized = value.trim().toLowerCase()
+  if (["present", "current", "ongoing", "today", "now"].includes(normalized)) {
+    return labelsForLocale(locale).present
+  }
+  const match = value.match(/^(\d{4})-(\d{2})$/)
+  if (!match) return value
+  return new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", timeZone: "UTC" })
+    .format(new Date(`${match[1]}-${match[2]}-01T00:00:00Z`))
+}
+
+function transformSectionData(data: CvSectionData, locale: CvLocale): CvDisplayContent {
   switch (data.type) {
     case "log":
       return {
@@ -36,7 +49,7 @@ function transformSectionData(data: CvSectionData): CvDisplayContent {
         entries: data.entries.map((e) => ({
           title: formatLabel(e.title),
           subtitle: formatLabel(e.subtitle),
-          dates: [e.dateStart, e.dateEnd].filter(Boolean).join(" — "),
+          dates: [e.dateStart, e.dateEnd].filter(Boolean).map((date) => localizeDate(date, locale)).join(" — "),
           bullets: splitSentences(e.description),
           tags: e.tags.map(formatLabel),
           url: e.url || undefined,
@@ -59,19 +72,22 @@ function transformSectionData(data: CvSectionData): CvDisplayContent {
   }
 }
 
-function transformSection(section: CvSection): CvDisplaySection {
+function transformSection(section: CvSection, locale: CvLocale): CvDisplaySection {
   return {
     id: section.id,
     title: section.title,
     type: section.type,
     placement: section.placement,
     visible: section.visible,
-    content: transformSectionData(section.data),
+    content: transformSectionData(section.data, locale),
   }
 }
 
 /** Build CvData purely from CV content — no server dependencies */
-export function createCvData(cv: CvContent): CvData {
+export function createCvData(cv: CvContent, preset?: Pick<CvPreset,
+  "targetCountry" | "documentLanguage" | "regionalOptions" | "targetRoleOverride" | "summaryOverride"
+>): CvData {
+  const locale = preset?.documentLanguage ?? "en"
   return {
     name: formatLabel(cv.name || ""),
     title: formatLabel(cv.title || ""),
@@ -79,8 +95,14 @@ export function createCvData(cv: CvContent): CvData {
     piva: cv.piva || "",
     email: cv.email || "",
     phone: cv.phone || "",
+    profileExtras: cv.profileExtras,
+    targetCountry: preset?.targetCountry,
+    documentLanguage: locale,
+    regionalOptions: preset?.regionalOptions,
+    targetRoleOverride: preset?.targetRoleOverride,
+    summaryOverride: preset?.summaryOverride,
     sections: cv.sections
       .filter((s) => s.visible)
-      .map(transformSection),
+      .map((section) => transformSection(section, locale)),
   }
 }

@@ -4,6 +4,7 @@ import {
   CONTENT_HUB_COLLECTION,
   CONTENT_HUB_ID,
   applyEditorOperations,
+  canonicalCvSeedFromHub,
   contentHubDocumentSchema,
   materializeCvPresets,
   type ContentHubDocument,
@@ -17,6 +18,10 @@ export async function loadContentHub(): Promise<ContentHubDocument | null> {
     .collection<{ _id: string } & Document>(CONTENT_HUB_COLLECTION)
     .findOne({ _id: CONTENT_HUB_ID })
   if (!document) return null
+
+  if (document.schemaVersion !== 3) {
+    return null
+  }
 
   const parsed = contentHubDocumentSchema.safeParse(document)
   if (!parsed.success) {
@@ -70,5 +75,7 @@ export const editorStateFromHub = (hub: ContentHubDocument) => ({
   presets: materializeCvPresets(hub),
   presetConfigs: hub.presets,
   sharedSections: hub.sharedSections,
+  cvProfileExtras: hub.cvProfileExtras,
+  canonicalCvSeed: canonicalCvSeedFromHub(hub),
   updatedAt: hub.updatedAt,
 })

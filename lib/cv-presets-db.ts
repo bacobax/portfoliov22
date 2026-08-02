@@ -3,6 +3,7 @@ import { loadContentHub } from "@/lib/content-hub-db";
 import { materializeCvPresets } from "@/lib/content-hub";
 import type { Document } from "mongodb";
 import {
+  createRegionalPreset,
   cvPresetsDocumentSchema,
   defaultPresetsDocument,
   type CvPresetsDocument,
@@ -12,11 +13,10 @@ import {
 import { migrateCvContent } from "@/lib/cv-content";
 import { cvContentFromPortfolio } from "@/lib/cv-content-db";
 import type { PortfolioContent } from "@/lib/default-content";
+import { legacyLayoutMap } from "@/lib/content-hub-v3-migration";
 
 const COLLECTION_NAME = "cv_presets";
 const DOCUMENT_ID = "cv_presets";
-
-const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 /** Load raw presets from MongoDB, migrating old content format if needed */
 export async function loadCvPresets(): Promise<CvPresetsDocument> {
@@ -42,15 +42,23 @@ export async function loadCvPresets(): Promise<CvPresetsDocument> {
 
         const preset = candidate as Record<string, unknown>;
         const content = preset.content;
-        return {
-          ...preset,
-          content:
-            content && typeof content === "object"
-              ? migrateCvContent(
-                  content as Parameters<typeof migrateCvContent>[0],
-                )
-              : content,
-        };
+        if (!content || typeof content !== "object") return candidate;
+        const migratedContent = migrateCvContent(
+          content as Parameters<typeof migrateCvContent>[0],
+        ) as unknown as CvPreset["content"];
+        if (preset.layout === "classic" || preset.layout === "resume") {
+          const migrated = createRegionalPreset({
+            name: String(preset.name ?? "Migrated CV"),
+            country: "Italy",
+            locale: "en",
+            layout: legacyLayoutMap[preset.layout],
+            sourceContent: migratedContent,
+          });
+          migrated.id = String(preset.id ?? migrated.id);
+          migrated.visible = preset.visible !== false;
+          return migrated;
+        }
+        return { ...preset, content: migratedContent };
       });
     }
 
@@ -82,20 +90,8 @@ export async function loadCvPresetsWithFallback(
   if (doc.presets.length === 0) {
     const content = cvContentFromPortfolio(portfolio);
     const defaults: CvPreset[] = [
-      {
-        id: uid(),
-        name: "Standard",
-        layout: "classic",
-        visible: true,
-        content,
-      },
-      {
-        id: uid(),
-        name: "Résumé",
-        layout: "resume",
-        visible: true,
-        content: { ...content },
-      },
+      createRegionalPreset({ name: "Standard", country: "Italy", locale: "en", layout: "germanic_tabular", sourceContent: content }),
+      createRegionalPreset({ name: "Résumé", country: "Italy", locale: "en", layout: "southern_european", sourceContent: content }),
     ];
     const initialized: CvPresetsDocument = { presets: defaults };
     await saveCvPresets(initialized as PersistedCvPresetsDocument);

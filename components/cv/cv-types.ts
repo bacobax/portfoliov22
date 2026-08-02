@@ -32,10 +32,16 @@ export type CvData = {
   piva: string
   email: string
   phone: string
+  profileExtras?: CvProfileExtras
+  targetCountry?: CvCountry
+  documentLanguage?: CvLocale
+  regionalOptions?: CvRegionalOptions
+  targetRoleOverride?: string
+  summaryOverride?: string
   sections: CvDisplaySection[]
 }
 
-export type CvLayoutId = "classic" | "resume"
+export type { CvLayoutId }
 
 export interface CvLayoutMeta {
   id: CvLayoutId
@@ -43,6 +49,19 @@ export interface CvLayoutMeta {
 }
 
 export const CV_LAYOUTS: CvLayoutMeta[] = [
-  { id: "classic", label: "Classic" },
-  { id: "resume", label: "Résumé" },
+  { id: "british_irish", label: "British & Irish" },
+  { id: "germanic_tabular", label: "Germanic Tabular" },
+  { id: "nordic_concise", label: "Nordic Concise" },
+  { id: "french_speaking_concise", label: "French-Speaking Concise" },
+  { id: "dutch_tailored", label: "Dutch Tailored" },
+  { id: "southern_european", label: "Southern European" },
+  { id: "europass_friendly_structured", label: "Europass-Friendly" },
+  { id: "post_soviet_local_resume", label: "Post-Soviet Local" },
 ]
+import type { CvProfileExtras } from "@/lib/cv-content"
+import type {
+  CvCountry,
+  CvLayoutId,
+  CvLocale,
+  CvRegionalOptions,
+} from "@/lib/cv-templates"

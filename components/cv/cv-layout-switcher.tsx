@@ -5,8 +5,7 @@ import type { StaticImageData } from "next/image"
 import { useRouter } from "next/navigation"
 
 import type { CvData, CvLayoutId } from "./cv-types"
-import { ClassicLayout } from "./classic-layout"
-import { ResumeLayout } from "./resume-layout"
+import { RegionalCvLayout } from "./regional-layout"
 
 /** Width the browser should use when rendering for print (matches A4 @ 96dpi). */
 const PRINT_VIEWPORT_WIDTH = 1240
@@ -131,8 +130,7 @@ export function CvLayoutSwitcher({
         </div>
       </div>
 
-      {active.layout === "classic" && <ClassicLayout data={active.data} profilePicture={profilePicture} />}
-      {active.layout === "resume" && <ResumeLayout data={active.data} profilePicture={profilePicture} />}
+      <RegionalCvLayout layout={active.layout} data={active.data} profilePicture={profilePicture} />
     </>
   )
 }

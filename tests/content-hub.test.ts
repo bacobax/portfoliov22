@@ -44,7 +44,7 @@ describe("canonical content hub", () => {
 
   it("does not let an empty migrated preset overwrite portfolio facts", () => {
     const portfolio = cloneDefaultContent()
-    const hub = createInitialHub(portfolio, [createEmptyPreset("Empty", "classic")])
+    const hub = createInitialHub(portfolio, [createEmptyPreset("Empty", "germanic_tabular")])
     expect(hub.portfolio.profileData.bio).toBe(portfolio.profileData.bio)
     expect(hub.portfolio.contactData.email).toBe(portfolio.contactData.email)
     expect(hub.portfolio.contactData.links).toHaveLength(portfolio.contactData.links.length)

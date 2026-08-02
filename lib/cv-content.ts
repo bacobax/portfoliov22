@@ -36,6 +36,30 @@ export interface CvLinkItem {
   url: string
 }
 
+export interface CvReference {
+  id: string
+  name: string
+  role: string
+  organization: string
+  email?: string
+  phone?: string
+}
+
+export interface CvProfileImage {
+  url: string
+  alt: string
+}
+
+export interface CvProfileExtras {
+  dateOfBirth?: string
+  placeOfBirth?: string
+  nationality?: string
+  workAuthorization?: string
+  drivingLicences: string[]
+  references: CvReference[]
+  profileImage?: CvProfileImage
+}
+
 /* ── Discriminated union for section data ── */
 export type CvSectionData =
   | { type: "log"; entries: CvLogEntry[] }
@@ -48,6 +72,7 @@ export type CvSectionData =
 export interface CvSection {
   id: string
   title: string
+  titleMode?: "template" | "custom"
   type: CvSectionType
   placement: "sidebar" | "main"
   visible: boolean
@@ -63,6 +88,7 @@ export interface CvContent {
   email?: string
   phone?: string
   piva?: string
+  profileExtras?: CvProfileExtras
   sections: CvSection[]
 }
 
@@ -106,10 +132,28 @@ export const cvSectionDataSchema = z.discriminatedUnion("type", [
 export const cvSectionSchema = z.object({
   id: z.string(),
   title: z.string(),
+  titleMode: z.enum(["template", "custom"]).optional(),
   type: z.enum(["log", "tags", "text", "links", "simple-list"]),
   placement: z.enum(["sidebar", "main"]),
   visible: z.boolean(),
   data: cvSectionDataSchema,
+})
+
+export const cvProfileExtrasSchema = z.object({
+  dateOfBirth: z.string().optional(),
+  placeOfBirth: z.string().optional(),
+  nationality: z.string().optional(),
+  workAuthorization: z.string().optional(),
+  drivingLicences: z.array(z.string()).default([]),
+  references: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    role: z.string(),
+    organization: z.string(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+  })).default([]),
+  profileImage: z.object({ url: z.string(), alt: z.string() }).optional(),
 })
 
 export const cvContentSchema = z.object({
@@ -120,6 +164,7 @@ export const cvContentSchema = z.object({
   email: z.string().optional(),
   phone: z.string().optional(),
   piva: z.string().optional(),
+  profileExtras: cvProfileExtrasSchema.optional(),
   sections: z.array(cvSectionSchema).default([]),
 })
 
