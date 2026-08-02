@@ -378,6 +378,7 @@ export default function TechDashboardPortfolio() {
     root.style.setProperty("--accent", `hsl(${h}, ${s}%, ${l}%)`);
     root.style.setProperty("--ring", `hsl(${h}, ${s}%, ${l}%)`);
     root.style.setProperty("--portfolio-accent", `hsl(${h}, ${s}%, ${l}%)`);
+    root.style.setProperty("--portfolio-theme-color", `hsl(${h}, ${s}%, ${l}%)`);
     root.style.setProperty(
       "--border",
       `hsl(${h}, ${s}%, ${Math.max(Math.min(l * 0.4, 100), 0)}%)`,

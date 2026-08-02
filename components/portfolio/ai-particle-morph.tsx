@@ -11,6 +11,7 @@ const CLAUDE_RUNS =
   "Jh5hJx5hKB5hKR5hKh5hKx5hLB5hLR5hLh5hLx5hMB5hMR5hMh4pMi9QMlZhMx4pMy9QM1ZhNB4pNC9QNFZhNR4pNS9QNVZhNh4pNi9QNlZhNx4pNy9QN1ZhOB4pOC9QOFZhOR4pOS9QOVZhOh4pOi9QOlZhOx4pOy9QO1ZhPBNsPRNsPhNsPxNsQBNsQRNsQhNsQxNsRBNsRRNsRhNsRxNsSB5hSR5hSh5hSx5hTB5hTR5hTh5hTx5hUB5hUR5hUh5hUyQpUy80U0tQU1ZbVCQpVC80VEtQVFZbVSQpVS80VUtQVVZbViQpVi80VktQVlZbVyQpVy80V0tQV1ZbWCQpWC80WEtQWFZbWSQpWS80WUtQWVZbWiQpWi80WktQWlZbWyQpWy80W0tQW1ZbXCQpXC80XEtQXFZbXSQpXS80XUtQXVZb"
 
 type Shape = "blob" | "codex" | "claude"
+type ThemeColor = { h: number; s: number; l: number }
 
 /* The blob is the resting form; it briefly resolves into each logo and dissolves
    back. Keeping the blob between logos makes every transition read as a morph. */
@@ -26,6 +27,22 @@ const SHAPE_LABEL: Record<Shape, string> = {
 }
 
 const smoothstep = (value: number) => value * value * (3 - 2 * value)
+
+const hslToRgb = ({ h, s, l }: ThemeColor) => {
+  const saturation = s / 100
+  const lightness = l / 100
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation
+  const x = chroma * (1 - Math.abs(((h / 60) % 2) - 1))
+  const match = lightness - chroma / 2
+  const [red, green, blue] =
+    h < 60 ? [chroma, x, 0] :
+      h < 120 ? [x, chroma, 0] :
+        h < 180 ? [0, chroma, x] :
+          h < 240 ? [0, x, chroma] :
+            h < 300 ? [x, 0, chroma] : [chroma, 0, x]
+
+  return `rgb(${Math.round((red + match) * 255)}, ${Math.round((green + match) * 255)}, ${Math.round((blue + match) * 255)})`
+}
 
 const decodeRaw = (kind: "codex" | "claude"): Array<[number, number]> => {
   const points: Array<[number, number]> = []
@@ -92,12 +109,16 @@ const makeSphere = (count: number): Float32Array => {
 
 type AiParticleMorphProps = {
   onActiveShape?: (shape: Shape) => void
+  /** Optional live theme colour. Without it, the original periwinkle/yellow palette remains. */
+  themeColor?: ThemeColor
 }
 
-export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
+export function AiParticleMorph({ onActiveShape, themeColor }: AiParticleMorphProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const onActiveShapeRef = useRef(onActiveShape)
+  const themeColorRef = useRef(themeColor)
   onActiveShapeRef.current = onActiveShape
+  themeColorRef.current = themeColor
   const [activeShape, setActiveShape] = useState<Shape>("blob")
 
   useEffect(() => {
@@ -210,6 +231,15 @@ export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
       const cosX = Math.cos(pitch)
       const sinX = Math.sin(pitch)
       const sphereRadius = half * 0.78
+      const activeThemeColor = themeColorRef.current
+      const particleFill = activeThemeColor ? hslToRgb(activeThemeColor) : "#aba6f1"
+      const highlightFill = activeThemeColor
+        ? hslToRgb({
+            h: activeThemeColor.h,
+            s: Math.min(100, activeThemeColor.s + 4),
+            l: Math.min(92, activeThemeColor.l + 14),
+          })
+        : "#f4ee62"
 
       for (let index = 0; index < count; index += 1) {
         /* organic 3D blob position: rotating, noise-wobbled sphere */
@@ -268,7 +298,7 @@ export function AiParticleMorph({ onActiveShape }: AiParticleMorphProps) {
         y += (dy / distance) * influence * 14
 
         context.globalAlpha = presence * alpha
-        context.fillStyle = random[index] > 0.975 ? "#f4ee62" : "#aba6f1"
+        context.fillStyle = random[index] > 0.975 ? highlightFill : particleFill
         context.beginPath()
         context.arc(x, y, size, 0, Math.PI * 2)
         context.fill()

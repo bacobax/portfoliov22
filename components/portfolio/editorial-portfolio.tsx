@@ -368,6 +368,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
         onActivate={openSearchFrom}
         searchOpen={searchOpen}
         mode="default"
+        themeColor={props.accentColor}
       />
       <SemanticSearch
         theme={theme}
@@ -494,7 +495,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
               className="ai-morph-stage hero-morph"
               aria-label="Particle field morphing between Claude Code and Codex"
             >
-              <AiParticleMorph />
+              <AiParticleMorph themeColor={props.accentColor} />
               <div className="hero-tool-key mono" aria-hidden="true">
                 <span>Daily tools</span>
                 <b>Claude Code</b>

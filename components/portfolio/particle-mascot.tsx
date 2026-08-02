@@ -12,6 +12,7 @@ type Point = {
 
 type TextPoint = { x: number; y: number; z: number };
 type ParticleWord = { label: string; points: TextPoint[] };
+type ThemeColor = { h: number; s: number; l: number };
 
 type MascotAnchor = { x: number; y: number; s: number; w: number };
 type AnchorElement = { element: HTMLElement; config: MascotAnchor };
@@ -24,6 +25,26 @@ const clamp = (value: number, min = 0, max = 1) =>
 const smoothstep = (value: number) => value * value * (3 - 2 * value);
 const lerp = (from: number, to: number, amount: number) =>
   from + (to - from) * amount;
+
+const hslToRgb = ({ h, s, l }: ThemeColor) => {
+  const saturation = s / 100;
+  const lightness = l / 100;
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
+  const x = chroma * (1 - Math.abs(((h / 60) % 2) - 1));
+  const match = lightness - chroma / 2;
+  const [red, green, blue] =
+    h < 60 ? [chroma, x, 0] :
+      h < 120 ? [x, chroma, 0] :
+        h < 180 ? [0, chroma, x] :
+          h < 240 ? [0, x, chroma] :
+            h < 300 ? [x, 0, chroma] : [chroma, 0, x];
+
+  return {
+    r: Math.round((red + match) * 255),
+    g: Math.round((green + match) * 255),
+    b: Math.round((blue + match) * 255),
+  };
+};
 
 const INK = { r: 16, g: 16, b: 20 };
 const PAPER = { r: 171, g: 166, b: 241 };
@@ -41,21 +62,26 @@ type ParticleMascotProps = {
   searchOpen?: boolean;
   /** gives the puppet a dedicated opening pose or a more animated tour pose */
   mode?: "default" | "welcome" | "tour";
+  /** Optional live theme colour; original ink/periwinkle pairing remains the fallback. */
+  themeColor?: ThemeColor;
 };
 
 export function ParticleMascot({
   onActivate,
   searchOpen = false,
   mode = "default",
+  themeColor,
 }: ParticleMascotProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hitboxRef = useRef<HTMLButtonElement>(null);
   const onActivateRef = useRef(onActivate);
   const searchOpenRef = useRef(searchOpen);
   const modeRef = useRef(mode);
+  const themeColorRef = useRef(themeColor);
   onActivateRef.current = onActivate;
   searchOpenRef.current = searchOpen;
   modeRef.current = mode;
+  themeColorRef.current = themeColor;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -522,9 +548,22 @@ export function ParticleMascot({
       }
       colorMix +=
         ((surfaceDark ? 1 : 0) - colorMix) * (reducedMotion ? 1 : 0.08);
-      const particleRed = Math.round(lerp(INK.r, PAPER.r, colorMix));
-      const particleGreen = Math.round(lerp(INK.g, PAPER.g, colorMix));
-      const particleBlue = Math.round(lerp(INK.b, PAPER.b, colorMix));
+      const selectedThemeColor = themeColorRef.current;
+      const brightParticleColor = selectedThemeColor
+        ? hslToRgb(selectedThemeColor)
+        : PAPER;
+      /* Preserve the selected hue on pale surfaces while lowering its
+         lightness enough to remain legible. */
+      const darkParticleColor = selectedThemeColor
+        ? hslToRgb({
+            h: selectedThemeColor.h,
+            s: Math.min(100, Math.round(selectedThemeColor.s * 0.88)),
+            l: Math.max(13, Math.min(31, Math.round(selectedThemeColor.l * 0.42))),
+          })
+        : INK;
+      const particleRed = Math.round(lerp(darkParticleColor.r, brightParticleColor.r, colorMix));
+      const particleGreen = Math.round(lerp(darkParticleColor.g, brightParticleColor.g, colorMix));
+      const particleBlue = Math.round(lerp(darkParticleColor.b, brightParticleColor.b, colorMix));
       context.fillStyle = `rgb(${particleRed}, ${particleGreen}, ${particleBlue})`;
 
       const cosY = Math.cos(mascot.rotY);

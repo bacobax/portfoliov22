@@ -2,8 +2,10 @@
    TOKENS
 ============================================================ */
 .editorial-site{
-  --paper:#aba6f1;          /* periwinkle field */
-  --paper-soft:#b6b1f4;
+  /* The picker writes --portfolio-theme-color on <html>.  These fallbacks
+     retain the original periwinkle portfolio when no user colour is set. */
+  --paper:var(--portfolio-theme-color,#aba6f1);
+  --paper-soft:color-mix(in srgb,var(--paper) 87%,#f4f1e8);
   --ink:#101014;            /* near-black */
   --ink-2:#1b1b22;
   --cream:#f4f1e8;
@@ -723,7 +725,13 @@ ul{list-style:none}
 .editorial-site,.editorial-site *{cursor:auto!important}
 .editorial-site a,.editorial-site button,.editorial-site [role="button"]{cursor:pointer!important}
 .editorial-site{min-height:100svh}
-.editorial-site.editorial-soft{--paper:#f4f1e8;--paper-soft:#eeeae0;--line:rgba(16,16,20,.18)}
+.editorial-site.editorial-soft{
+  /* The light mode keeps its original cream fallback while still accepting a
+     selected colour as the page field. */
+  --paper:var(--portfolio-theme-color,#f4f1e8);
+  --paper-soft:color-mix(in srgb,var(--paper) 97%,#101014);
+  --line:rgba(16,16,20,.18)
+}
 .editorial-site .hero h1{font-size:clamp(3rem,7.7vw,7.6rem)}
 .editorial-site main{position:relative;z-index:2}
 .editorial-site .svc-grid-wrap{width:100%}
