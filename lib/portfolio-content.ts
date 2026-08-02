@@ -6,6 +6,7 @@ import {
   withDefaultCustomColor,
 } from "@/lib/default-content";
 import { loadProjectDocument, loadProjectImage } from "@/lib/cloudinary";
+import { loadContentHub } from "@/lib/content-hub-db";
 import { getDb } from "@/lib/mongodb";
 import type { Document } from "mongodb";
 
@@ -53,6 +54,14 @@ const hydrateProjectImages = async (
 
 export async function loadPortfolioContent(): Promise<PortfolioContent> {
   try {
+    const hub = await loadContentHub();
+    if (hub) {
+      const hydratedContent = await hydrateProjectImages(
+        hub.portfolio as PersistedPortfolioContent,
+      );
+      return withDefaultCustomColor(hydratedContent);
+    }
+
     const db = await getDb();
     const document = await db
       .collection<{ _id: string } & Document>(COLLECTION_NAME)

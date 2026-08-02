@@ -16,6 +16,7 @@ export type CvSectionType = "log" | "tags" | "text" | "links" | "simple-list"
 /* ── Section-specific entry types ── */
 export interface CvLogEntry {
   id: string
+  showcaseVisible?: boolean
   title: string
   subtitle: string
   dateStart: string
@@ -67,8 +68,9 @@ export interface CvContent {
 
 /* ── Zod schemas ── */
 
-const cvLogEntrySchema = z.object({
+export const cvLogEntrySchema = z.object({
   id: z.string(),
+  showcaseVisible: z.boolean().optional(),
   title: z.string(),
   subtitle: z.string(),
   dateStart: z.string(),
@@ -78,7 +80,7 @@ const cvLogEntrySchema = z.object({
   url: z.string().optional(),
 })
 
-const cvSectionDataSchema = z.discriminatedUnion("type", [
+export const cvSectionDataSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("log"),
     entries: z.array(cvLogEntrySchema),
@@ -101,7 +103,7 @@ const cvSectionDataSchema = z.discriminatedUnion("type", [
   }),
 ])
 
-const cvSectionSchema = z.object({
+export const cvSectionSchema = z.object({
   id: z.string(),
   title: z.string(),
   type: z.enum(["log", "tags", "text", "links", "simple-list"]),

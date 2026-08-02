@@ -1,4 +1,6 @@
 import { getDb } from "@/lib/mongodb";
+import { loadContentHub } from "@/lib/content-hub-db";
+import { materializeCvPresets } from "@/lib/content-hub";
 import type { Document } from "mongodb";
 import {
   cvPresetsDocumentSchema,
@@ -19,6 +21,9 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 /** Load raw presets from MongoDB, migrating old content format if needed */
 export async function loadCvPresets(): Promise<CvPresetsDocument> {
   try {
+    const hub = await loadContentHub();
+    if (hub) return { presets: materializeCvPresets(hub) };
+
     const db = await getDb();
     const doc = await db
       .collection<{ _id: string } & Document>(COLLECTION_NAME)
@@ -69,6 +74,9 @@ export async function loadCvPresets(): Promise<CvPresetsDocument> {
 export async function loadCvPresetsWithFallback(
   portfolio: PortfolioContent,
 ): Promise<CvPresetsDocument> {
+  const hub = await loadContentHub();
+  if (hub) return { presets: materializeCvPresets(hub) };
+
   const doc = await loadCvPresets();
 
   if (doc.presets.length === 0) {
@@ -100,6 +108,10 @@ export async function loadCvPresetsWithFallback(
 export async function saveCvPresets(
   doc: PersistedCvPresetsDocument,
 ): Promise<void> {
+  const hub = await loadContentHub();
+  if (hub) {
+    throw new Error("Snapshot CV writes are retired; use /api/editor/content");
+  }
   const db = await getDb();
   await db
     .collection<{ _id: string } & Document>(COLLECTION_NAME)

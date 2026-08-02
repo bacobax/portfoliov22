@@ -1,21 +1,19 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import type { Document } from "mongodb";
 
-import { persistedPortfolioContentSchema } from "@/lib/default-content";
 import { loadPortfolioContent } from "@/lib/portfolio-content";
-import { getDb } from "@/lib/mongodb";
+import { loadContentHub } from "@/lib/content-hub-db";
 import { SESSION_COOKIE_NAME, validateSession } from "@/lib/session";
 
-const COLLECTION_NAME = "portfolio_content";
-const DOCUMENT_ID = "portfolio_content";
-
 export async function GET() {
-  const content = await loadPortfolioContent();
-  return NextResponse.json({ content });
+  const [content, hub] = await Promise.all([
+    loadPortfolioContent(),
+    loadContentHub().catch(() => null),
+  ]);
+  return NextResponse.json({ content, revision: hub?.revision ?? null });
 }
 
-export async function PUT(request: Request) {
+export async function PUT() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   const isValid = await validateSession(token);
@@ -27,44 +25,21 @@ export async function PUT(request: Request) {
     );
   }
 
-  const payload = await request.json().catch(() => null);
-
-  if (!payload || typeof payload !== "object") {
+  const hub = await loadContentHub().catch(() => null);
+  if (!hub) {
     return NextResponse.json(
-      { success: false, error: "Invalid payload" },
-      { status: 400 },
+      {
+        success: false,
+        error: "Content hub migration is required",
+      },
+      { status: 503 },
     );
   }
-
-  const parsed = persistedPortfolioContentSchema.safeParse(payload);
-
-  if (!parsed.success) {
-    return NextResponse.json(
-      { success: false, error: "Invalid content" },
-      { status: 400 },
-    );
-  }
-
-  try {
-    const db = await getDb();
-    await db
-      .collection<{ _id: string } & Document>(COLLECTION_NAME)
-      .updateOne(
-        { _id: DOCUMENT_ID },
-        {
-          $set: parsed.data,
-          $setOnInsert: { _id: DOCUMENT_ID },
-          $unset: { customColor: "" },
-        },
-        { upsert: true },
-      );
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Failed to persist portfolio content", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to save content" },
-      { status: 500 },
-    );
-  }
+  return NextResponse.json(
+    {
+      success: false,
+      error: "Full-document writes are retired; use /api/editor/content",
+    },
+    { status: 405 },
+  );
 }

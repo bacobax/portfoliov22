@@ -1,11 +1,6 @@
 import type { CvContent, CvSection, CvSectionData } from "@/lib/cv-content"
 import type { CvData, CvDisplaySection, CvDisplayContent } from "@/components/cv/cv-types"
 
-const CONTACT_EMAIL = "quicksolver02@gmail.com"
-const CONTACT_PHONE = ""
-const ADDRESS = "Via Entracque, 10, Cuneo (12100)"
-const PIVA = "P.IVA: 04081230049 - QuickSolver"
-
 export const splitSentences = (value: string): string[] =>
   value
     .split(/(?<=[.!?])\s+/)
@@ -78,12 +73,12 @@ function transformSection(section: CvSection): CvDisplaySection {
 /** Build CvData purely from CV content — no server dependencies */
 export function createCvData(cv: CvContent): CvData {
   return {
-    name: formatLabel(cv.name || "") || "Francesco Bassignana",
-    title: formatLabel(cv.title || "") || "Full Stack Developer",
-    location: cv.location || ADDRESS,
-    piva: cv.piva || PIVA,
-    email: cv.email || CONTACT_EMAIL,
-    phone: cv.phone || CONTACT_PHONE,
+    name: formatLabel(cv.name || ""),
+    title: formatLabel(cv.title || ""),
+    location: cv.location || "",
+    piva: cv.piva || "",
+    email: cv.email || "",
+    phone: cv.phone || "",
     sections: cv.sections
       .filter((s) => s.visible)
       .map(transformSection),

@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
+  Database,
   Eye,
   EyeOff,
   GripVertical,
@@ -18,9 +19,8 @@ import {
   Trash2,
   X,
 } from "lucide-react"
-import type { ExperienceEntry, EducationEntry, Project } from "@/lib/default-content"
-
 import type { PortfolioContent } from "@/lib/default-content"
+import type { ExperienceEntry, EducationEntry, Project } from "@/lib/default-content"
 import type {
   CvContent,
   CvSection,
@@ -36,6 +36,10 @@ import { createCvData } from "@/lib/cv-data-transform"
 import { ClassicLayout } from "@/components/cv/classic-layout"
 import { ResumeLayout } from "@/components/cv/resume-layout"
 import profilePicture from "@/app/prof_pic.jpeg"
+import {
+  CONTENT_HUB_CHANNEL,
+  ContentHubDrawer,
+} from "@/components/content-hub-drawer"
 
 /* ── helpers ── */
 const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -65,22 +69,41 @@ export default function CvEditorPage() {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [portfolio, setPortfolio] = useState<PortfolioContent | null>(null)
   const [presets, setPresets] = useState<CvPreset[]>([])
   const [activePresetId, setActivePresetId] = useState("")
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showContentHub, setShowContentHub] = useState(false)
+  const [revision, setRevision] = useState<number | null>(null)
+  const [conflict, setConflict] = useState<{
+    draft: CvPreset[]
+    latest: CvPreset[]
+    revision: number
+  } | null>(null)
   const [mobileView, setMobileView] = useState<"editor" | "preview">("editor")
   const [previewZoom, setPreviewZoom] = useState(0.5)
+  const [pendingEntity, setPendingEntity] = useState<{
+    sectionId: "experience" | "education" | "projects"
+    entry: CvLogEntry
+    presetIds: string[]
+    showcase: boolean
+  } | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
+  const revisionRef = useRef<number | null>(null)
+  const activePresetIdRef = useRef("")
+  const pendingPresetsRef = useRef<{ presets: CvPreset[]; activePresetId: string } | null>(null)
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve())
 
   /* ── show default cursor on CV editor ── */
   useEffect(() => {
     document.body.classList.add("cv-cursor-visible")
     return () => { document.body.classList.remove("cv-cursor-visible") }
   }, [])
+
+  useEffect(() => {
+    activePresetIdRef.current = activePresetId
+  }, [activePresetId])
 
   /* ── auth check ── */
   useEffect(() => {
@@ -94,61 +117,119 @@ export default function CvEditorPage() {
     })()
   }, [router])
 
+  const refreshFromHub = useCallback(async () => {
+    try {
+      const response = await fetch("/api/editor/content", { cache: "no-store" })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || "Failed to load data")
+      const loaded: CvPreset[] = data.presets ?? []
+      setPresets(loaded)
+      if (typeof data.revision === "number") {
+        revisionRef.current = data.revision
+        setRevision(data.revision)
+      }
+      setActivePresetId((current) => {
+        const next = loaded.some((preset) => preset.id === current)
+          ? current
+          : loaded[0]?.id ?? ""
+        activePresetIdRef.current = next
+        return next
+      })
+    } catch (e) {
+      console.error("Failed to load data", e)
+      setError("Failed to load data")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   /* ── load data ── */
   useEffect(() => {
     if (!isAuthenticated) return
-    ;(async () => {
-      try {
-        const [pRes, cRes] = await Promise.all([
-          fetch("/api/cv/presets"),
-          fetch("/api/content"),
-        ])
-        const pData = await pRes.json()
-        const cData = await cRes.json()
-        setPortfolio((cData.content ?? cData) as PortfolioContent)
-        const loaded: CvPreset[] = pData.presets ?? []
-        setPresets(loaded)
-        if (loaded.length > 0) setActivePresetId(loaded[0].id)
-      } catch (e) {
-        console.error("Failed to load data", e)
-        setError("Failed to load data")
-      } finally {
-        setLoading(false)
+    void refreshFromHub()
+  }, [isAuthenticated, refreshFromHub])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const refreshIfSafe = () => {
+      if (!saving && !conflict && !pendingPresetsRef.current) void refreshFromHub()
+    }
+    const channel = new BroadcastChannel(CONTENT_HUB_CHANNEL)
+    channel.onmessage = (event) => {
+      const nextRevision = (event.data as { revision?: unknown } | null)?.revision
+      if (typeof nextRevision === "number" && nextRevision > (revisionRef.current ?? -1)) {
+        refreshIfSafe()
       }
-    })()
-  }, [isAuthenticated])
+    }
+    window.addEventListener("focus", refreshIfSafe)
+    return () => {
+      channel.close()
+      window.removeEventListener("focus", refreshIfSafe)
+    }
+  }, [conflict, isAuthenticated, refreshFromHub, saving])
 
   /* ── debounced persist ── */
   const persist = useCallback((data: CvPreset[]) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    if (abortRef.current) abortRef.current.abort()
+    pendingPresetsRef.current = { presets: data, activePresetId: activePresetIdRef.current }
     setSaving(true)
     setSaved(false)
     setError(null)
-    saveTimerRef.current = setTimeout(async () => {
-      const controller = new AbortController()
-      abortRef.current = controller
-      try {
-        const res = await fetch("/api/cv/presets", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ presets: data }),
-          signal: controller.signal,
-        })
-        if (!res.ok) {
-          const errBody = await res.json().catch(() => ({}))
-          console.error("Save response:", res.status, errBody)
-          throw new Error(`Save failed: ${res.status}`)
+    saveTimerRef.current = setTimeout(() => {
+      const pending = pendingPresetsRef.current
+      pendingPresetsRef.current = null
+      if (!pending) return
+      const draft = pending.presets
+      saveChainRef.current = saveChainRef.current.then(async () => {
+        const baseRevision = revisionRef.current
+        if (baseRevision === null) {
+          setError("Content hub revision is unavailable")
+          setSaving(false)
+          return
         }
-        setSaved(true)
-        setTimeout(() => setSaved(false), 2000)
-      } catch (e: unknown) {
-        if (e instanceof Error && e.name === "AbortError") return
-        console.error(e)
-        setError("Failed to save")
-      } finally {
-        setSaving(false)
-      }
+        try {
+          const res = await fetch("/api/editor/content", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              baseRevision,
+              operations: [{
+                type: "replace-presets",
+                presets: draft,
+                activePresetId: pending.activePresetId,
+              }],
+            }),
+          })
+          const payload = await res.json().catch(() => null) as {
+            revision?: number
+            presets?: CvPreset[]
+            content?: PortfolioContent
+            error?: string
+          } | null
+          if (res.status === 409 && typeof payload?.revision === "number" && payload.presets) {
+            setConflict({ draft, latest: payload.presets, revision: payload.revision })
+            setSaving(false)
+            return
+          }
+          if (!res.ok || typeof payload?.revision !== "number") {
+            throw new Error(payload?.error || `Save failed: ${res.status}`)
+          }
+          revisionRef.current = payload.revision
+          setRevision(payload.revision)
+          if (!pendingPresetsRef.current && payload.presets) setPresets(payload.presets)
+          setConflict(null)
+          setSaved(true)
+          const channel = new BroadcastChannel(CONTENT_HUB_CHANNEL)
+          channel.postMessage({ revision: payload.revision })
+          channel.close()
+          setTimeout(() => setSaved(false), 2000)
+        } catch (e: unknown) {
+          console.error(e)
+          setError(e instanceof Error ? e.message : "Failed to save")
+        } finally {
+          setSaving(false)
+        }
+      })
     }, 600)
   }, [])
 
@@ -188,13 +269,6 @@ export default function CvEditorPage() {
       updateSections((ss) => ss.map((s) => (s.id === sectionId ? updater(s) : s)))
     },
     [updateSections],
-  )
-
-  const moveSectionPlacement = useCallback(
-    (sectionId: string, placement: "sidebar" | "main") => {
-      updateSectionById(sectionId, (s) => ({ ...s, placement }))
-    },
-    [updateSectionById],
   )
 
   /** Move a section to a given placement and insert it at a specific
@@ -319,6 +393,82 @@ export default function CvEditorPage() {
   return (
     <div className="min-h-screen bg-slate-100">
       <style>{editorStyles}</style>
+      <ContentHubDrawer
+        open={showContentHub}
+        onClose={() => {
+          setShowContentHub(false)
+          void refreshFromHub()
+        }}
+      />
+      {pendingEntity && (
+        <div className="cv-create-layer" role="presentation">
+          <div className="cv-create-dialog" role="dialog" aria-modal="true" aria-labelledby="cv-create-title">
+            <div className="cv-create-dialog__head">
+              <div>
+                <span>Canonical Atlas item</span>
+                <h2 id="cv-create-title">Add {pendingEntity.sectionId.slice(0, -1)}</h2>
+              </div>
+              <button type="button" onClick={() => setPendingEntity(null)} aria-label="Cancel creation"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FieldWithHint label="Title" value={pendingEntity.entry.title} onChange={(value) => setPendingEntity({ ...pendingEntity, entry: { ...pendingEntity.entry, title: value } })} />
+              <FieldWithHint label="Subtitle" value={pendingEntity.entry.subtitle} onChange={(value) => setPendingEntity({ ...pendingEntity, entry: { ...pendingEntity.entry, subtitle: value } })} />
+              <FieldWithHint label="Start / status" value={pendingEntity.entry.dateStart} onChange={(value) => setPendingEntity({ ...pendingEntity, entry: { ...pendingEntity.entry, dateStart: value } })} />
+              <FieldWithHint label="End date" value={pendingEntity.entry.dateEnd} onChange={(value) => setPendingEntity({ ...pendingEntity, entry: { ...pendingEntity.entry, dateEnd: value } })} />
+            </div>
+            <TextAreaWithHint label="Description" value={pendingEntity.entry.description} onChange={(value) => setPendingEntity({ ...pendingEntity, entry: { ...pendingEntity.entry, description: value } })} rows={3} />
+            <fieldset className="cv-create-targets">
+              <legend>Choose every destination before saving</legend>
+              <label><input type="checkbox" checked={pendingEntity.showcase} onChange={(event) => setPendingEntity({ ...pendingEntity, showcase: event.target.checked })} /> Showcase</label>
+              {presets.map((preset) => (
+                <label key={preset.id}>
+                  <input
+                    type="checkbox"
+                    checked={pendingEntity.presetIds.includes(preset.id)}
+                    disabled={preset.id === activePresetId}
+                    onChange={(event) => setPendingEntity({
+                      ...pendingEntity,
+                      presetIds: event.target.checked
+                        ? [...pendingEntity.presetIds, preset.id]
+                        : pendingEntity.presetIds.filter((id) => id !== preset.id),
+                    })}
+                  />
+                  {preset.name}{preset.id === activePresetId ? " (current)" : ""}
+                </label>
+              ))}
+            </fieldset>
+            <div className="cv-create-actions">
+              <button type="button" className="cv-btn" onClick={() => setPendingEntity(null)}>Cancel</button>
+              <button
+                type="button"
+                className="cv-btn cv-btn--primary"
+                disabled={!pendingEntity.entry.title.trim() || pendingEntity.presetIds.length === 0}
+                onClick={() => {
+                  const entry = { ...pendingEntity.entry, showcaseVisible: pendingEntity.showcase }
+                  updatePresets((current) => current.map((preset) =>
+                    !pendingEntity.presetIds.includes(preset.id)
+                      ? preset
+                      : {
+                          ...preset,
+                          content: {
+                            ...preset.content,
+                            sections: preset.content.sections.map((section) =>
+                              section.id === pendingEntity.sectionId && section.data.type === "log"
+                                ? { ...section, data: { type: "log" as const, entries: [...section.data.entries, entry] } }
+                                : section,
+                            ),
+                          },
+                        },
+                  ))
+                  setPendingEntity(null)
+                }}
+              >
+                Create canonical item
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Top bar ── */}
       <header className="cv-editor-bar">
@@ -329,14 +479,39 @@ export default function CvEditorPage() {
           <h1 className="cv-editor-bar__title">CV Editor</h1>
         </div>
         <div className="cv-editor-bar__right">
-          {saving && <span className="cv-editor-bar__status"><Loader2 className="w-3 h-3 animate-spin" /> Saving…</span>}
-          {saved && <span className="cv-editor-bar__status cv-editor-bar__status--ok"><Check className="w-3 h-3" /> Saved</span>}
+          <span className="cv-editor-bar__status" aria-live="polite">
+            {saving && <><Loader2 className="w-3 h-3 animate-spin" /> Saving to Atlas…</>}
+            {saved && <><Check className="w-3 h-3" /> Saved · revision {revision}</>}
+          </span>
           {error && <span className="cv-editor-bar__status cv-editor-bar__status--err">{error}</span>}
+          <button onClick={() => setShowContentHub(true)} className="cv-editor-bar__btn" type="button">
+            <Database className="w-4 h-4" /> Content Hub
+          </button>
           <button onClick={() => router.push("/")} className="cv-editor-bar__btn" type="button">
             <ArrowLeft className="w-4 h-4" /> Home
           </button>
         </div>
       </header>
+
+      {conflict && (
+        <div className="cv-editor-conflict" role="alert">
+          <span>Another editor saved first. Your local changes are preserved.</span>
+          <button type="button" onClick={() => {
+            revisionRef.current = conflict.revision
+            setRevision(conflict.revision)
+            const draft = conflict.draft
+            setConflict(null)
+            persist(draft)
+          }}>Keep mine</button>
+          <button type="button" onClick={() => {
+            revisionRef.current = conflict.revision
+            setRevision(conflict.revision)
+            setPresets(conflict.latest)
+            setConflict(null)
+            setSaving(false)
+          }}>Use Atlas version</button>
+        </div>
+      )}
 
       {/* ── Preset tabs ── */}
       <div className="cv-preset-bar">
@@ -448,7 +623,24 @@ export default function CvEditorPage() {
                   <SectionDataEditor
                     section={section}
                     onChange={(data) => updateSectionById(section.id, (s) => ({ ...s, data }))}
-                    portfolio={portfolio}
+                    onRequestCanonicalAdd={
+                      ["experience", "education", "projects"].includes(section.id)
+                        ? () => setPendingEntity({
+                            sectionId: section.id as "experience" | "education" | "projects",
+                            entry: {
+                              id: uid(),
+                              title: "",
+                              subtitle: "",
+                              dateStart: "",
+                              dateEnd: "",
+                              description: "",
+                              tags: [],
+                            },
+                            presetIds: [activePreset.id],
+                            showcase: false,
+                          })
+                        : undefined
+                    }
                   />
                 </EditorCard>
               ))}
@@ -826,15 +1018,15 @@ function SectionLayoutOrganizer({
 /* ═══════════════════════════════════════
    Section Data Editors (per type)
    ═══════════════════════════════════════ */
-function SectionDataEditor({ section, onChange, portfolio }: {
+function SectionDataEditor({ section, onChange, onRequestCanonicalAdd }: {
   section: CvSection
   onChange: (d: CvSectionData) => void
-  portfolio?: PortfolioContent | null
+  onRequestCanonicalAdd?: () => void
 }) {
   const d = section.data
   switch (d.type) {
     case "log":
-      return <LogSectionEditor entries={d.entries} onChange={(entries) => onChange({ type: "log", entries })} portfolio={portfolio} />
+      return <LogSectionEditor entries={d.entries} onChange={(entries) => onChange({ type: "log", entries })} onRequestAdd={onRequestCanonicalAdd} />
     case "tags":
       return <TagsSectionEditor groups={d.groups} onChange={(groups) => onChange({ type: "tags", groups })} />
     case "text":
@@ -999,11 +1191,12 @@ function PortfolioImporter({ portfolio, onImport }: { portfolio: PortfolioConten
 
 /* ── Log (timeline) editor ── */
 function LogSectionEditor({
-  entries, onChange, portfolio,
+  entries, onChange, portfolio, onRequestAdd,
 }: {
   entries: CvLogEntry[]
   onChange: (e: CvLogEntry[]) => void
   portfolio?: PortfolioContent | null
+  onRequestAdd?: () => void
 }) {
   const update = (idx: number, patch: Partial<CvLogEntry>) =>
     onChange(entries.map((e, i) => (i === idx ? { ...e, ...patch } : e)))
@@ -1041,7 +1234,7 @@ function LogSectionEditor({
           <InlineTagsEditor label="Tags" items={entry.tags} onChange={(tags) => update(i, { tags })} />
         </div>
       ))}
-      <button type="button" className="cv-btn cv-btn--sm" onClick={add}>
+      <button type="button" className="cv-btn cv-btn--sm" onClick={onRequestAdd ?? add}>
         <Plus className="w-3 h-3" /> Add Entry
       </button>
     </div>
@@ -1210,6 +1403,55 @@ function InlineTagsEditor({
    Styles
    ════════════════════════════════════════════════════ */
 const editorStyles = `
+  .cv-create-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 11000;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, .76);
+    backdrop-filter: blur(7px);
+  }
+  .cv-create-dialog {
+    width: min(620px, 100%);
+    max-height: calc(100vh - 40px);
+    overflow: auto;
+    padding: 22px;
+    background: #fff;
+    border: 1px solid #94a3b8;
+    box-shadow: 0 28px 80px rgba(0,0,0,.35);
+  }
+  .cv-create-dialog__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+  .cv-create-dialog__head span { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: #64748b; }
+  .cv-create-dialog__head h2 { margin: 3px 0 0; font-size: 26px; text-transform: capitalize; }
+  .cv-create-dialog__head button { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid #cbd5e1; background: #fff; }
+  .cv-create-targets { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 14px 0; padding: 14px; border: 1px solid #cbd5e1; }
+  .cv-create-targets legend { padding: 0 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+  .cv-create-targets label { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; font-size: 12px; }
+  .cv-create-targets input { width: 18px; height: 18px; }
+  .cv-create-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  .cv-editor-conflict {
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 8px 18px;
+    background: #7f1d1d;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .cv-editor-conflict button {
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid #fff;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+  }
+  .cv-editor-conflict button:first-of-type { background: #fff; color: #7f1d1d; }
   /* ── Top bar ── */
   .cv-editor-bar {
     position: sticky;

@@ -44,6 +44,8 @@ export interface ProjectDocument {
 }
 
 export interface Project {
+  id?: string
+  showcaseVisible?: boolean
   title: string
   description: string
   cvDescription?: string
@@ -70,8 +72,23 @@ export interface ProfileData {
   name: string
   title: string
   bio: string
+  publicBio?: string
   headline?: string
   agentSummary?: string
+}
+
+export interface ContactLink {
+  id?: string
+  label: string
+  url: string
+}
+
+export interface ContactData {
+  location: string
+  email: string
+  phone: string
+  piva: string
+  links: ContactLink[]
 }
 
 export interface AboutStats {
@@ -90,6 +107,8 @@ export interface SystemStatusEntry {
 export type SystemStatus = SystemStatusEntry[]
 
 export interface ExperienceEntry {
+  id?: string
+  showcaseVisible?: boolean
   year: string
   title: string
   company: string
@@ -99,6 +118,8 @@ export interface ExperienceEntry {
 }
 
 export interface EducationEntry {
+  id?: string
+  showcaseVisible?: boolean
   year: string
   degree: string
   institution: string
@@ -167,6 +188,7 @@ export type ThemeColors = Record<ThemeMode, ThemeColor>
 
 export interface PortfolioContent {
   profileData: ProfileData
+  contactData: ContactData
   aboutStats: AboutStats
   systemStatus: SystemStatus
   lastDeployment: string
@@ -304,9 +326,25 @@ export const portfolioContentSchema = z.object({
     name: z.string(),
     title: z.string(),
     bio: z.string(),
+    publicBio: z.string().optional(),
     headline: z.string().optional(),
     agentSummary: z.string().optional(),
   }),
+  contactData: z
+    .object({
+      location: z.string(),
+      email: z.string(),
+      phone: z.string(),
+      piva: z.string(),
+      links: z.array(
+        z.object({
+          id: z.string().optional(),
+          label: z.string(),
+          url: z.string(),
+        }),
+      ),
+    })
+    .optional(),
   aboutStats: z.object({
     projects: z.string(),
     commits: z.string(),
@@ -317,6 +355,8 @@ export const portfolioContentSchema = z.object({
   experienceLog: z
     .array(
       z.object({
+        id: z.string().optional(),
+        showcaseVisible: z.boolean().optional(),
         year: z.string(),
         title: z.string(),
         company: z.string(),
@@ -330,6 +370,8 @@ export const portfolioContentSchema = z.object({
   educationLog: z
     .array(
       z.object({
+        id: z.string().optional(),
+        showcaseVisible: z.boolean().optional(),
         year: z.string(),
         degree: z.string(),
         institution: z.string(),
@@ -357,6 +399,8 @@ export const portfolioContentSchema = z.object({
           z.preprocess(
             normalizeProjectCvVisibility,
             z.object({
+              id: z.string().optional(),
+              showcaseVisible: z.boolean().optional(),
               title: z.string(),
               description: z.string(),
               cvDescription: z.string().optional(),
@@ -452,6 +496,9 @@ export function withDefaultCustomColor(
     ...rest,
     profileData: {
       ...content.profileData,
+      publicBio:
+        content.profileData.publicBio ??
+        content.profileData.bio,
       headline:
         content.profileData.headline ??
         "Software engineering. With agents in the loop.",
@@ -459,6 +506,7 @@ export function withDefaultCustomColor(
         content.profileData.agentSummary ??
         "Claude Code and Codex across planning, implementation, debugging, and review.",
     },
+    contactData: content.contactData ?? defaults.contactData,
     experienceLog: content.experienceLog ?? defaults.experienceLog,
     educationLog: content.educationLog ?? defaults.educationLog,
     lastDeployment: content.lastDeployment ?? defaults.lastDeployment,
@@ -486,9 +534,26 @@ export const defaultContent: PortfolioContent = {
     name: "JOHN_DOE.exe",
     title: "AI + FULL-STACK ENGINEER",
     bio: "Building scalable systems and crafting pixel-perfect interfaces. Specializing in modern web technologies, cloud architecture, and performance optimization. Currently architecting solutions at TechCorp Industries.",
+    publicBio:
+      "AI Systems master’s student connecting research ideas with software that runs—from generative models and computer vision to full-stack products.",
     headline: "Software engineering. With agents in the loop.",
     agentSummary:
       "Claude Code and Codex across planning, implementation, debugging, and review.",
+  },
+  contactData: {
+    location: "Via Entracque, 10, Cuneo (12100)",
+    email: "quicksolver02@gmail.com",
+    phone: "",
+    piva: "P.IVA: 04081230049 - QuickSolver",
+    links: [
+      { id: "email", label: "Email", url: "quicksolver02@gmail.com" },
+      { id: "github", label: "GitHub", url: "https://github.com/bacobax" },
+      {
+        id: "linkedin",
+        label: "LinkedIn",
+        url: "https://www.linkedin.com/in/francesco-bassignana/",
+      },
+    ],
   },
   aboutStats: {
     projects: "47",

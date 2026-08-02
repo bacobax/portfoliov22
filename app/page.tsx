@@ -5,12 +5,17 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { AuthModal } from "@/components/auth-modal";
+import {
+  CONTENT_HUB_CHANNEL,
+  ContentHubDrawer,
+} from "@/components/content-hub-drawer";
 import { ProjectForm } from "@/components/project-form";
 import { EducationForm } from "@/components/portfolio/education-form";
 import { EditorialPortfolio } from "@/components/portfolio/editorial-portfolio";
@@ -116,6 +121,18 @@ type EditingProjectState = {
 } | null;
 
 type AuthResult = { success: boolean; error?: string };
+type ContentSaveState = "idle" | "saving" | "saved" | "conflict" | "error";
+type VisibilityTarget = {
+  entityType: "experience" | "education" | "project";
+  entityId: string;
+  showcase: boolean;
+  presetIds: string[];
+};
+
+type PendingAddition =
+  | { kind: "experience"; value: ExperienceEntry; showcase: boolean; presetIds: string[] }
+  | { kind: "education"; value: EducationEntry; showcase: boolean; presetIds: string[] }
+  | { kind: "project"; value: Project; categoryIndex: number; showcase: boolean; presetIds: string[] };
 
 const CONTENT_CACHE_KEY = "portfolio:content-cache:v1";
 let memoryContentCache: PortfolioContent | null = null;
@@ -169,29 +186,85 @@ export default function TechDashboardPortfolio() {
   );
   const [isContentLoading, setIsContentLoading] = useState(true);
   const [contentError, setContentError] = useState<string | null>(null);
+  const [showContentHub, setShowContentHub] = useState(false);
+  const [pendingAddition, setPendingAddition] = useState<PendingAddition | null>(null);
+  const [presetTargets, setPresetTargets] = useState<Array<{ id: string; name: string }>>([]);
+  const [contentSaveState, setContentSaveState] =
+    useState<ContentSaveState>("idle");
+  const [hubRevision, setHubRevision] = useState<number | null>(null);
+  const [saveConflict, setSaveConflict] = useState<{
+    draft: PortfolioContent;
+    latest: PortfolioContent;
+    revision: number;
+  } | null>(null);
+  const hubRevisionRef = useRef<number | null>(null);
+  const pendingContentRef = useRef<{
+    content: PortfolioContent;
+    visibility?: VisibilityTarget[];
+  } | null>(null);
+  const contentSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contentSaveChainRef = useRef<Promise<void>>(Promise.resolve());
   const [sessionThemeOverrides, setSessionThemeOverrides] = useState<
     Partial<Record<ThemeMode, ThemeColor>>
   >({});
 
   const persistContent = useCallback(
-    async (data: PortfolioContent) => {
+    (data: PortfolioContent, visibility?: VisibilityTarget[]) => {
       if (!isAuthenticated) {
         return;
       }
-
-      try {
-        const response = await fetch("/api/content", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+      pendingContentRef.current = { content: data, visibility };
+      setContentSaveState("saving");
+      if (contentSaveTimerRef.current) clearTimeout(contentSaveTimerRef.current);
+      contentSaveTimerRef.current = setTimeout(() => {
+        const pending = pendingContentRef.current;
+        pendingContentRef.current = null;
+        if (!pending) return;
+        const draft = pending.content;
+        contentSaveChainRef.current = contentSaveChainRef.current.then(async () => {
+          const baseRevision = hubRevisionRef.current;
+          if (baseRevision === null) {
+            setContentSaveState("error");
+            return;
+          }
+          try {
+            const response = await fetch("/api/editor/content", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                baseRevision,
+                operations: [{
+                  type: "replace-portfolio",
+                  content: draft,
+                  visibility: pending.visibility,
+                }],
+              }),
+            });
+            const payload = (await response.json().catch(() => null)) as
+              | { revision?: number; content?: PortfolioContent; error?: string }
+              | null;
+            if (response.status === 409 && payload?.content && typeof payload.revision === "number") {
+              setSaveConflict({ draft, latest: payload.content, revision: payload.revision });
+              setContentSaveState("conflict");
+              return;
+            }
+            if (!response.ok || typeof payload?.revision !== "number") {
+              throw new Error(payload?.error || "Failed to save content");
+            }
+            hubRevisionRef.current = payload.revision;
+            setHubRevision(payload.revision);
+            setSaveConflict(null);
+            setContentSaveState("saved");
+            const channel = new BroadcastChannel(CONTENT_HUB_CHANNEL);
+            channel.postMessage({ revision: payload.revision });
+            channel.close();
+            window.setTimeout(() => setContentSaveState("idle"), 1600);
+          } catch (error) {
+            console.error("Failed to persist content", error);
+            setContentSaveState("error");
+          }
         });
-
-        if (!response.ok) {
-          console.error("Failed to persist content", await response.text());
-        }
-      } catch (error) {
-        console.error("Failed to persist content", error);
-      }
+      }, 450);
     },
     [isAuthenticated],
   );
@@ -200,6 +273,7 @@ export default function TechDashboardPortfolio() {
     (
       updater: (previous: PortfolioContent) => PortfolioContent,
       shouldPersist = true,
+      visibility?: VisibilityTarget[],
     ) => {
       setContent((previous) => {
         if (!previous) {
@@ -207,7 +281,7 @@ export default function TechDashboardPortfolio() {
         }
         const updated = withDerivedContent(updater(previous));
         if (shouldPersist) {
-          void persistContent(updated);
+          void persistContent(updated, visibility);
         }
         cachePortfolioContent(updated);
         return updated;
@@ -224,7 +298,14 @@ export default function TechDashboardPortfolio() {
       if (!response.ok) {
         throw new Error(`Failed to load content: ${response.status}`);
       }
-      const data = (await response.json()) as { content?: PortfolioContent };
+      const data = (await response.json()) as {
+        content?: PortfolioContent;
+        revision?: number | null;
+      };
+      if (typeof data.revision === "number") {
+        hubRevisionRef.current = data.revision;
+        setHubRevision(data.revision);
+      }
       const nextContent = data.content
         ? withDerivedContent(withDefaultCustomColor(data.content))
         : withDerivedContent(cloneDefaultContent());
@@ -323,6 +404,29 @@ export default function TechDashboardPortfolio() {
     void fetchContent();
   }, [fetchContent]);
 
+  useEffect(() => {
+    const refreshIfSafe = () => {
+      if (
+        contentSaveState === "idle" ||
+        contentSaveState === "saved"
+      ) {
+        void fetchContent();
+      }
+    };
+    const channel = new BroadcastChannel(CONTENT_HUB_CHANNEL);
+    channel.onmessage = (event) => {
+      const revision = (event.data as { revision?: unknown } | null)?.revision;
+      if (typeof revision === "number" && revision > (hubRevisionRef.current ?? -1)) {
+        refreshIfSafe();
+      }
+    };
+    window.addEventListener("focus", refreshIfSafe);
+    return () => {
+      channel.close();
+      window.removeEventListener("focus", refreshIfSafe);
+    };
+  }, [contentSaveState, fetchContent]);
+
   const toggleTheme = () => {
     const nextTheme: ThemeMode = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
@@ -377,6 +481,21 @@ export default function TechDashboardPortfolio() {
     }
   };
 
+  const prepareAddition = async (addition: PendingAddition) => {
+    try {
+      const response = await fetch("/api/editor/content", { cache: "no-store" });
+      const data = (await response.json().catch(() => null)) as
+        | { presets?: Array<{ id: string; name: string }> }
+        | null;
+      if (response.ok && data?.presets) {
+        setPresetTargets(data.presets.map(({ id, name }) => ({ id, name })));
+      }
+    } catch (error) {
+      console.error("Failed to load preset visibility targets", error);
+    }
+    setPendingAddition(addition);
+  };
+
   const handleAddProject = (categoryIndex = activeCategoryIndex) => {
     setActiveCategoryIndex(categoryIndex);
     setEditingProject(null);
@@ -426,6 +545,22 @@ export default function TechDashboardPortfolio() {
           ? project.projectUrl.trim()
           : undefined,
     };
+
+    if (!editingProject) {
+      const value = {
+        ...normalizedProject,
+        id: normalizedProject.id || `project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      };
+      void prepareAddition({
+        kind: "project",
+        value,
+        categoryIndex: activeCategoryIndex,
+        showcase: false,
+        presetIds: [],
+      });
+      setShowProjectForm(false);
+      return;
+    }
 
     applyContentUpdate((previous) => {
       const updatedCategories = previous.projectCategories.map(
@@ -498,6 +633,20 @@ export default function TechDashboardPortfolio() {
   };
 
   const handleSaveEducation = (education: EducationEntry) => {
+    if (editingEducationIndex === null) {
+      const value = {
+        ...education,
+        id: education.id || `education-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      };
+      void prepareAddition({
+        kind: "education",
+        value,
+        showcase: false,
+        presetIds: [],
+      });
+      setShowEducationForm(false);
+      return;
+    }
     applyContentUpdate((previous) => {
       const educationLog = [...(previous.educationLog ?? [])];
 
@@ -653,6 +802,7 @@ export default function TechDashboardPortfolio() {
   const handleAddExperienceEntry = () => {
     const currentYear = new Date().getFullYear();
     const newEntry: ExperienceEntry = {
+      id: `experience-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       year: `${currentYear} - PRESENT`,
       title: "NEW_ROLE_TITLE",
       company: "Company Name",
@@ -660,10 +810,12 @@ export default function TechDashboardPortfolio() {
       tags: ["Skill"],
     };
 
-    applyContentUpdate((previous) => ({
-      ...previous,
-      experienceLog: [...previous.experienceLog, newEntry],
-    }));
+    void prepareAddition({
+      kind: "experience",
+      value: newEntry,
+      showcase: false,
+      presetIds: [],
+    });
   };
 
   const handleExperienceChange = (
@@ -693,6 +845,186 @@ export default function TechDashboardPortfolio() {
 
   return (
     <>
+      <ContentHubDrawer
+        open={showContentHub}
+        onClose={() => {
+          setShowContentHub(false);
+          void fetchContent();
+        }}
+      />
+      {pendingAddition && (
+        <div
+          role="presentation"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 11000,
+            display: "grid",
+            placeItems: "center",
+            padding: 20,
+            background: "rgba(3,7,18,.76)",
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="portfolio-visibility-title"
+            style={{
+              width: "min(560px, 100%)",
+              padding: 24,
+              background: "#f6f2e9",
+              color: "#111827",
+              border: "1px solid #94a3b8",
+              boxShadow: "0 28px 80px rgba(0,0,0,.4)",
+            }}
+          >
+            <span style={{ font: "800 10px ui-monospace, monospace", letterSpacing: ".12em", textTransform: "uppercase", color: "#64748b" }}>
+              Canonical Atlas destination
+            </span>
+            <h2 id="portfolio-visibility-title" style={{ margin: "6px 0 8px", fontSize: 30 }}>
+              Where should this {pendingAddition.kind} appear?
+            </h2>
+            <p style={{ margin: "0 0 18px", color: "#475569", fontSize: 13 }}>
+              Choose at least one destination. The item is stored once and referenced everywhere else.
+            </p>
+            <div style={{ display: "grid", gap: 8 }}>
+              <label style={{ minHeight: 44, display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "white", border: "1px solid #cbd5e1" }}>
+                <input type="checkbox" checked={pendingAddition.showcase} onChange={(event) => setPendingAddition({ ...pendingAddition, showcase: event.target.checked })} style={{ width: 20, height: 20 }} />
+                Public showcase
+              </label>
+              {presetTargets.map((preset) => (
+                <label key={preset.id} style={{ minHeight: 44, display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "white", border: "1px solid #cbd5e1" }}>
+                  <input
+                    type="checkbox"
+                    checked={pendingAddition.presetIds.includes(preset.id)}
+                    onChange={(event) => setPendingAddition({
+                      ...pendingAddition,
+                      presetIds: event.target.checked
+                        ? [...pendingAddition.presetIds, preset.id]
+                        : pendingAddition.presetIds.filter((id) => id !== preset.id),
+                    })}
+                    style={{ width: 20, height: 20 }}
+                  />
+                  CV · {preset.name}
+                </label>
+              ))}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+              <button type="button" onClick={() => setPendingAddition(null)} style={{ minHeight: 44, padding: "0 16px", border: "1px solid #64748b", background: "transparent" }}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!pendingAddition.showcase && pendingAddition.presetIds.length === 0}
+                onClick={() => {
+                  const entityId = pendingAddition.value.id || "";
+                  const target: VisibilityTarget = {
+                    entityType: pendingAddition.kind === "project" ? "project" : pendingAddition.kind,
+                    entityId,
+                    showcase: pendingAddition.showcase,
+                    presetIds: pendingAddition.presetIds,
+                  };
+                  applyContentUpdate((previous) => {
+                    if (pendingAddition.kind === "experience") {
+                      return {
+                        ...previous,
+                        experienceLog: [...previous.experienceLog, { ...pendingAddition.value, showcaseVisible: pendingAddition.showcase }],
+                      };
+                    }
+                    if (pendingAddition.kind === "education") {
+                      return {
+                        ...previous,
+                        educationLog: [...previous.educationLog, { ...pendingAddition.value, showcaseVisible: pendingAddition.showcase }],
+                      };
+                    }
+                    return {
+                      ...previous,
+                      projectCategories: previous.projectCategories.map((category, index) =>
+                        index === pendingAddition.categoryIndex
+                          ? {
+                              ...category,
+                              projects: [
+                                ...category.projects,
+                                {
+                                  ...pendingAddition.value,
+                                  showcaseVisible: pendingAddition.showcase,
+                                  showInCv: pendingAddition.presetIds.length > 0,
+                                },
+                              ],
+                            }
+                          : category,
+                      ),
+                    };
+                  }, true, [target]);
+                  setPendingAddition(null);
+                }}
+                style={{ minHeight: 44, padding: "0 16px", border: 0, background: "#111827", color: "white", opacity: !pendingAddition.showcase && pendingAddition.presetIds.length === 0 ? .45 : 1 }}
+              >
+                Create canonical item
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {isAuthenticated && contentSaveState !== "idle" && (
+        <div
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            top: 18,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 9998,
+            minHeight: 44,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "10px 16px",
+            border: "1px solid rgba(255,255,255,.28)",
+            background: contentSaveState === "error" || contentSaveState === "conflict" ? "#7f1d1d" : "#111827",
+            color: "white",
+            font: "700 12px ui-monospace, monospace",
+          }}
+        >
+          {contentSaveState === "saving" && "Saving to Atlas…"}
+          {contentSaveState === "saved" && `Saved · revision ${hubRevision ?? "—"}`}
+          {contentSaveState === "error" && "Atlas save failed. Your local edit is still visible."}
+          {contentSaveState === "conflict" && saveConflict && (
+            <>
+              <span>Another editor saved first.</span>
+              <button
+                type="button"
+                onClick={() => {
+                  hubRevisionRef.current = saveConflict.revision;
+                  setHubRevision(saveConflict.revision);
+                  const draft = saveConflict.draft;
+                  setSaveConflict(null);
+                  persistContent(draft);
+                }}
+                style={{ minHeight: 32, padding: "0 10px", border: 0, background: "white", color: "#7f1d1d" }}
+              >
+                Keep mine
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const latest = withDerivedContent(withDefaultCustomColor(saveConflict.latest));
+                  hubRevisionRef.current = saveConflict.revision;
+                  setHubRevision(saveConflict.revision);
+                  setContent(latest);
+                  cachePortfolioContent(latest);
+                  setSaveConflict(null);
+                  setContentSaveState("idle");
+                }}
+                style={{ minHeight: 32, padding: "0 10px", border: "1px solid white", background: "transparent", color: "white" }}
+              >
+                Use Atlas
+              </button>
+            </>
+          )}
+        </div>
+      )}
       {showAuthModal && (
         <AuthModal
           onAuthenticate={handleAuthenticate}
@@ -741,6 +1073,7 @@ export default function TechDashboardPortfolio() {
         onToggleTheme={toggleTheme}
         onToggleEditor={handleToggleEditor}
         onLogout={() => void handleLogout()}
+        onOpenContentHub={() => setShowContentHub(true)}
         onAddProject={handleAddProject}
         onEditProject={handleEditProject}
         onDeleteProject={handleDeleteProject}

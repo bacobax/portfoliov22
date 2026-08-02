@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   Edit3,
+  Database,
   FileText,
   LogOut,
   Moon,
@@ -31,12 +32,6 @@ import type { ThemeMode } from "@/lib/theme";
 
 import "./editorial-portfolio.css";
 
-const EMAIL = "quicksolver02@gmail.com";
-const GITHUB = "https://github.com/bacobax";
-const LINKEDIN = "https://www.linkedin.com/in/francesco-bassignana/";
-const PUBLIC_BIO =
-  "AI Systems master’s student connecting research ideas with software that runs—from generative models and computer vision to full-stack products.";
-
 const DEFAULT_HEADLINE = "Software engineering. With agents in the loop.";
 const DEFAULT_AGENT_SUMMARY =
   "Claude Code and Codex across planning, implementation, debugging, and review.";
@@ -46,15 +41,6 @@ const FEATURED_TITLE_FALLBACKS = [
   "few shots clip adaptation",
   "asn smart buisness landing page",
 ] as const;
-
-const FEATURED_SUMMARIES: Record<string, string> = {
-  "prompt engineering thesis":
-    "Evaluated prompt strategies for AI-assisted code refactoring and UI optimisation across open models.",
-  "few shots clip adaptation":
-    "Evaluated CLIP adaptation through distillation, domain generalisation, and data augmentation.",
-  "asn smart buisness landing page":
-    "Delivered the production landing experience for S.H.D.’s ASN Smart Business product.",
-};
 
 const WORKFLOW_STEPS = [
   { number: "01", title: "Inspect", copy: "Map the codebase, constraints, and risks." },
@@ -84,6 +70,7 @@ type EditorialPortfolioProps = {
   onToggleTheme: () => void;
   onToggleEditor: () => void;
   onLogout: () => void;
+  onOpenContentHub: () => void;
   onAddProject: (categoryIndex: number) => void;
   onEditProject: (categoryIndex: number, projectIndex: number) => void;
   onDeleteProject: (categoryIndex: number, projectIndex: number) => void;
@@ -126,22 +113,11 @@ const cleanLabel = (value: string) =>
 const normalizedTitle = (value: string) => cleanLabel(value).toLowerCase();
 
 const shortSummary = (record: ProjectRecord) => {
-  const preferred = FEATURED_SUMMARIES[normalizedTitle(record.project.title)];
-  if (preferred) return preferred;
-
   const words = record.project.description.replace(/\s+/g, " ").trim().split(" ");
   return `${words.slice(0, 26).join(" ")}${words.length > 26 ? "…" : ""}`;
 };
 
 const experienceSummary = (entry: ExperienceEntry) => {
-  const identity = `${entry.title} ${entry.company}`.toLowerCase();
-  if (identity.includes("echole") || identity.includes("école") || identity.includes("research intern")) {
-    return "Expanding infrared-image datasets with diffusion and flow-matching methods.";
-  }
-  if (identity.includes("s.h.d") || identity.includes("consulent")) {
-    return "Building web, IoT, and firmware systems across MQTT, Zigbee, and HTTP.";
-  }
-
   const sentences = entry.description.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/);
   return sentences[0] || entry.description;
 };
@@ -226,15 +202,17 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
   const projectRecords = useMemo<ProjectRecord[]>(
     () =>
       content?.projectCategories.flatMap((category, categoryIndex) =>
-        category.projects.map((project, projectIndex) => ({
+        category.projects
+          .map((project, projectIndex) => ({
           categoryIndex,
           projectIndex,
           categoryId: category.id,
           categoryName: category.name,
           project,
-        })),
+          }))
+          .filter((record) => isEditorMode || record.project.showcaseVisible !== false),
       ) ?? [],
-    [content],
+    [content, isEditorMode],
   );
 
   const featuredProjects = useMemo(() => {
@@ -265,20 +243,22 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
     () =>
       (content?.experienceLog ?? [])
         .map((entry, originalIndex) => ({ entry, originalIndex }))
+        .filter(({ entry }) => isEditorMode || entry.showcaseVisible !== false)
         .sort(
           (first, second) =>
             experiencePriority(first.entry) - experiencePriority(second.entry),
         ),
-    [content?.experienceLog],
+    [content?.experienceLog, isEditorMode],
   );
 
   const visibleEducation = useMemo(
     () =>
       (content?.educationLog ?? [])
         .map((entry, originalIndex) => ({ entry, originalIndex }))
+        .filter(({ entry }) => isEditorMode || entry.showcaseVisible !== false)
         .filter(({ entry }) => !entry.degree.toLowerCase().includes("high-school"))
         .slice(0, 2),
-    [content?.educationLog],
+    [content?.educationLog, isEditorMode],
   );
 
   const fullStackSkills = useMemo(() => {
@@ -292,15 +272,24 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
     return FULL_STACK_PRIORITY.filter((skill) => normalized.has(skill.toLowerCase()));
   }, [content]);
 
+  const email = content?.contactData.email ?? "";
+  const github = content?.contactData.links.find(
+    (link) => link.label.toLowerCase() === "github",
+  )?.url ?? "";
+  const linkedin = content?.contactData.links.find(
+    (link) => link.label.toLowerCase() === "linkedin",
+  )?.url ?? "";
+  const publicBio = content?.profileData.publicBio || content?.profileData.bio || "";
+
   const searchQuickPrompts = useMemo<QuickPrompt[]>(
     () => [
       { type: "query", label: "AI-assisted work", query: "AI coding agents prompt engineering" },
       { type: "query", label: "Selected projects", query: "featured projects results" },
       { type: "query", label: "Experience", query: "research internship professional experience" },
       { type: "link", label: "View the CV", href: "/cv" },
-      { type: "link", label: "Email Francesco", href: `mailto:${EMAIL}` },
+      { type: "link", label: "Email Francesco", href: `mailto:${email}` },
     ],
-    [],
+    [email],
   );
 
   useEffect(() => {
@@ -850,11 +839,11 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
                 </div>
                 <div>
                   <span className="mono">{displayName} / 2026</span>
-                  <h2>{PUBLIC_BIO}</h2>
+                  <h2>{publicBio}</h2>
                   <div className="about-links">
-                    <a href={`mailto:${EMAIL}`}>Email ↗</a>
-                    <a href={GITHUB} target="_blank" rel="noreferrer">GitHub ↗</a>
-                    <a href={LINKEDIN} target="_blank" rel="noreferrer">LinkedIn ↗</a>
+                    <a href={`mailto:${email}`}>Email ↗</a>
+                    {github && <a href={github} target="_blank" rel="noreferrer">GitHub ↗</a>}
+                    {linkedin && <a href={linkedin} target="_blank" rel="noreferrer">LinkedIn ↗</a>}
                   </div>
                   {isEditorMode && (
                     <div className="profile-source-editor">
@@ -905,13 +894,13 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
             <span className="mono contact-kicker">Available for ambitious engineering teams.</span>
             <h2 className="h2">Let&apos;s build something dependable.</h2>
             <div className="contact-actions">
-              <a className="btn" href={`mailto:${EMAIL}?subject=Hello Francesco`}>Email me <span className="arr">→</span></a>
+              <a className="btn" href={`mailto:${email}?subject=Hello Francesco`}>Email me <span className="arr">→</span></a>
               <Link className="btn btn-ghost" href="/cv"><FileText size={17} /> Open CV</Link>
             </div>
             <div className="contact-directory">
-              <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
-              <a href={GITHUB} target="_blank" rel="noreferrer">GitHub ↗</a>
-              <a href={LINKEDIN} target="_blank" rel="noreferrer">LinkedIn ↗</a>
+              <a href={`mailto:${email}`}>{email}</a>
+              {github && <a href={github} target="_blank" rel="noreferrer">GitHub ↗</a>}
+              {linkedin && <a href={linkedin} target="_blank" rel="noreferrer">LinkedIn ↗</a>}
               <Link href="/cv">CV ↗</Link>
             </div>
             <div className="foot-mark" aria-hidden="true">{firstName.toLowerCase()}*</div>
@@ -946,6 +935,11 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
         <button type="button" onClick={props.onToggleEditor} title={isEditorMode ? "Leave editor mode" : "Enter editor mode"}>
           <Edit3 /><span>{isEditorMode ? "Editing" : "Edit"}</span>
         </button>
+        {isEditorMode && (
+          <button type="button" onClick={props.onOpenContentHub} title="Open canonical content hub">
+            <Database /><span>Content</span>
+          </button>
+        )}
         {isAuthenticated && (
           <button type="button" onClick={props.onLogout} title="Log out"><LogOut /><span>Logout</span></button>
         )}

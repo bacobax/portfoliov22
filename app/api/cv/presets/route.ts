@@ -1,10 +1,10 @@
 import { cookies } from "next/headers"
 import { NextResponse } from "next/server"
 
-import { cvPresetsDocumentSchema } from "@/lib/cv-presets"
-import { loadCvPresetsWithFallback, saveCvPresets } from "@/lib/cv-presets-db"
+import { loadCvPresetsWithFallback } from "@/lib/cv-presets-db"
 import { loadPortfolioContent } from "@/lib/portfolio-content"
 import { SESSION_COOKIE_NAME, validateSession } from "@/lib/session"
+import { loadContentHub } from "@/lib/content-hub-db"
 
 /** Public GET — returns only visible presets (no auth needed for preview) */
 export async function GET() {
@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 /** Auth-gated PUT — saves the full presets array */
-export async function PUT(request: Request) {
+export async function PUT() {
   const cookieStore = await cookies()
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value
   const isValid = await validateSession(token)
@@ -28,24 +28,15 @@ export async function PUT(request: Request) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
   }
 
-  const payload = await request.json().catch(() => null)
-  if (!payload || typeof payload !== "object") {
-    return NextResponse.json({ success: false, error: "Invalid payload" }, { status: 400 })
-  }
-
-  const parsed = cvPresetsDocumentSchema.safeParse(payload)
-  if (!parsed.success) {
+  const hub = await loadContentHub().catch(() => null)
+  if (!hub) {
     return NextResponse.json(
-      { success: false, error: "Invalid presets", details: parsed.error.flatten() },
-      { status: 400 },
+      { success: false, error: "Content hub migration is required" },
+      { status: 503 },
     )
   }
-
-  try {
-    await saveCvPresets(parsed.data)
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error("Failed to save CV presets", error)
-    return NextResponse.json({ success: false, error: "Failed to save" }, { status: 500 })
-  }
+  return NextResponse.json(
+    { success: false, error: "Snapshot writes are retired; use /api/editor/content" },
+    { status: 405 },
+  )
 }
