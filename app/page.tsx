@@ -430,8 +430,26 @@ export default function TechDashboardPortfolio() {
     applyContentUpdate((previous) => {
       const updatedCategories = previous.projectCategories.map(
         (category, index) => {
+          const projects = category.projects.map(
+            (existingProject, projectIndex) => {
+              const isEditedProject =
+                editingProject?.categoryIndex === index &&
+                editingProject.projectIndex === projectIndex;
+
+              if (
+                normalizedProject.featuredRank &&
+                existingProject.featuredRank ===
+                  normalizedProject.featuredRank &&
+                !isEditedProject
+              ) {
+                return { ...existingProject, featuredRank: undefined };
+              }
+
+              return existingProject;
+            },
+          );
+
           if (editingProject && index === editingProject.categoryIndex) {
-            const projects = [...category.projects];
             projects[editingProject.projectIndex] = normalizedProject;
             return { ...category, projects };
           }
@@ -439,11 +457,11 @@ export default function TechDashboardPortfolio() {
           if (!editingProject && index === activeCategoryIndex) {
             return {
               ...category,
-              projects: [...category.projects, normalizedProject],
+              projects: [...projects, normalizedProject],
             };
           }
 
-          return category;
+          return { ...category, projects };
         },
       );
 

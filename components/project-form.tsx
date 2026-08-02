@@ -414,6 +414,33 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
               </select>
             </div>
 
+            <div>
+              <Label htmlFor="featuredRank" className="text-sm font-mono text-muted-foreground mb-2 block">
+                FEATURED_POSITION <span className="text-xs text-muted-foreground">(optional — landing page)</span>
+              </Label>
+              <select
+                id="featuredRank"
+                value={formData.featuredRank ?? ""}
+                onChange={(event) =>
+                  setFormData({
+                    ...formData,
+                    featuredRank: event.target.value
+                      ? (Number(event.target.value) as 1 | 2 | 3)
+                      : undefined,
+                  })
+                }
+                className="w-full bg-background border border-primary/50 focus:border-primary font-mono p-2 text-sm cursor-pointer"
+              >
+                <option value="">NOT FEATURED</option>
+                <option value="1">01 — PRIMARY</option>
+                <option value="2">02 — SECONDARY</option>
+                <option value="3">03 — TERTIARY</option>
+              </select>
+              <p className="text-[11px] font-mono text-muted-foreground/80 mt-2">
+                Saving a position removes that position from any other project.
+              </p>
+            </div>
+
             <div className="border border-primary/50 bg-background/70 p-3 flex flex-col gap-2">
               <div className="flex items-start justify-between gap-3">
                 <div>

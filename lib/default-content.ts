@@ -54,6 +54,7 @@ export interface Project {
   image?: ProjectImage
   document?: ProjectDocument
   showInCv: boolean
+  featuredRank?: 1 | 2 | 3
 }
 
 export type ProjectVisual = "brain" | "sphere" | "engine"
@@ -69,6 +70,8 @@ export interface ProfileData {
   name: string
   title: string
   bio: string
+  headline?: string
+  agentSummary?: string
 }
 
 export interface AboutStats {
@@ -154,6 +157,8 @@ export interface SkillsData {
   frontend: string[]
   backend: string[]
   devops: string[]
+  aiTools: string[]
+  aiSystems: string[]
 }
 
 export type ThemeColor = { h: number; s: number; l: number }
@@ -299,6 +304,8 @@ export const portfolioContentSchema = z.object({
     name: z.string(),
     title: z.string(),
     bio: z.string(),
+    headline: z.string().optional(),
+    agentSummary: z.string().optional(),
   }),
   aboutStats: z.object({
     projects: z.string(),
@@ -337,6 +344,8 @@ export const portfolioContentSchema = z.object({
     frontend: z.array(z.string()),
     backend: z.array(z.string()),
     devops: z.array(z.string()),
+    aiTools: z.array(z.string()).optional(),
+    aiSystems: z.array(z.string()).optional(),
   }),
   projectCategories: z
     .array(
@@ -364,6 +373,9 @@ export const portfolioContentSchema = z.object({
               image: projectImageSchema.optional(),
               document: projectDocumentSchema.optional(),
               showInCv: z.boolean().default(true),
+              featuredRank: z
+                .union([z.literal(1), z.literal(2), z.literal(3)])
+                .optional(),
             }),
           ),
         ),
@@ -438,10 +450,33 @@ export function withDefaultCustomColor(
 
   return {
     ...rest,
+    profileData: {
+      ...content.profileData,
+      headline:
+        content.profileData.headline ??
+        "Software engineering. With agents in the loop.",
+      agentSummary:
+        content.profileData.agentSummary ??
+        "Claude Code and Codex across planning, implementation, debugging, and review.",
+    },
     experienceLog: content.experienceLog ?? defaults.experienceLog,
     educationLog: content.educationLog ?? defaults.educationLog,
     lastDeployment: content.lastDeployment ?? defaults.lastDeployment,
     systemStatus: content.systemStatus ?? defaults.systemStatus,
+    skillsData: {
+      ...content.skillsData,
+      aiTools: content.skillsData.aiTools ?? [
+        "Claude Code",
+        "Codex",
+        "Prompt Engineering",
+      ],
+      aiSystems: content.skillsData.aiSystems ?? [
+        "PyTorch",
+        "Computer Vision",
+        "Generative AI",
+        "Reinforcement Learning",
+      ],
+    },
     themeColors: resolvedThemeColors,
   }
 }
@@ -449,8 +484,11 @@ export function withDefaultCustomColor(
 export const defaultContent: PortfolioContent = {
   profileData: {
     name: "JOHN_DOE.exe",
-    title: "FULL_STACK_DEVELOPER",
+    title: "AI + FULL-STACK ENGINEER",
     bio: "Building scalable systems and crafting pixel-perfect interfaces. Specializing in modern web technologies, cloud architecture, and performance optimization. Currently architecting solutions at TechCorp Industries.",
+    headline: "Software engineering. With agents in the loop.",
+    agentSummary:
+      "Claude Code and Codex across planning, implementation, debugging, and review.",
   },
   aboutStats: {
     projects: "47",
@@ -463,6 +501,13 @@ export const defaultContent: PortfolioContent = {
   experienceLog: defaultExperienceLog,
   educationLog: defaultEducationLog,
   skillsData: {
+    aiTools: ["Claude Code", "Codex", "Prompt Engineering"],
+    aiSystems: [
+      "PyTorch",
+      "Computer Vision",
+      "Generative AI",
+      "Reinforcement Learning",
+    ],
     frontend: ["React", "Next.js", "TypeScript", "Tailwind CSS", "Vue.js"],
     backend: ["Node.js", "Python", "Go", "PostgreSQL", "Redis"],
     devops: ["Docker", "Kubernetes", "AWS", "CI/CD", "Terraform"],
