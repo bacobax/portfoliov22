@@ -473,7 +473,7 @@ export default function CvEditorPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="cv-editor-page min-h-screen bg-slate-100">
       <style>{editorStyles}</style>
       <ContentHubDrawer
         open={showContentHub}
@@ -642,6 +642,14 @@ export default function CvEditorPage() {
               <FieldWithHint label="End date" value={pendingEntity.entry.dateEnd} onChange={(value) => setPendingEntity({ ...pendingEntity, entry: { ...pendingEntity.entry, dateEnd: value } })} />
             </div>
             <TextAreaWithHint label="Description" value={pendingEntity.entry.description} onChange={(value) => setPendingEntity({ ...pendingEntity, entry: { ...pendingEntity.entry, description: value } })} rows={3} />
+            <InlineTagsEditor
+              label="Tags"
+              items={pendingEntity.entry.tags}
+              onChange={(tags) => setPendingEntity({
+                ...pendingEntity,
+                entry: { ...pendingEntity.entry, tags },
+              })}
+            />
             <fieldset className="cv-create-targets">
               <legend>Choose every destination before saving</legend>
               <label><input type="checkbox" checked={pendingEntity.showcase} onChange={(event) => setPendingEntity({ ...pendingEntity, showcase: event.target.checked })} /> Showcase</label>
@@ -960,7 +968,10 @@ export default function CvEditorPage() {
                 <span className="cv-editor-preview-header__layout">{CV_TEMPLATE_BY_ID[activePreset.layout].shortLabel} · {CV_TEMPLATE_BY_ID[activePreset.layout].pageGuidance}</span>
               </div>
             </div>
-            <div className="cv-editor-preview-scaler" style={{ zoom: previewZoom } as React.CSSProperties}>
+            <div
+              className="cv-editor-preview-scaler"
+              style={{ "--preview-zoom": previewZoom } as React.CSSProperties}
+            >
               {previewData && <RegionalCvLayout layout={activePreset.layout} data={previewData} profilePicture={profilePicture} />}
             </div>
           </aside>
@@ -1672,6 +1683,8 @@ function InlineTagsEditor({
   }
 
   const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx))
+  const update = (idx: number, value: string) =>
+    onChange(items.map((item, i) => (i === idx ? value : item)))
 
   return (
     <div className="cv-field">
@@ -1679,8 +1692,21 @@ function InlineTagsEditor({
       <div className="cv-tags-wrap">
         {items.map((tag, i) => (
           <span key={i} className="cv-tag">
-            {tag}
-            <button type="button" className="cv-tag__remove" onClick={() => remove(i)}>×</button>
+            <input
+              className="cv-tag__input"
+              value={tag}
+              style={{ width: `${Math.max(5, Math.min(tag.length + 1, 24))}ch` }}
+              aria-label={`${label} tag ${i + 1}`}
+              onChange={(event) => update(i, event.target.value)}
+            />
+            <button
+              type="button"
+              className="cv-tag__remove"
+              aria-label={`Remove ${tag || `tag ${i + 1}`}`}
+              onClick={() => remove(i)}
+            >
+              <X className="w-3 h-3" />
+            </button>
           </span>
         ))}
         <input
@@ -1693,6 +1719,15 @@ function InlineTagsEditor({
             if (e.key === "Backspace" && !draft && items.length > 0) remove(items.length - 1)
           }}
         />
+        <button
+          type="button"
+          className="cv-tags-add"
+          aria-label={`Add ${label.toLowerCase()} tag`}
+          disabled={!draft.trim() || items.includes(draft.trim())}
+          onClick={add}
+        >
+          <Plus className="w-3 h-3" /> Add
+        </button>
       </div>
     </div>
   )
@@ -2282,20 +2317,36 @@ const editorStyles = `
   .cv-tag {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
     background: #e0e7ff;
     color: #3730a3;
-    padding: 1px 6px;
+    padding: 2px 3px 2px 7px;
     border-radius: 3px;
     font-size: 11px;
+    max-width: 100%;
+  }
+  .cv-tag__input {
+    max-width: 180px;
+    min-width: 48px;
+    border: 0;
+    outline: 0;
+    padding: 2px 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
   }
   .cv-tag__remove {
-    background: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: rgba(255,255,255,.45);
     border: none;
+    border-radius: 3px;
     color: #6366f1;
     cursor: pointer;
-    font-size: 13px;
-    padding: 0 0 0 2px;
+    padding: 0;
     line-height: 1;
   }
   .cv-tag__remove:hover { color: #dc2626; }
@@ -2308,6 +2359,21 @@ const editorStyles = `
     font-family: inherit;
     background: transparent;
   }
+  .cv-tags-add {
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 8px;
+    border: 1px solid #c7d2fe;
+    border-radius: 3px;
+    background: #eef2ff;
+    color: #4338ca;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .cv-tags-add:disabled { opacity: .45; cursor: not-allowed; }
 
   /* ── Portfolio importer ── */
   .portfolio-importer {
@@ -2522,6 +2588,7 @@ const editorStyles = `
     display: flex;
     justify-content: center;
     align-items: flex-start;
+    zoom: var(--preview-zoom);
   }
 
   /* ── Mobile toggle ── */
@@ -2543,6 +2610,12 @@ const editorStyles = `
       position: static;
       height: auto;
       min-height: calc(100vh - 130px);
+    }
+    .cv-editor-preview-scaler {
+      width: 100%;
+      overflow: visible;
+      padding: 12px;
+      zoom: 1;
     }
     .cv-editor-mobile-toggle {
       display: flex;
@@ -2573,10 +2646,12 @@ const editorStyles = `
     .section-organizer { grid-template-columns: 1fr; }
   }
   @media screen and (max-width: 768px) {
+    .cv-editor-page { overflow-x: hidden; }
     .cv-create-layer { padding: 0; align-items: stretch; }
-    .cv-create-dialog { max-height: 100svh; }
+    .cv-create-dialog { max-height: 100svh; padding: 16px 12px; }
     .cv-template-grid, .cv-option-grid { grid-template-columns: 1fr; }
     .cv-editor-bar {
+      position: static;
       flex-direction: column;
       gap: 8px;
       padding: 10px 12px;
@@ -2585,6 +2660,62 @@ const editorStyles = `
     .cv-editor-bar__right {
       width: 100%;
       justify-content: space-between;
+      min-width: 0;
+    }
+    .cv-editor-bar__right { flex-wrap: wrap; gap: 6px; }
+    .cv-editor-bar__status { min-height: 22px; }
+    .cv-editor-bar__btn { min-height: 40px; padding: 7px 10px; }
+    .cv-preset-bar {
+      position: static;
+      padding: 0 8px;
+    }
+    .cv-editor-mobile-toggle {
+      position: sticky;
+      top: 0;
+      z-index: 48;
+      padding: 0;
+    }
+    .cv-editor-mobile-toggle__btn {
+      flex: 1;
+      justify-content: center;
+      min-height: 44px;
+      padding: 8px 12px;
+    }
+    .cv-editor-main {
+      margin: 12px 0;
+      padding: 0 8px 32px;
+      gap: 12px;
+    }
+    .cv-editor-card__header { padding: 11px 10px; }
+    .cv-editor-card__body { padding: 10px; }
+    .cv-editor-card__title-input { width: 100%; }
+    .cv-field, .cv-field__input { min-width: 0; width: 100%; }
+    .cv-entry-card { padding: 9px; }
+    .cv-entry-row, .cv-list-item { flex-wrap: wrap; align-items: stretch; }
+    .cv-entry-row .cv-field__input, .cv-list-item .cv-field__input { flex-basis: calc(100% - 46px); }
+    .cv-tags-wrap { padding: 6px; }
+    .cv-tag { flex: 1 1 135px; }
+    .cv-tag__input { flex: 1; width: auto; max-width: none; }
+    .cv-tag__remove { width: 36px; height: 36px; }
+    .cv-tags-input { flex: 1 1 120px; min-height: 36px; }
+    .cv-tags-add { min-height: 40px; padding: 6px 12px; }
+    .portfolio-importer__tabs { overflow-x: auto; }
+    .portfolio-importer__tab { min-height: 40px; white-space: nowrap; }
+    .cv-editor-preview-header {
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 12px;
+    }
+    .cv-editor-preview-header__controls { flex-wrap: wrap; justify-content: flex-end; }
+    .cv-editor-preview-header__layout { width: 100%; text-align: right; }
+    .cv-editor-preview-zoom-btn, .cv-editor-preview-zoom-label { display: none; }
+    .cv-editor-split--preview-mode .cv-editor-split__preview { min-height: 0; }
+    .cv-editor-preview-scaler { padding: 8px; }
+    .cv-create-actions, .cv-wizard-actions {
+      position: sticky;
+      bottom: 0;
+      padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+      background: #fff;
     }
   }
 `
