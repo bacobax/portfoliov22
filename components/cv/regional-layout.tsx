@@ -295,56 +295,6 @@ const regionalStyles = `
   .regional-cv--post_soviet_local_resume .region-body { gap:6mm; margin-top:10px; }
   .regional-cv--post_soviet_local_resume .region-main, .regional-cv--post_soviet_local_resume .region-sidebar { gap:10px; }
 
-  @media screen and (max-width: 720px) {
-    .regional-cv {
-      width:100%; max-width:100%; min-height:0; padding:24px 20px !important;
-      border-left:0 !important; background:var(--cv-paper) !important;
-      box-shadow:0 8px 28px rgba(15,23,42,.12); font-size:10pt; line-height:1.5;
-    }
-    .region-header,
-    .regional-cv--british_irish .region-header {
-      grid-template-columns:auto minmax(0,1fr) !important;
-      gap:12px; margin:0 !important; padding:0 0 14px !important;
-    }
-    .region-header h1,
-    .regional-cv--british_irish .region-header h1,
-    .regional-cv--germanic_tabular .region-header h1,
-    .regional-cv--nordic_concise .region-header h1,
-    .regional-cv--dutch_tailored .region-header h1,
-    .regional-cv--post_soviet_local_resume .region-header h1 {
-      font-size:22pt; line-height:1.05;
-    }
-    .region-header__role { font-size:10.5pt; }
-    .region-contact {
-      grid-column:1 / -1; max-width:none; flex-direction:row; flex-wrap:wrap;
-      align-items:flex-start; gap:5px 12px; text-align:left; font-size:9pt;
-    }
-    .region-portrait { width:22mm; height:26mm; }
-    .region-body,
-    .regional-cv--has-sidebar .region-body,
-    .regional-cv--french_speaking_concise .region-body {
-      grid-template-columns:1fr !important; gap:18px !important; margin-top:14px;
-    }
-    .region-sidebar { padding-right:0 !important; border-right:0; }
-    .region-sidebar, .region-main { gap:18px !important; }
-    .regional-cv--europass_friendly_structured .region-section { display:block; }
-    .regional-cv--europass_friendly_structured .region-section > h2 { text-align:left; }
-    .regional-cv--british_irish .region-entry,
-    .regional-cv--germanic_tabular .region-entry {
-      grid-template-columns:1fr !important; gap:3px !important;
-    }
-    .regional-cv--british_irish .region-entry__date,
-    .regional-cv--british_irish .region-entry__content,
-    .regional-cv--germanic_tabular .region-entry__date,
-    .regional-cv--germanic_tabular .region-entry__content {
-      grid-column:auto; grid-row:auto; text-align:left;
-    }
-    .region-section > h2 { font-size:9.5pt; }
-    .region-entry__heading h3 { font-size:10.5pt; }
-    .region-entry__date { font-size:8.5pt; }
-    .region-entry__subtitle { font-size:9pt; }
-    .region-tags li { font-size:8pt; padding:3px 7px; }
-  }
   @media print {
     .regional-cv { width:210mm; max-width:none; min-height:0; box-shadow:none; }
     .region-entry, .region-section { break-inside:avoid; page-break-inside:avoid; }

@@ -34,6 +34,7 @@ import type { CvPreset, CvLayoutId } from "@/lib/cv-presets"
 import { changePresetLanguage, changePresetTemplate, createRegionalPreset } from "@/lib/cv-presets"
 import { createCvData } from "@/lib/cv-data-transform"
 import { RegionalCvLayout } from "@/components/cv/regional-layout"
+import { CvScaleToFit } from "@/components/cv/cv-scale-to-fit"
 import {
   COUNTRY_LOCALES,
   CV_COUNTRIES,
@@ -968,11 +969,12 @@ export default function CvEditorPage() {
                 <span className="cv-editor-preview-header__layout">{CV_TEMPLATE_BY_ID[activePreset.layout].shortLabel} · {CV_TEMPLATE_BY_ID[activePreset.layout].pageGuidance}</span>
               </div>
             </div>
-            <div
-              className="cv-editor-preview-scaler"
-              style={{ "--preview-zoom": previewZoom } as React.CSSProperties}
-            >
-              {previewData && <RegionalCvLayout layout={activePreset.layout} data={previewData} profilePicture={profilePicture} />}
+            <div className="cv-editor-preview-scaler">
+              {previewData && (
+                <CvScaleToFit maxScale={previewZoom}>
+                  <RegionalCvLayout layout={activePreset.layout} data={previewData} profilePicture={profilePicture} />
+                </CvScaleToFit>
+              )}
             </div>
           </aside>
         </div>
@@ -2588,7 +2590,6 @@ const editorStyles = `
     display: flex;
     justify-content: center;
     align-items: flex-start;
-    zoom: var(--preview-zoom);
   }
 
   /* ── Mobile toggle ── */
@@ -2615,7 +2616,6 @@ const editorStyles = `
       width: 100%;
       overflow: visible;
       padding: 12px;
-      zoom: 1;
     }
     .cv-editor-mobile-toggle {
       display: flex;
