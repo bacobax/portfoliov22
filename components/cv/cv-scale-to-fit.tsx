@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
 
-const A4_WIDTH_PX = (210 / 25.4) * 96
-
 export function CvScaleToFit({
   children,
   maxScale = 1,
+  page = "A4",
 }: {
   children: ReactNode
   maxScale?: number
+  page?: "A4" | "Letter"
 }) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(maxScale)
@@ -21,14 +21,14 @@ export function CvScaleToFit({
     const updateScale = () => {
       const availableWidth = viewport.clientWidth
       if (availableWidth <= 0) return
-      setScale(Math.min(maxScale, availableWidth / A4_WIDTH_PX))
+      setScale(Math.min(maxScale, availableWidth / ((page === "Letter" ? 215.9 : 210) / 25.4 * 96)))
     }
 
     updateScale()
     const observer = new ResizeObserver(updateScale)
     observer.observe(viewport)
     return () => observer.disconnect()
-  }, [maxScale])
+  }, [maxScale, page])
 
   return (
     <div ref={viewportRef} className="cv-fit-viewport">
@@ -52,7 +52,7 @@ export function CvScaleToFit({
         }
         @media print {
           .cv-fit-viewport {
-            width: auto;
+            width: auto !important;
             display: block;
             overflow: visible;
           }
@@ -65,7 +65,7 @@ export function CvScaleToFit({
       <div
         className="cv-fit-document"
         data-cv-scale={scale.toFixed(4)}
-        style={{ zoom: scale } as React.CSSProperties}
+        style={{ zoom: scale, width: page === "Letter" ? "215.9mm" : "210mm" } as React.CSSProperties}
       >
         {children}
       </div>

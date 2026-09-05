@@ -3,30 +3,14 @@ import type { CvData, CvDisplaySection, CvDisplayContent } from "@/components/cv
 import type { CvPreset } from "@/lib/cv-presets"
 import { labelsForLocale, type CvLocale } from "@/lib/cv-templates"
 
-export const splitSentences = (value: string): string[] =>
-  value
-    .split(/(?<=[.!?])\s+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
+// One authored line is one bullet. Do not split abbreviations or decimal results.
+export const splitSentences = (value: string): string[] => value
+  .split(/\r?\n/)
+  .map((item) => item.trim().replace(/^(?:[-*•]\s+|\d+[.)]\s+)/, ""))
+  .filter(Boolean)
 
 export const formatLabel = (value: string): string => {
-  const normalized = value.replace(/_/g, " ").replace(/\s+/g, " ").trim()
-
-  if (!normalized) {
-    return normalized
-  }
-
-  const hasLowercase = /[a-z]/.test(normalized)
-  const hasUppercase = /[A-Z]/.test(normalized)
-
-  if (hasUppercase && !hasLowercase) {
-    const lowerCased = normalized.toLowerCase()
-    return lowerCased.replace(/(^|[\s/])([a-z])/g, (_, boundary: string, letter: string) =>
-      `${boundary}${letter.toUpperCase()}`,
-    )
-  }
-
-  return normalized
+  return value.replace(/\s+/g, " ").trim()
 }
 
 /** Transform raw section data → display-ready content */
@@ -36,12 +20,12 @@ const localizeDate = (value: string, locale: CvLocale): string => {
     return labelsForLocale(locale).present
   }
   const match = value.match(/^(\d{4})-(\d{2})$/)
-  if (!match) return value
+  if (!match || Number(match[2]) < 1 || Number(match[2]) > 12) return value
   return new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", timeZone: "UTC" })
     .format(new Date(`${match[1]}-${match[2]}-01T00:00:00Z`))
 }
 
-function transformSectionData(data: CvSectionData, locale: CvLocale): CvDisplayContent {
+function transformSectionData(data: CvSectionData, locale: CvLocale, hideStatus = false): CvDisplayContent {
   switch (data.type) {
     case "log":
       return {
@@ -49,7 +33,7 @@ function transformSectionData(data: CvSectionData, locale: CvLocale): CvDisplayC
         entries: data.entries.map((e) => ({
           title: formatLabel(e.title),
           subtitle: formatLabel(e.subtitle),
-          dates: [e.dateStart, e.dateEnd].filter(Boolean).map((date) => localizeDate(date, locale)).join(" — "),
+          dates: [e.dateStart, e.dateEnd].filter((date) => date && !(hideStatus && /^(production|beta|development|ongoing|terminated|completed)$/i.test(date.trim()))).map((date) => localizeDate(date, locale)).join("–"),
           bullets: splitSentences(e.description),
           tags: e.tags.map(formatLabel),
           url: e.url || undefined,
@@ -72,14 +56,14 @@ function transformSectionData(data: CvSectionData, locale: CvLocale): CvDisplayC
   }
 }
 
-function transformSection(section: CvSection, locale: CvLocale): CvDisplaySection {
+function transformSection(section: CvSection, locale: CvLocale, hideStatus: boolean): CvDisplaySection {
   return {
     id: section.id,
     title: section.title,
     type: section.type,
     placement: section.placement,
     visible: section.visible,
-    content: transformSectionData(section.data, locale),
+    content: transformSectionData(section.data, locale, section.id === "projects" && hideStatus),
   }
 }
 
@@ -104,6 +88,6 @@ export function createCvData(cv: CvContent, preset?: Pick<CvPreset,
     design: preset?.design,
     sections: cv.sections
       .filter((s) => s.visible)
-      .map((section) => transformSection(section, locale)),
+      .map((section) => transformSection(section, locale, !preset?.design?.showProjectStatus)),
   }
 }

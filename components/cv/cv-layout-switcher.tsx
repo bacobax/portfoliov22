@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import type { StaticImageData } from "next/image"
-import { ArrowLeft, Download, PencilLine } from "lucide-react"
+import { ArrowLeft, PencilLine } from "lucide-react"
+import { CvPrintButton } from "./cv-print-button"
 import { useRouter } from "next/navigation"
 
 import type { CvData, CvLayoutId } from "./cv-types"
@@ -40,7 +41,6 @@ export function CvLayoutSwitcher({
 
   const active = presets.find((p) => p.id === activeId) ?? presets[0]
 
-  const handlePrint = () => window.print()
 
   if (!active) {
     return <p style={{ textAlign: "center", color: "#64748b", padding: "48px 0" }}>No visible CV presets.</p>
@@ -82,13 +82,11 @@ export function CvLayoutSwitcher({
               <PencilLine size={16} /> Edit CV
             </button>
           )}
-          <button type="button" onClick={handlePrint} className="toolbar__button">
-            <Download size={16} /> Save as PDF
-          </button>
+          <CvPrintButton />
         </div>
       </div>
 
-      <CvScaleToFit>
+      <CvScaleToFit page={active.data.design?.page}>
         <RegionalCvLayout layout={active.layout} data={active.data} profilePicture={profilePicture} />
       </CvScaleToFit>
     </>

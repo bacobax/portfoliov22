@@ -98,7 +98,7 @@ describe("regional CV catalog", () => {
     }]
     const display = createCvData(preset.content, preset)
     const section = display.sections[0]
-    expect(section.content.type === "log" && section.content.entries[0].dates).toMatch(/Jan\. 2025 — Heute/)
+    expect(section.content.type === "log" && section.content.entries[0].dates).toMatch(/Jan\. 2025–Heute/)
     expect(section.content.type === "log" && section.content.entries[0].bullets).toEqual(["Authored sentence."])
   })
 

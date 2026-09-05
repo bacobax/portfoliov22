@@ -28,6 +28,14 @@
         "sectionGapMm": { "type": "number", "minimum": 1, "maximum": 16 },
         "entryGapMm": { "type": "number", "minimum": 1, "maximum": 12 },
         "photoShape": { "enum": ["square", "rounded", "circle"] },
+        "appearance": {"enum":["professional","regional"],"default":"professional"},
+        "datePlacement": {"enum":["right","left","above"],"default":"right"},
+        "photoSizeMm": {"type":"number","minimum":16,"maximum":32,"default":22},
+        "headingStyle": {"enum":["divider","spacing"],"default":"divider"},
+        "showTaxId": {"type":"boolean","default":false},
+        "showLocation": {"type":"boolean","default":true},
+        "locationLabel": {"type":"string","maxLength":160,"default":""},
+        "showProjectStatus": {"type":"boolean","default":false},
         "pageBreakBefore": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
       }
     },

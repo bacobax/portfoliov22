@@ -2,6 +2,8 @@ import Image, { type StaticImageData } from "next/image"
 
 import type { CvData, CvDisplaySection, CvDisplayLogEntry } from "./cv-types"
 import { CV_TEMPLATE_BY_ID, type CvLayoutId } from "@/lib/cv-templates"
+import { cvDesignSchema } from "@/lib/cv-document"
+import { cvLinkHref, cvLinkLabel } from "@/lib/cv-quality"
 
 function LogSection({ section }: { section: CvDisplaySection }) {
   if (section.content.type !== "log" || section.content.entries.length === 0) return null
@@ -18,16 +20,17 @@ function LogSection({ section }: { section: CvDisplaySection }) {
 }
 
 function LogEntry({ entry }: { entry: CvDisplayLogEntry }) {
+  const short = entry.bullets.join(" ").split(/\s+/).length <= 85 && entry.bullets.length <= 3
+  const href = entry.url ? cvLinkHref(entry.url) : undefined
   return (
-    <article className="region-entry">
-      {entry.dates && <time className="region-entry__date">{entry.dates}</time>}
+    <article className={`region-entry ${short ? "region-entry--short" : "region-entry--long"}`}>
       <div className="region-entry__content">
         <div className="region-entry__heading">
           <div>
             <h3>{entry.title}</h3>
             {entry.subtitle && <p className="region-entry__subtitle">{entry.subtitle}</p>}
           </div>
-          {entry.url && <a className="region-entry__external-link" href={entry.url} target="_blank" rel="noreferrer" aria-label={`Open ${entry.title}`}>↗</a>}
+          {entry.dates && <span className="region-entry__date">{entry.dates}</span>}
         </div>
         {entry.bullets.length > 0 && (
           <ul className="region-entry__bullets">
@@ -35,10 +38,9 @@ function LogEntry({ entry }: { entry: CvDisplayLogEntry }) {
           </ul>
         )}
         {entry.tags.length > 0 && (
-          <ul className="region-tags region-tags--entry" aria-label={`${entry.title} skills`}>
-            {entry.tags.map((tag) => <li key={tag}>{tag}</li>)}
-          </ul>
+          <p className="region-technologies" aria-label={`${entry.title} skills`}>{entry.tags.join(", ")}</p>
         )}
+        {href && <p className="region-entry-link"><a href={href} target="_blank" rel="noreferrer">{cvLinkLabel(href)}</a></p>}
       </div>
     </article>
   )
@@ -59,8 +61,7 @@ function RenderSection({ section, summaryOverride }: { section: CvDisplaySection
         <h2>{section.title}</h2>
         {content.groups.map((group) => (
           <div className="region-skill-group" key={group.category}>
-            <h3>{group.category}</h3>
-            <ul className="region-tags">{group.items.map((item) => <li key={item}>{item}</li>)}</ul>
+            <p>{group.category && <><strong>{group.category}:</strong>{" "}</>}{group.items.join(", ")}</p>
           </div>
         ))}
       </section>
@@ -71,7 +72,7 @@ function RenderSection({ section, summaryOverride }: { section: CvDisplaySection
     return (
       <section className="region-section region-links">
         <h2>{section.title}</h2>
-        <ul>{content.items.map((item) => <li key={item.url}><a href={item.url} target="_blank" rel="noreferrer">{item.label}</a></li>)}</ul>
+        <ul>{content.items.map((item, index) => <li key={`${item.url}-${index}`}>{cvLinkHref(item.url) ? <a href={cvLinkHref(item.url)} target="_blank" rel="noreferrer">{item.label || cvLinkLabel(item.url)}</a> : <span>{item.label || item.url}</span>}</li>)}</ul>
       </section>
     )
   }
@@ -139,11 +140,11 @@ export function RegionalCvLayout({
   profilePicture: StaticImageData
 }) {
   const definition = CV_TEMPLATE_BY_ID[layout]
-  const sidebar = data.sections.filter((section) => section.placement === "sidebar")
-  const main = data.sections.filter((section) => section.placement === "main")
+  const design = cvDesignSchema.parse(data.design ?? { accent: definition.accent })
+  const sidebar = design.columns === "single" ? [] : data.sections.filter((section) => section.placement === "sidebar")
+  const main = design.columns === "single" ? data.sections : data.sections.filter((section) => section.placement === "main")
   const role = data.targetRoleOverride?.trim() || data.title
   const hasSidebar = sidebar.length > 0
-  const design = data.design
   const pageBreaks = new Set(design?.pageBreakBefore ?? [])
   const renderSection = (section: CvDisplaySection) => (
     <div key={section.id} className={pageBreaks.has(section.id) ? "region-section-break" : undefined}>
@@ -151,13 +152,16 @@ export function RegionalCvLayout({
     </div>
   )
   const fonts = { sans: "Arial, Helvetica, sans-serif", serif: "Georgia, 'Times New Roman', serif", humanist: "'Trebuchet MS', Arial, sans-serif" }
-  const pageWidth = design?.page === "Letter" ? "216mm" : "210mm"
-  const pageHeight = design?.page === "Letter" ? "279mm" : "297mm"
+  const pageWidth = design?.page === "Letter" ? "215.9mm" : "210mm"
+  const pageHeight = design?.page === "Letter" ? "279.4mm" : "297mm"
 
   return (
     <>
-      <style>{`${regionalStyles}\n@page { size: ${design?.page ?? "A4"}; margin: 0; }`}</style>
+      <style>{`${regionalStyles}\n@page { size: ${design.page}; margin: ${design.marginMm}mm; }`}</style>
       <article
+        data-appearance={design.appearance}
+        data-dates={design.datePlacement}
+        data-headings={design.headingStyle}
         className={`cv-document regional-cv regional-cv--${layout} ${hasSidebar && design?.columns !== "single" ? "regional-cv--has-sidebar" : ""} ${hasSidebar && design?.columns !== "single" && design?.sidebarPosition === "right" ? "regional-cv--sidebar-right" : ""}`}
         style={{
           "--cv-accent": design?.accent ?? definition.accent,
@@ -167,6 +171,7 @@ export function RegionalCvLayout({
           "--cv-font": fonts[design?.fontFamily ?? "sans"], "--cv-font-size": `${design?.baseFontPt ?? 9.5}pt`,
           "--cv-line-height": design?.lineHeight ?? 1.45, "--cv-section-gap": `${design?.sectionGapMm ?? 5}mm`,
           "--cv-entry-gap": `${design?.entryGapMm ?? 4}mm`, "--cv-photo-radius": design?.photoShape === "circle" ? "50%" : design?.photoShape === "rounded" ? "4mm" : "0",
+          "--cv-photo-size": `${design.photoSizeMm}mm`,
           width: pageWidth, minHeight: pageHeight, padding: `${design?.marginMm ?? 18}mm`,
           fontFamily: fonts[design?.fontFamily ?? "sans"], fontSize: `${design?.baseFontPt ?? 9.5}pt`, lineHeight: design?.lineHeight ?? 1.45,
         } as React.CSSProperties}
@@ -175,15 +180,14 @@ export function RegionalCvLayout({
         <header className="region-header">
           <Portrait data={data} profilePicture={profilePicture} />
           <div className="region-header__identity">
-            <p className="region-header__eyebrow">Curriculum Vitae</p>
             <h1>{data.name}</h1>
             <p className="region-header__role">{role}</p>
           </div>
           <address className="region-contact">
-            {data.location && <span>{data.location}</span>}
+            {design.showLocation && (design.locationLabel || data.location) && <span>{design.locationLabel || data.location}{" "}</span>}
             {data.email && <a href={`mailto:${data.email}`}>{data.email}</a>}
             {data.phone && <a href={`tel:${data.phone.replace(/\s/g, "")}`}>{data.phone}</a>}
-            {data.piva && <span>{data.piva}</span>}
+            {design.showTaxId && data.piva && <span>{data.piva}</span>}
           </address>
         </header>
 
@@ -195,9 +199,9 @@ export function RegionalCvLayout({
               {sidebar.map(renderSection)}
             </aside>
           )}
-          <main className="region-main">
+          <div className="region-main">
             {main.map(renderSection)}
-          </main>
+          </div>
         </div>
 
         {(data.regionalOptions?.showSignature || data.regionalOptions?.customFooter) && (
@@ -318,9 +322,59 @@ const regionalStyles = `
   .regional-cv--post_soviet_local_resume .region-body { gap:6mm; margin-top:10px; }
   .regional-cv--post_soviet_local_resume .region-main, .regional-cv--post_soviet_local_resume .region-sidebar { gap:10px; }
 
+  /* A restrained application layout, independent of the regional content conventions. */
+  .regional-cv[data-appearance="professional"] { background: white; border: 0; }
+  .regional-cv[data-appearance="professional"] .region-header {
+    display:grid; grid-template-columns:minmax(0,1fr) auto; gap:1mm 5mm;
+    margin:0; padding:0 0 4mm; color:var(--cv-ink); background:none;
+    border:0; border-bottom:.4mm solid var(--cv-accent);
+  }
+  .regional-cv[data-appearance="professional"] .region-header__identity { grid-column:1; grid-row:1; }
+  .regional-cv[data-appearance="professional"] .region-header h1 { font-family:inherit; font-size:2.2em; line-height:1.1; font-weight:700; letter-spacing:-.02em; }
+  .regional-cv[data-appearance="professional"] .region-header__role { font-size:1.1em; font-weight:500; line-height:1.3; color:var(--cv-ink); margin:1mm 0 0; }
+  .regional-cv[data-appearance="professional"] .region-contact { grid-column:1; grid-row:2; flex-direction:row; flex-wrap:wrap; justify-content:flex-start; text-align:left; gap:1mm 4mm; max-width:none; font-size:.9em; color:var(--cv-muted); }
+  .regional-cv .region-portrait { width:var(--cv-photo-size); height:var(--cv-photo-size); flex-shrink:0; }
+  .regional-cv[data-appearance="professional"] .region-portrait { display:block; grid-column:2; grid-row:1 / span 2; border:0; }
+  .regional-cv[data-appearance="professional"] .region-body { margin-top:var(--cv-section-gap); gap:6mm; }
+  .regional-cv[data-appearance="professional"] .region-section { display:block; }
+  .regional-cv[data-appearance="professional"] .region-section > h2 { color:var(--cv-accent); font-size:1.05em; letter-spacing:.02em; text-transform:none; text-align:left; border:0; border-bottom:.2mm solid #cbd1d6; padding:0 0 1mm; margin:0 0 2mm; }
+  .regional-cv[data-headings="spacing"] .region-section > h2 { border:0; padding:0; }
+  .regional-cv .region-body:not(:has(.region-sidebar)) { display:block; }
+  .regional-cv.regional-cv--sidebar-right .region-body { grid-template-columns:minmax(0,1fr) var(--cv-sidebar-width); }
+  .regional-cv .region-sidebar, .regional-cv .region-main, .regional-cv .region-log__items { display:block; }
+  .regional-cv .region-sidebar > div + div, .regional-cv .region-main > div + div { margin-top:var(--cv-section-gap); }
+  .regional-cv .region-log__items > article + article { margin-top:var(--cv-entry-gap); }
+  .regional-cv .region-section { break-inside:auto; page-break-inside:auto; }
+  .regional-cv .region-entry { display:block; break-inside:auto; page-break-inside:auto; }
+  .regional-cv .region-entry__heading { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:0 3mm; break-inside:avoid; break-after:avoid; page-break-after:avoid; }
+  .regional-cv .region-entry__heading > div { grid-column:1; grid-row:1; }
+  .regional-cv .region-entry__heading h3 { font-size:1em; font-weight:700; line-height:1.3; }
+  .regional-cv .region-entry__date { display:block; grid-column:2; grid-row:1; max-width:40mm; padding:0; text-align:right; font-size:.9em; font-weight:400; color:var(--cv-muted); }
+  .regional-cv[data-dates="left"] .region-entry__heading { grid-template-columns:25mm minmax(0,1fr); }
+  .regional-cv[data-dates="left"] .region-entry__date { grid-column:1; text-align:left; }
+  .regional-cv[data-dates="left"] .region-entry__heading > div { grid-column:2; }
+  .regional-cv[data-dates="above"] .region-entry__heading, .regional-cv .region-sidebar .region-entry__heading { display:flex; flex-direction:column; gap:0; }
+  .regional-cv[data-dates="above"] .region-entry__date, .regional-cv .region-sidebar .region-entry__date { order:-1; }
+  .regional-cv .region-entry__heading:not(:has(.region-entry__date)) { display:block; }
+  .regional-cv[data-dates="above"] .region-entry__date, .regional-cv .region-sidebar .region-entry__date { max-width:none; text-align:left; margin-bottom:1mm; }
+  .regional-cv .region-entry__subtitle { font-size:.95em; font-weight:500; margin:1mm 0 0; }
+  .regional-cv .region-entry__bullets { padding-left:4mm; margin:1.5mm 0 0; list-style:disc outside; }
+  .regional-cv .region-entry__bullets li { margin:0 0 1mm; orphans:2; widows:2; }
+  .regional-cv .region-entry__bullets li:first-child { break-before:avoid; }
+  .regional-cv .region-entry__bullets li:last-child:not(:first-child) { break-before:avoid; }
+  .regional-cv .region-entry--short { break-inside:avoid; page-break-inside:avoid; }
+  .regional-cv .region-technologies, .regional-cv .region-entry-link { font-size:.9em; margin:1.5mm 0 0; color:var(--cv-muted); break-before:avoid; }
+  .regional-cv .region-skill-group p { margin:0; font-size:1em; }
+  .regional-cv .region-skill-group + .region-skill-group { margin-top:1.5mm; }
+  .regional-cv .region-text p { color:var(--cv-ink); white-space:pre-line; }
+  .regional-cv a { color:inherit; overflow-wrap:anywhere; text-decoration:underline; text-underline-offset:2px; }
+  .regional-cv p { orphans:2; widows:2; }
   @media print {
-    .regional-cv { width:210mm; max-width:none; min-height:0; box-shadow:none; }
-    .region-entry, .region-section { break-inside:avoid; page-break-inside:avoid; }
-    .region-section--projects .region-entry__external-link { display:none; }
+    .regional-cv { width:auto !important; max-width:none !important; min-height:0 !important; padding:0 !important; box-shadow:none; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+    .regional-cv .region-section { break-inside:auto; page-break-inside:auto; }
+    .regional-cv .region-section > h2 { break-after:avoid; page-break-after:avoid; }
+    .regional-cv .region-header { break-inside:avoid; }
+    .regional-cv[data-appearance="regional"] .region-header { margin:0; }
+    .regional-cv .region-footer { break-inside:avoid; }
   }
 `

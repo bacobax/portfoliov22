@@ -47,6 +47,9 @@ import { changePresetLanguage, changePresetTemplate, createRegionalPreset } from
 import { createCvData } from "@/lib/cv-data-transform"
 import { RegionalCvLayout } from "@/components/cv/regional-layout"
 import { CvScaleToFit } from "@/components/cv/cv-scale-to-fit"
+import { CvDesignPanel, CvQualityReview } from "@/components/cv/cv-design-panel"
+import { CvPrintButton } from "@/components/cv/cv-print-button"
+import { splitSentences } from "@/lib/cv-data-transform"
 import {
   COUNTRY_LOCALES,
   CV_COUNTRIES,
@@ -965,25 +968,7 @@ export default function CvEditorPage() {
               <button type="button" role="tab" aria-selected={editorView === "source"} onClick={() => switchEditorView("source")}><Code2 className="w-4 h-4" /> Source</button>
             </div>
             {editorView === "design" && <main className="cv-editor-main">
-              <EditorCard sectionId="design" title="Document design" icon={<Palette className="w-4 h-4" />}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <SelectField label="Page" value={activePreset.design.page} options={["A4", "Letter"]} onChange={(page) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, page: page as "A4" | "Letter" } }))} />
-                  <SelectField label="Columns" value={activePreset.design.columns} options={["sidebar", "single"]} onChange={(columns) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, columns: columns as "sidebar" | "single" } }))} />
-                  <SelectField label="Sidebar position" value={activePreset.design.sidebarPosition} options={["left", "right"]} onChange={(sidebarPosition) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, sidebarPosition: sidebarPosition as "left" | "right" } }))} />
-                  <SelectField label="Font" value={activePreset.design.fontFamily} options={["sans", "humanist", "serif"]} onChange={(fontFamily) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, fontFamily: fontFamily as "sans" | "humanist" | "serif" } }))} />
-                  <NumberField label="Page margin (mm)" value={activePreset.design.marginMm} min={6} max={30} step={1} onChange={(marginMm) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, marginMm } }))} />
-                  <NumberField label="Sidebar width (mm)" value={activePreset.design.sidebarWidthMm} min={38} max={80} step={1} onChange={(sidebarWidthMm) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, sidebarWidthMm } }))} />
-                  <NumberField label="Font size (pt)" value={activePreset.design.baseFontPt} min={7} max={13} step={0.5} onChange={(baseFontPt) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, baseFontPt } }))} />
-                  <NumberField label="Line height" value={activePreset.design.lineHeight} min={1.1} max={1.9} step={0.05} onChange={(lineHeight) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, lineHeight } }))} />
-                  <NumberField label="Section spacing (mm)" value={activePreset.design.sectionGapMm} min={1} max={16} step={1} onChange={(sectionGapMm) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, sectionGapMm } }))} />
-                  <NumberField label="Entry spacing (mm)" value={activePreset.design.entryGapMm} min={1} max={12} step={1} onChange={(entryGapMm) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, entryGapMm } }))} />
-                  <ColorField label="Accent" value={activePreset.design.accent} onChange={(accent) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, accent } }))} />
-                  <ColorField label="Text" value={activePreset.design.ink} onChange={(ink) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, ink } }))} />
-                  <ColorField label="Muted text" value={activePreset.design.muted} onChange={(muted) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, muted } }))} />
-                  <SelectField label="Photo shape" value={activePreset.design.photoShape} options={["square", "rounded", "circle"]} onChange={(photoShape) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, photoShape: photoShape as "square" | "rounded" | "circle" } }))} />
-                  <FieldWithHint label="Page break before section IDs (comma-separated)" value={activePreset.design.pageBreakBefore.join(", ")} onChange={(value) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, pageBreakBefore: value.split(",").map((item) => item.trim()).filter(Boolean) } }))} />
-                </div>
-              </EditorCard>
+              <CvDesignPanel preset={activePreset} onChange={(design) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design }))} />
             </main>}
             {editorView === "source" && <main className="cv-editor-main">
               <EditorCard sectionId="source" title="JSON source" icon={<Code2 className="w-4 h-4" />}>
@@ -1168,9 +1153,11 @@ export default function CvEditorPage() {
 
           {/* ── Live preview ── */}
           <aside className="cv-editor-split__preview">
+            <CvQualityReview preset={activePreset} />
             <div className="cv-editor-preview-header">
               <span className="cv-editor-preview-header__title">Live Preview</span>
               <div className="cv-editor-preview-header__controls">
+                <CvPrintButton className="cv-btn cv-btn--sm" />
                 <button type="button" className="cv-editor-preview-zoom-btn" aria-label="Zoom out"
                   onClick={() => setPreviewZoom((z) => Math.max(0.2, z - 0.1))}>−</button>
                 <span className="cv-editor-preview-zoom-label">{Math.round(previewZoom * 100)}%</span>
@@ -1181,7 +1168,7 @@ export default function CvEditorPage() {
             </div>
             <div className="cv-editor-preview-scaler">
               {previewData && (
-                <CvScaleToFit maxScale={previewZoom}>
+                <CvScaleToFit maxScale={previewZoom} page={activePreset.design.page}>
                   <RegionalCvLayout layout={activePreset.layout} data={previewData} profilePicture={profilePicture} />
                 </CvScaleToFit>
               )}
@@ -1251,17 +1238,6 @@ function EditorCard({
 }
 
 /* ── FieldWithHint ── */
-function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
-  return <div className="cv-field"><label className="cv-field__label">{label}</label><select className="cv-field__input" value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
-}
-
-function NumberField({ label, value, min, max, step, onChange }: { label: string; value: number; min: number; max: number; step: number; onChange: (value: number) => void }) {
-  return <div className="cv-field"><label className="cv-field__label">{label}</label><input className="cv-field__input" type="number" value={value} min={min} max={max} step={step} onChange={(event) => { const next = Number(event.target.value); if (event.target.value && next >= min && next <= max) onChange(next) }} /></div>
-}
-
-function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return <div className="cv-field"><label className="cv-field__label">{label}</label><div className="cv-color-field"><input aria-label={`${label} color picker`} type="color" value={value} onChange={(event) => onChange(event.target.value)} /><input className="cv-field__input" aria-label={`${label} hex color`} value={value} readOnly /></div></div>
-}
 
 function FieldWithHint({
   label, value, onChange, placeholder,
@@ -1772,12 +1748,13 @@ function LogSectionEditor({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <FieldWithHint label="Title" value={entry.title} onChange={(v) => update(i, { title: v })} />
             <FieldWithHint label="Subtitle" value={entry.subtitle} onChange={(v) => update(i, { subtitle: v })} placeholder="e.g. Company, Institution" />
-            <FieldWithHint label="Start Date" value={entry.dateStart} onChange={(v) => update(i, { dateStart: v })} placeholder="e.g. 2022" />
-            <FieldWithHint label="End Date" value={entry.dateEnd} onChange={(v) => update(i, { dateEnd: v })} placeholder="e.g. Present" />
+            <FieldWithHint label="Start Date" value={entry.dateStart} onChange={(v) => update(i, { dateStart: v })} placeholder="YYYY-MM, e.g. 2024-09" />
+            <FieldWithHint label="End Date" value={entry.dateEnd} onChange={(v) => update(i, { dateEnd: v })} placeholder="YYYY-MM or Present" />
             <FieldWithHint label="URL" value={entry.url || ""} onChange={(v) => update(i, { url: v || undefined })} placeholder="Optional link" />
           </div>
-          <TextAreaWithHint label="Description" value={entry.description} onChange={(v) => update(i, { description: v })} rows={2} ai />
-          <InlineTagsEditor label="Tags" items={entry.tags} onChange={(tags) => update(i, { tags })} />
+          <TextAreaWithHint label="Achievements — one bullet per line" value={entry.description} onChange={(v) => update(i, { description: v })} rows={4} ai />
+          <p className="cv-writing-hint">{entry.description.trim() ? entry.description.trim().split(/\s+/).length : 0} words · {splitSentences(entry.description).length} bullets. Aim for 2–3 concise points: objective, contribution, result. Blank lines do not add space.</p>
+          <InlineTagsEditor label="Technologies — printed as comma-separated text" items={entry.tags} onChange={(tags) => update(i, { tags })} />
         </div>
       ))}
       <button type="button" className="cv-btn cv-btn--sm" onClick={onRequestAdd ?? add}>

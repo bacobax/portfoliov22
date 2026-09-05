@@ -8,9 +8,43 @@
     "targetCountry": "Italy",
     "documentLanguage": "en",
     "templateVersion": 1,
-    "regionalOptions": { "showPhoto": false, "personalFields": [], "showSignature": false, "documentDate": "", "customFooter": "" },
+    "regionalOptions": {
+      "showPhoto": false,
+      "personalFields": [],
+      "showSignature": false,
+      "documentDate": "",
+      "customFooter": ""
+    },
     "visible": false,
-    "design": { "page": "A4", "marginMm": 18, "columns": "sidebar", "sidebarPosition": "left", "sidebarWidthMm": 54, "fontFamily": "sans", "baseFontPt": 9.5, "lineHeight": 1.45, "accent": "#9a3412", "ink": "#17202a", "muted": "#5f6973", "sectionGapMm": 5, "entryGapMm": 4, "photoShape": "square", "pageBreakBefore": [] },
-    "content": { "name": "Example Person", "title": "Product Designer", "sections": [] }
+    "design": {
+      "page": "A4",
+      "marginMm": 16,
+      "columns": "single",
+      "sidebarPosition": "left",
+      "sidebarWidthMm": 54,
+      "fontFamily": "sans",
+      "baseFontPt": 10.5,
+      "lineHeight": 1.35,
+      "accent": "#9a3412",
+      "ink": "#17202a",
+      "muted": "#5f6973",
+      "sectionGapMm": 5,
+      "entryGapMm": 4,
+      "photoShape": "square",
+      "pageBreakBefore": [],
+      "appearance": "professional",
+      "datePlacement": "right",
+      "photoSizeMm": 22,
+      "headingStyle": "divider",
+      "showTaxId": false,
+      "showLocation": true,
+      "locationLabel": "",
+      "showProjectStatus": false
+    },
+    "content": {
+      "name": "Example Person",
+      "title": "Product Designer",
+      "sections": []
+    }
   }
 }
