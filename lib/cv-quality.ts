@@ -1,5 +1,5 @@
 import type { CvPreset } from "@/lib/cv-presets"
-import { splitSentences } from "@/lib/cv-data-transform"
+import { descriptionBulletCount } from "@/lib/cv-data-transform"
 
 export function cvLinkHref(value: string): string | undefined {
   const trimmed = value.trim()
@@ -36,9 +36,9 @@ export function cvQualityNotes(preset: CvPreset): string[] {
     }
     if (section.data.type !== "log") continue
     for (const entry of section.data.entries) {
-      const bullets = splitSentences(entry.description)
+      const bullets = descriptionBulletCount(entry.description)
       const words = entry.description.trim().split(/\s+/).filter(Boolean).length
-      if (words > 90 || bullets.length > 3) notes.push(`${entry.title || section.title}: consider 2–3 concise bullets covering your contribution and result (${words} words, ${bullets.length} bullets).`)
+      if (words > 90 || bullets > 3) notes.push(`${entry.title || section.title}: consider a shorter paragraph or 2–3 concise bullets covering your contribution and result (${words} words, ${bullets} bullets).`)
       if (entry.url && !cvLinkHref(entry.url)) notes.push(`${entry.title || section.title}: the link needs a valid web address.`)
     }
   }

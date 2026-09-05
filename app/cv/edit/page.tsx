@@ -49,7 +49,7 @@ import { RegionalCvLayout } from "@/components/cv/regional-layout"
 import { CvScaleToFit } from "@/components/cv/cv-scale-to-fit"
 import { CvDesignPanel, CvQualityReview } from "@/components/cv/cv-design-panel"
 import { CvPrintButton } from "@/components/cv/cv-print-button"
-import { splitSentences } from "@/lib/cv-data-transform"
+import { descriptionBulletCount } from "@/lib/cv-data-transform"
 import {
   COUNTRY_LOCALES,
   CV_COUNTRIES,
@@ -1752,8 +1752,8 @@ function LogSectionEditor({
             <FieldWithHint label="End Date" value={entry.dateEnd} onChange={(v) => update(i, { dateEnd: v })} placeholder="YYYY-MM or Present" />
             <FieldWithHint label="URL" value={entry.url || ""} onChange={(v) => update(i, { url: v || undefined })} placeholder="Optional link" />
           </div>
-          <TextAreaWithHint label="Achievements — one bullet per line" value={entry.description} onChange={(v) => update(i, { description: v })} rows={4} ai />
-          <p className="cv-writing-hint">{entry.description.trim() ? entry.description.trim().split(/\s+/).length : 0} words · {splitSentences(entry.description).length} bullets. Aim for 2–3 concise points: objective, contribution, result. Blank lines do not add space.</p>
+          <TextAreaWithHint label="Description" value={entry.description} onChange={(v) => update(i, { description: v })} rows={4} ai />
+          <p className="cv-writing-hint">{entry.description.trim() ? entry.description.trim().split(/\s+/).length : 0} words · {descriptionBulletCount(entry.description)} bullets. Plain text stays a paragraph. Start a line with “- ” for a bullet; use a blank line between paragraphs.</p>
           <InlineTagsEditor label="Technologies — printed as comma-separated text" items={entry.tags} onChange={(tags) => update(i, { tags })} />
         </div>
       ))}

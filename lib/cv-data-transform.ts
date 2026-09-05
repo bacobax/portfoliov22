@@ -1,13 +1,29 @@
 import type { CvContent, CvSection, CvSectionData } from "@/lib/cv-content"
-import type { CvData, CvDisplaySection, CvDisplayContent } from "@/components/cv/cv-types"
+import type { CvData, CvDisplaySection, CvDisplayContent, CvDescriptionBlock } from "@/components/cv/cv-types"
 import type { CvPreset } from "@/lib/cv-presets"
 import { labelsForLocale, type CvLocale } from "@/lib/cv-templates"
 
-// One authored line is one bullet. Do not split abbreviations or decimal results.
-export const splitSentences = (value: string): string[] => value
-  .split(/\r?\n/)
-  .map((item) => item.trim().replace(/^(?:[-*•]\s+|\d+[.)]\s+)/, ""))
-  .filter(Boolean)
+// Plain text stays prose; only explicit list markers create bullet items.
+export function parseCvDescription(value: string): CvDescriptionBlock[] {
+  const blocks: CvDescriptionBlock[] = []
+  let previous: (typeof blocks)[number] | undefined
+  for (const line of value.split(/\r?\n/)) {
+    const text = line.trim()
+    if (!text) { previous = undefined; continue }
+    const bullet = text.match(/^[-*•]\s+(.+)$/)
+    if (bullet) {
+      if (previous?.type === "bullets") previous.items.push(bullet[1])
+      else { previous = { type: "bullets", items: [bullet[1]] }; blocks.push(previous) }
+    } else {
+      if (previous?.type === "paragraph") previous.text += `\n${text}`
+      else { previous = { type: "paragraph", text }; blocks.push(previous) }
+    }
+  }
+  return blocks
+}
+
+export const descriptionBulletCount = (value: string): number => parseCvDescription(value)
+  .reduce((count, block) => count + (block.type === "bullets" ? block.items.length : 0), 0)
 
 export const formatLabel = (value: string): string => {
   return value.replace(/\s+/g, " ").trim()
@@ -34,7 +50,7 @@ function transformSectionData(data: CvSectionData, locale: CvLocale, hideStatus 
           title: formatLabel(e.title),
           subtitle: formatLabel(e.subtitle),
           dates: [e.dateStart, e.dateEnd].filter((date) => date && !(hideStatus && /^(production|beta|development|ongoing|terminated|completed)$/i.test(date.trim()))).map((date) => localizeDate(date, locale)).join("–"),
-          bullets: splitSentences(e.description),
+          description: parseCvDescription(e.description),
           tags: e.tags.map(formatLabel),
           url: e.url || undefined,
         })),

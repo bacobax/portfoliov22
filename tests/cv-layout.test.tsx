@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
 import { RegionalCvLayout } from "@/components/cv/regional-layout"
-import { createCvData, formatLabel, splitSentences } from "@/lib/cv-data-transform"
+import { createCvData, formatLabel, parseCvDescription, descriptionBulletCount } from "@/lib/cv-data-transform"
 import { cvDesignSchema, professionalCvDesign } from "@/lib/cv-document"
 import { cvLinkHref, cvQualityNotes } from "@/lib/cv-quality"
 import { professionalCvFixture } from "./fixtures/professional-cv"
@@ -9,7 +9,26 @@ import { professionalCvFixture } from "./fixtures/professional-cv"
 describe("professional CV layout", () => {
   it("preserves acronyms and authored bullet boundaries, including abbreviations", () => {
     expect(formatLabel("AI & AWS / PyTorch")).toBe("AI & AWS / PyTorch")
-    expect(splitSentences("- Built a U.S. service with 99.9% uptime.\n\n• Reduced latency. Improved accuracy.")).toEqual(["Built a U.S. service with 99.9% uptime.", "Reduced latency. Improved accuracy."])
+    expect(parseCvDescription("Built a U.S. service with 99.9% uptime.\n\n- Reduced latency. Improved accuracy.\n• Shipped safely.")).toEqual([
+      { type: "paragraph", text: "Built a U.S. service with 99.9% uptime." },
+      { type: "bullets", items: ["Reduced latency. Improved accuracy.", "Shipped safely."] },
+    ])
+    expect(descriptionBulletCount("A plain description.\nAnother line.")).toBe(0)
+  })
+  it("renders prose as paragraphs and only explicitly marked items as bullets", () => {
+    const preset = professionalCvFixture()
+    const section = preset.content.sections.find((s) => s.id === "experience")!
+    if (section.data.type !== "log") throw new Error("fixture")
+    section.data.entries[0].description = "Researching synthetic data. Training generative models.\n\nA second paragraph.\n- Measured quality.\n* Improved accuracy.\nClosing context."
+    const html = renderToStaticMarkup(<RegionalCvLayout layout={preset.layout} data={createCvData(preset.content, preset)} profilePicture={{ src: "/photo.png", width: 100, height: 100 }} />)
+    expect(html).toContain('<p class="region-entry__description">Researching synthetic data. Training generative models.</p>')
+    expect(html).toContain('<p class="region-entry__description">A second paragraph.</p>')
+    expect(html).toContain('<ul class="region-entry__bullets"><li>Measured quality.</li><li>Improved accuracy.</li></ul>')
+    expect(html).toContain('<p class="region-entry__description">Closing context.</p>')
+    expect(parseCvDescription("First line.\nSecond line.\n\nThird paragraph.")).toEqual([
+      { type: "paragraph", text: "First line.\nSecond line." },
+      { type: "paragraph", text: "Third paragraph." },
+    ])
   })
   it("renders single-column content in authored order with separated skills and safe links", () => {
     const preset = professionalCvFixture()

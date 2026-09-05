@@ -10,10 +10,14 @@ export interface CvDisplayLogEntry {
   title: string
   subtitle: string
   dates: string
-  bullets: string[]
+  description: CvDescriptionBlock[]
   tags: string[]
   url?: string
 }
+
+export type CvDescriptionBlock =
+  | { type: "paragraph"; text: string }
+  | { type: "bullets"; items: string[] }
 
 export interface CvDisplaySection {
   id: string

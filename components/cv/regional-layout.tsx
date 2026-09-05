@@ -20,7 +20,9 @@ function LogSection({ section }: { section: CvDisplaySection }) {
 }
 
 function LogEntry({ entry }: { entry: CvDisplayLogEntry }) {
-  const short = entry.bullets.join(" ").split(/\s+/).length <= 85 && entry.bullets.length <= 3
+  const descriptionText = entry.description.map((block) => block.type === "paragraph" ? block.text : block.items.join(" ")).join(" ")
+  const bulletCount = entry.description.reduce((count, block) => count + (block.type === "bullets" ? block.items.length : 0), 0)
+  const short = descriptionText.split(/\s+/).length <= 85 && bulletCount <= 3
   const href = entry.url ? cvLinkHref(entry.url) : undefined
   return (
     <article className={`region-entry ${short ? "region-entry--short" : "region-entry--long"}`}>
@@ -32,11 +34,9 @@ function LogEntry({ entry }: { entry: CvDisplayLogEntry }) {
           </div>
           {entry.dates && <span className="region-entry__date">{entry.dates}</span>}
         </div>
-        {entry.bullets.length > 0 && (
-          <ul className="region-entry__bullets">
-            {entry.bullets.map((bullet, index) => <li key={`${bullet}-${index}`}>{bullet}</li>)}
-          </ul>
-        )}
+        {entry.description.map((block, index) => block.type === "paragraph"
+          ? <p className="region-entry__description" key={index}>{block.text}</p>
+          : <ul className="region-entry__bullets" key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}</ul>)}
         {entry.tags.length > 0 && (
           <p className="region-technologies" aria-label={`${entry.title} skills`}>{entry.tags.join(", ")}</p>
         )}
@@ -359,6 +359,7 @@ const regionalStyles = `
   .regional-cv[data-dates="above"] .region-entry__date, .regional-cv .region-sidebar .region-entry__date { max-width:none; text-align:left; margin-bottom:1mm; }
   .regional-cv .region-entry__subtitle { font-size:.95em; font-weight:500; margin:1mm 0 0; }
   .regional-cv .region-entry__bullets { padding-left:4mm; margin:1.5mm 0 0; list-style:disc outside; }
+  .regional-cv .region-entry__description { margin:1.5mm 0 0; white-space:pre-line; }
   .regional-cv .region-entry__bullets li { margin:0 0 1mm; orphans:2; widows:2; }
   .regional-cv .region-entry__bullets li:first-child { break-before:avoid; }
   .regional-cv .region-entry__bullets li:last-child:not(:first-child) { break-before:avoid; }
