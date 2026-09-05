@@ -501,10 +501,10 @@ export function withDefaultCustomColor(
         content.profileData.bio,
       headline:
         content.profileData.headline ??
-        "Software engineering. With agents in the loop.",
+        "I build AI systems and full-stack software.",
       agentSummary:
         content.profileData.agentSummary ??
-        "Claude Code and Codex across planning, implementation, debugging, and review.",
+        "I use Claude Code and Codex for planning, implementation, debugging, and review.",
     },
     contactData: content.contactData ?? defaults.contactData,
     experienceLog: content.experienceLog ?? defaults.experienceLog,
@@ -533,12 +533,12 @@ export const defaultContent: PortfolioContent = {
   profileData: {
     name: "JOHN_DOE.exe",
     title: "AI + FULL-STACK ENGINEER",
-    bio: "Building scalable systems and crafting pixel-perfect interfaces. Specializing in modern web technologies, cloud architecture, and performance optimization. Currently architecting solutions at TechCorp Industries.",
+    bio: "I build scalable software with modern web technologies and cloud infrastructure. My work includes frontend development, backend systems, and performance optimization.",
     publicBio:
-      "AI Systems master’s student connecting research ideas with software that runs—from generative models and computer vision to full-stack products.",
-    headline: "Software engineering. With agents in the loop.",
+      "I am an AI Systems master’s student working on generative models, computer vision, and full-stack software.",
+    headline: "I build AI systems and full-stack software.",
     agentSummary:
-      "Claude Code and Codex across planning, implementation, debugging, and review.",
+      "I use Claude Code and Codex for planning, implementation, debugging, and review.",
   },
   contactData: {
     location: "Via Entracque, 10, Cuneo (12100)",

@@ -35,7 +35,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 export const metadata: Metadata = {
   title: "Francesco Bassignana - Portfolio",
   description:
-    "Portfolio of Francesco Bassignana — AI systems, generative models, computer vision, full-stack development, and research.",
+    "Francesco Bassignana's portfolio: AI systems, generative models, computer vision, full-stack development, and research.",
 };
 
 export default function RootLayout({

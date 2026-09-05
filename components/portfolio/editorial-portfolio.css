@@ -1056,11 +1056,53 @@ ul{list-style:none}
    RECRUITER-FIRST LANDING PAGE
 ============================================================ */
 .recruiter-portfolio .sec{padding:clamp(78px,11vh,132px) 0}
+.recruiter-portfolio main>.sec,
+.recruiter-portfolio main>.recruiter-contact{scroll-margin-top:72px}
+.recruiter-portfolio main>.sec:not(.featured-work)::before,
+.recruiter-portfolio main>.recruiter-contact::before{
+  content:"";position:absolute;left:var(--pad);right:var(--pad);top:0;height:1px;
+  background:var(--rule);opacity:.72;pointer-events:none
+}
+.recruiter-portfolio main>.recruiter-contact{position:relative}
 .recruiter-portfolio .section-intro.compact{
   display:grid;grid-template-columns:minmax(0,8fr) minmax(250px,4fr);
   gap:clamp(28px,5vw,80px);align-items:end;margin-bottom:clamp(42px,7vh,70px)
 }
 .recruiter-portfolio .section-intro.compact p{max-width:42ch}
+
+/* A quiet, ChatGPT-style section position indicator. */
+.section-progress{
+  position:fixed;z-index:90;left:clamp(10px,1.4vw,22px);top:50%;translate:0 -50%;
+  display:flex;flex-direction:column;align-items:flex-start;padding:8px 0;color:var(--fg)
+}
+.section-progress a{
+  position:relative;width:46px;height:22px;display:flex;align-items:center;
+  color:inherit;text-decoration:none
+}
+.section-progress i{
+  display:block;width:11px;height:3px;border-radius:99px;background:currentColor;opacity:.2;
+  transition:width .32s var(--ease),opacity .32s var(--ease),height .32s var(--ease)
+}
+.section-progress a[data-distance="6"] i{width:11px;opacity:.2}
+.section-progress a[data-distance="5"] i{width:13px;opacity:.23}
+.section-progress a[data-distance="4"] i{width:16px;opacity:.28}
+.section-progress a[data-distance="3"] i{width:20px;opacity:.34}
+.section-progress a[data-distance="2"] i{width:25px;opacity:.44}
+.section-progress a[data-distance="1"] i{width:31px;opacity:.62}
+.section-progress a[data-distance="0"] i{width:38px;height:4px;opacity:.94}
+.section-progress span{
+  position:absolute;left:43px;top:50%;translate:-5px -50%;white-space:nowrap;
+  padding:6px 9px;border:1px solid var(--rule);border-radius:8px;
+  background:color-mix(in srgb,var(--bg) 88%,transparent);color:var(--fg);
+  box-shadow:0 8px 24px -16px rgba(13,13,18,.6);backdrop-filter:blur(10px);
+  font-family:var(--font-mono);font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .18s ease,translate .22s var(--ease),visibility 0s .22s
+}
+.section-progress a:hover span,.section-progress a:focus-visible span{
+  translate:0 -50%;opacity:1;visibility:visible;transition-delay:0s
+}
+.section-progress a:focus-visible{outline-offset:1px}
 
 /* Hero: role, agent tooling, and proof are all visible on the first screen. */
 .recruiter-hero{padding-top:88px;justify-content:stretch;min-height:100svh}
@@ -1221,8 +1263,28 @@ ul{list-style:none}
 .about-education-grid{display:grid;grid-template-columns:minmax(0,7fr) minmax(320px,5fr);gap:clamp(36px,6vw,92px);align-items:start}
 .about-compact-copy{display:grid;grid-template-columns:144px minmax(0,1fr);gap:28px;align-items:start}
 .about-compact-copy .about-portrait{width:144px;flex-basis:auto}
-.about-compact-copy h2{font-size:clamp(1.8rem,3.5vw,3.5rem);line-height:1.02;letter-spacing:-.04em;margin-top:15px;max-width:18ch}
-.about-links{display:flex;flex-wrap:wrap;gap:18px;margin-top:28px}
+.about-profile-heading{font-size:clamp(1.5rem,2.5vw,2.35rem);line-height:1;letter-spacing:-.035em;margin-top:15px}
+.about-disclosure{margin-top:24px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.about-disclosure-trigger{
+  width:100%;min-height:54px;display:flex;align-items:center;justify-content:space-between;
+  gap:18px;padding:12px 2px;text-align:left
+}
+.about-disclosure-trigger .mono{font-size:.62rem;opacity:.68}
+.about-disclosure-trigger i{
+  position:relative;width:24px;height:24px;flex:0 0 24px;border:1px solid var(--rule);border-radius:50%;
+  transition:transform .35s var(--ease),background-color .25s,color .25s
+}
+.about-disclosure-trigger i::before,.about-disclosure-trigger i::after{
+  content:"";position:absolute;left:50%;top:50%;width:9px;height:1px;background:currentColor;translate:-50% -50%
+}
+.about-disclosure-trigger i::after{rotate:90deg}
+.about-disclosure-trigger:hover i{background:var(--fg);color:var(--bg)}
+.about-disclosure.open .about-disclosure-trigger i{transform:rotate(45deg)}
+.about-description-panel{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .42s var(--ease),opacity .3s ease}
+.about-description-panel>div{overflow:hidden}
+.about-description-panel p{max-width:52ch;padding:0 2px 20px;font-size:clamp(.98rem,1.2vw,1.1rem);line-height:1.65}
+.about-disclosure.open .about-description-panel{grid-template-rows:1fr;opacity:1}
+.about-links{display:flex;flex-wrap:wrap;gap:18px;margin-top:22px}
 .about-links a{font-family:var(--font-mono);font-size:.68rem;text-decoration:none;text-transform:uppercase;letter-spacing:.09em;border-bottom:1px solid var(--rule)}
 .education-compact-list{border-top:1px solid var(--rule)}
 .education-compact-list article{padding:24px 0;border-bottom:1px solid var(--rule)}
@@ -1251,6 +1313,17 @@ ul{list-style:none}
 }
 
 @media(max-width:820px){
+  .section-progress{left:auto;right:6px;align-items:flex-end}
+  .section-progress a{width:28px;height:18px;justify-content:flex-end}
+  .section-progress i{width:8px;height:2px}
+  .section-progress a[data-distance="6"] i{width:8px}
+  .section-progress a[data-distance="5"] i{width:9px}
+  .section-progress a[data-distance="4"] i{width:11px}
+  .section-progress a[data-distance="3"] i{width:13px}
+  .section-progress a[data-distance="2"] i{width:16px}
+  .section-progress a[data-distance="1"] i{width:19px}
+  .section-progress a[data-distance="0"] i{width:23px;height:3px}
+  .section-progress span{display:none}
   .recruiter-portfolio .section-intro.compact,.workflow-heading,.about-education-grid{grid-template-columns:1fr}
   .recruiter-hero{min-height:auto;padding-top:82px}
   .recruiter-hero-grid{grid-template-columns:1fr;min-height:auto;padding-top:54px;padding-bottom:0}
@@ -1282,7 +1355,7 @@ ul{list-style:none}
 }
 
 @media(max-width:560px){
-  .recruiter-portfolio .sec{padding:72px 0}
+  .recruiter-portfolio .sec{padding:82px 0 70px}
   .recruiter-hero-grid{padding-top:38px}
   .recruiter-hero .eyebrow{font-size:.56rem;line-height:1.5}
   .recruiter-hero h1{font-size:clamp(3rem,15vw,4.75rem)}

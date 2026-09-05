@@ -26,7 +26,7 @@ const DEFAULT_PROMPTS: QuickPrompt[] = [
 ]
 
 const DEFAULT_GREETING =
-  "Hey — you found the search. I'm the site. Ask about projects, experience or skills, or pick a question below."
+  "Search the portfolio by project, experience, or skill. You can also select an option below."
 
 type SemanticSearchProps = {
   theme: "dark" | "light"

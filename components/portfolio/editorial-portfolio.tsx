@@ -32,9 +32,9 @@ import type { ThemeMode } from "@/lib/theme";
 
 import "./editorial-portfolio.css";
 
-const DEFAULT_HEADLINE = "Software engineering. With agents in the loop.";
+const DEFAULT_HEADLINE = "I build AI systems and full-stack software.";
 const DEFAULT_AGENT_SUMMARY =
-  "Claude Code and Codex across planning, implementation, debugging, and review.";
+  "I use Claude Code and Codex for planning, implementation, debugging, and review.";
 
 const FEATURED_TITLE_FALLBACKS = [
   "prompt engineering thesis",
@@ -43,10 +43,20 @@ const FEATURED_TITLE_FALLBACKS = [
 ] as const;
 
 const WORKFLOW_STEPS = [
-  { number: "01", title: "Inspect", copy: "Map the codebase, constraints, and risks." },
-  { number: "02", title: "Plan", copy: "Compare approaches and define acceptance checks." },
-  { number: "03", title: "Build", copy: "Implement in bounded, reviewable changes." },
-  { number: "04", title: "Verify", copy: "Run tests, inspect diffs, and challenge the result." },
+  { number: "01", title: "Inspect", copy: "Review the codebase, constraints, and risks." },
+  { number: "02", title: "Plan", copy: "Select an approach and define acceptance criteria." },
+  { number: "03", title: "Build", copy: "Implement the solution in reviewable changes." },
+  { number: "04", title: "Verify", copy: "Run tests and review the result." },
+] as const;
+
+const PORTFOLIO_SECTIONS = [
+  { id: "top", label: "Introduction" },
+  { id: "work", label: "Selected work" },
+  { id: "ai-workflow", label: "AI workflow" },
+  { id: "experience", label: "Experience" },
+  { id: "capabilities", label: "Capabilities" },
+  { id: "about", label: "About" },
+  { id: "contact", label: "Contact" },
 ] as const;
 
 const FULL_STACK_PRIORITY = [
@@ -195,8 +205,11 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [navScrolled, setNavScrolled] = useState(false);
   const [darkSection, setDarkSection] = useState(false);
+  const [activeSection, setActiveSection] = useState<string>("top");
+  const [hoveredSectionIndex, setHoveredSectionIndex] = useState<number | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [showAllProjects, setShowAllProjects] = useState(false);
+  const [aboutExpanded, setAboutExpanded] = useState(false);
   const [searchOrigin, setSearchOrigin] = useState<{ x: number; y: number } | null>(null);
 
   const projectRecords = useMemo<ProjectRecord[]>(
@@ -311,6 +324,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
         const rect = section.getBoundingClientRect();
         return rect.top <= middle && rect.bottom >= middle;
       });
+      if (active?.id) setActiveSection(active.id);
       setDarkSection(active?.dataset.editorialTheme === "dark");
     };
     const onScroll = () => {
@@ -342,6 +356,10 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
   const headline = content?.profileData.headline || DEFAULT_HEADLINE;
   const agentSummary = content?.profileData.agentSummary || DEFAULT_AGENT_SUMMARY;
   const projectCount = projectRecords.length;
+  const activeSectionIndex = PORTFOLIO_SECTIONS.findIndex(
+    (section) => section.id === activeSection,
+  );
+  const navigationPeakIndex = hoveredSectionIndex ?? activeSectionIndex;
 
   const closeMenu = () => setMenuOpen(false);
   const openSearchFrom = (origin: { x: number; y: number } | null) => {
@@ -378,6 +396,33 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
         title={`${firstName.toUpperCase()}* — LIVE SEARCH`}
         quickPrompts={searchQuickPrompts}
       />
+
+      <nav
+        className="section-progress"
+        aria-label="Page sections"
+        onMouseLeave={() => setHoveredSectionIndex(null)}
+      >
+        {PORTFOLIO_SECTIONS.map((section, index) => {
+          const distance = Math.abs(index - navigationPeakIndex);
+          const isActive = index === activeSectionIndex;
+
+          return (
+            <a
+              key={section.id}
+              data-distance={distance}
+              href={`#${section.id}`}
+              aria-label={`Go to ${section.label}`}
+              aria-current={isActive ? "location" : undefined}
+              onMouseEnter={() => setHoveredSectionIndex(index)}
+              onFocus={() => setHoveredSectionIndex(index)}
+              onBlur={() => setHoveredSectionIndex(null)}
+            >
+              <i aria-hidden="true" />
+              <span>{section.label}</span>
+            </a>
+          );
+        })}
+      </nav>
 
       <header className={`nav ${navScrolled ? "scrolled" : ""}`}>
         <div className="nav-inner">
@@ -523,8 +568,8 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
           <div className="wrap">
             <SectionLabel>Selected work</SectionLabel>
             <div className="section-intro compact">
-              <h2 className="h2">Proof before promises.</h2>
-              <p>Three projects spanning AI-assisted software engineering, applied research, and production delivery.</p>
+              <h2 className="h2">Selected projects.</h2>
+              <p>Three projects in AI-assisted software engineering, applied research, and production software.</p>
             </div>
 
             <div className="featured-project-grid">
@@ -638,7 +683,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
           <div className="wrap">
             <SectionLabel>AI-assisted engineering</SectionLabel>
             <div className="workflow-heading">
-              <h2 className="h2">Agents accelerate the loop. <span className="thin">I own the result.</span></h2>
+              <h2 className="h2">I use AI agents throughout development. <span className="thin">I remain responsible for the result.</span></h2>
               <div className="workflow-tools mono">
                 <span>Daily tools</span>
                 <b>Claude Code</b>
@@ -655,7 +700,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
               ))}
             </ol>
             <p className="workflow-accountability mono">
-              Architecture, validation, and final quality stay mine.
+              I am responsible for architecture, validation, and final quality.
             </p>
           </div>
         </section>
@@ -669,7 +714,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
           <div className="wrap">
             <SectionLabel>Experience</SectionLabel>
             <div className="section-intro compact">
-              <h2 className="h2">Research depth. <span className="thin">Production range.</span></h2>
+              <h2 className="h2">Research and professional experience.</h2>
             </div>
 
             <div className="experience-list">
@@ -786,7 +831,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
           <div className="wrap">
             <SectionLabel>Capabilities</SectionLabel>
             <div className="section-intro compact">
-              <h2 className="h2">A focused toolkit.</h2>
+              <h2 className="h2">Technical skills.</h2>
             </div>
 
             {isEditorMode && content ? (
@@ -840,7 +885,29 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
                 </div>
                 <div>
                   <span className="mono">{displayName} / 2026</span>
-                  <h2>{publicBio}</h2>
+                  <h2 className="about-profile-heading">Personal profile.</h2>
+                  <div className={`about-disclosure ${aboutExpanded ? "open" : ""}`}>
+                    <button
+                      type="button"
+                      className="about-disclosure-trigger"
+                      aria-expanded={aboutExpanded}
+                      aria-controls="about-description"
+                      onClick={() => setAboutExpanded((expanded) => !expanded)}
+                    >
+                      <span className="mono">
+                        {aboutExpanded ? "Hide description" : "Read description"}
+                      </span>
+                      <i aria-hidden="true" />
+                    </button>
+                    <div
+                      className="about-description-panel"
+                      aria-hidden={!aboutExpanded}
+                    >
+                      <div>
+                        <p id="about-description">{publicBio}</p>
+                      </div>
+                    </div>
+                  </div>
                   <div className="about-links">
                     <a href={`mailto:${email}`}>Email ↗</a>
                     {github && <a href={github} target="_blank" rel="noreferrer">GitHub ↗</a>}
@@ -892,8 +959,8 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
           data-mascot='{"x":0,"y":0.38,"s":0.24,"w":0.62}'
         >
           <div className="wrap">
-            <span className="mono contact-kicker">Available for ambitious engineering teams.</span>
-            <h2 className="h2">Let&apos;s build something dependable.</h2>
+            <span className="mono contact-kicker">Available for engineering roles and collaborations.</span>
+            <h2 className="h2">Contact me.</h2>
             <div className="contact-actions">
               <a className="btn" href={`mailto:${email}?subject=Hello Francesco`}>Email me <span className="arr">→</span></a>
               <Link className="btn btn-ghost" href="/cv"><FileText size={17} /> Open CV</Link>

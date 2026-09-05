@@ -1,22 +1,29 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ChevronUp,
   Download,
   Database,
   Eye,
   EyeOff,
+  FileText,
   GripVertical,
   LayoutTemplate,
   Loader2,
+  PencilLine,
   Plus,
+  Rows3,
+  Settings2,
   Sparkles,
   Trash2,
+  UserRound,
   X,
 } from "lucide-react"
 import type { PortfolioContent } from "@/lib/default-content"
@@ -87,14 +94,25 @@ export default function CvEditorPage() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showContentHub, setShowContentHub] = useState(false)
-  const [revision, setRevision] = useState<number | null>(null)
+  const [, setRevision] = useState<number | null>(null)
   const [conflict, setConflict] = useState<{
     draft: CvPreset[]
     latest: CvPreset[]
     revision: number
   } | null>(null)
   const [mobileView, setMobileView] = useState<"editor" | "preview">("editor")
-  const [previewZoom, setPreviewZoom] = useState(0.5)
+  const [previewZoom, setPreviewZoom] = useState(1)
+  const panePositions = useRef({ editor: 0, preview: 0 })
+  const switchMobileView = (view: "editor" | "preview") => {
+    const current = document.querySelector<HTMLElement>(`.cv-editor-split__${mobileView}`)
+    panePositions.current[mobileView] = current?.scrollTop ?? 0
+    setMobileView(view)
+    requestAnimationFrame(() => {
+      const next = document.querySelector<HTMLElement>(`.cv-editor-split__${view}`)
+      if (next) next.scrollTop = panePositions.current[view]
+    })
+  }
+  const [activeEditorSection, setActiveEditorSection] = useState("settings")
   const [pendingEntity, setPendingEntity] = useState<{
     sectionId: "experience" | "education" | "projects"
     entry: CvLogEntry
@@ -116,7 +134,7 @@ export default function CvEditorPage() {
   const activePresetIdRef = useRef("")
   const pendingPresetsRef = useRef<{ presets: CvPreset[]; activePresetId: string } | null>(null)
   const saveChainRef = useRef<Promise<void>>(Promise.resolve())
-  const regionalDialogOpen = newPreset !== null || pendingTemplate !== null
+  const regionalDialogOpen = newPreset !== null || pendingTemplate !== null || pendingEntity !== null
 
   /* ── show default cursor on CV editor ── */
   useEffect(() => {
@@ -127,7 +145,7 @@ export default function CvEditorPage() {
   useEffect(() => {
     if (!regionalDialogOpen) return
     const previous = document.activeElement as HTMLElement | null
-    const dialog = document.querySelector<HTMLElement>(".cv-template-dialog, .cv-template-confirm")
+    const dialog = document.querySelector<HTMLElement>(".cv-create-dialog")
     const focusableSelector = "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])"
     const focusables = () => Array.from(dialog?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])
     requestAnimationFrame(() => focusables()[0]?.focus())
@@ -135,6 +153,7 @@ export default function CvEditorPage() {
       if (event.key === "Escape") {
         setNewPreset(null)
         setPendingTemplate(null)
+        setPendingEntity(null)
         return
       }
       if (event.key !== "Tab") return
@@ -359,8 +378,11 @@ export default function CvEditorPage() {
     (sectionId: string, dir: -1 | 1) => {
       updateSections((ss) => {
         const idx = ss.findIndex((s) => s.id === sectionId)
-        const target = idx + dir
-        if (idx === -1 || target < 0 || target >= ss.length) return ss
+        if (idx === -1) return ss
+        const zone = ss.filter((section) => section.placement === ss[idx].placement)
+        const neighbor = zone[zone.findIndex((section) => section.id === sectionId) + dir]
+        if (!neighbor) return ss
+        const target = ss.findIndex((section) => section.id === neighbor.id)
         const next = [...ss]
         ;[next[idx], next[target]] = [next[target], next[idx]]
         return next
@@ -462,6 +484,65 @@ export default function CvEditorPage() {
   const activePreset = presets.find((p) => p.id === activePresetId)
   const cv = activePreset?.content
   const previewData = activePreset ? createCvData(activePreset.content, activePreset) : null
+  const editorDestinations = cv
+    ? [
+        { id: "settings", label: "CV setup", detail: "Format & visibility", icon: <Settings2 className="w-4 h-4" /> },
+        { id: "profile", label: "Profile", detail: "Identity & contact", icon: <UserRound className="w-4 h-4" /> },
+        { id: "layout", label: "Arrange sections", detail: "Order & placement", icon: <Rows3 className="w-4 h-4" /> },
+        ...cv.sections.map((section) => ({
+          id: `section-${section.id}`,
+          label: section.title,
+          detail: SECTION_TYPE_LABELS[section.type],
+          icon: <FileText className="w-4 h-4" />,
+        })),
+      ]
+    : []
+  const editorDestinationKey = editorDestinations.map((item) => item.id).join("|")
+  const activeEditorIndex = Math.max(0, editorDestinations.findIndex((item) => item.id === activeEditorSection))
+
+  const navigateToEditorSection = useCallback((sectionId: string) => {
+    setMobileView("editor")
+    document.getElementById(`cv-editor-${sectionId}`)?.dispatchEvent(new Event("cv-open-section"))
+    setActiveEditorSection(sectionId)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.getElementById(`cv-editor-${sectionId}`)?.scrollIntoView({
+          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+          block: "start",
+        })
+      })
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!editorDestinationKey || mobileView === "preview") return
+    const editorPane = document.querySelector<HTMLElement>(".cv-editor-split__editor")
+    const anchors = Array.from(document.querySelectorAll<HTMLElement>("[data-cv-editor-anchor]"))
+    if (anchors.length === 0) return
+
+    const updateActiveSection = () => {
+      const referenceTop = (editorPane?.getBoundingClientRect().top ?? 0) + 32
+      let next = anchors[0]?.dataset.cvEditorAnchor ?? "settings"
+      for (const anchor of anchors) {
+        if (anchor.getBoundingClientRect().top <= referenceTop) {
+          next = anchor.dataset.cvEditorAnchor ?? next
+        } else {
+          break
+        }
+      }
+      setActiveEditorSection((current) => current === next ? current : next)
+    }
+
+    updateActiveSection()
+    editorPane?.addEventListener("scroll", updateActiveSection, { passive: true })
+    window.addEventListener("scroll", updateActiveSection, { passive: true })
+    window.addEventListener("resize", updateActiveSection)
+    return () => {
+      editorPane?.removeEventListener("scroll", updateActiveSection)
+      window.removeEventListener("scroll", updateActiveSection)
+      window.removeEventListener("resize", updateActiveSection)
+    }
+  }, [activePresetId, editorDestinationKey, mobileView])
 
   /* ── guards ── */
   if (!isAuthenticated) return null
@@ -488,7 +569,7 @@ export default function CvEditorPage() {
           <div className="cv-create-dialog cv-template-dialog" role="dialog" aria-modal="true" aria-labelledby="new-cv-title">
             <div className="cv-create-dialog__head">
               <div>
-                <span>Step {newPreset.step} of 3 · Atlas-backed CV</span>
+                <span>Step {newPreset.step} of 3</span>
                 <h2 id="new-cv-title">Create a regional CV</h2>
               </div>
               <button type="button" onClick={() => setNewPreset(null)} aria-label="Cancel CV creation"><X className="w-5 h-5" /></button>
@@ -605,7 +686,7 @@ export default function CvEditorPage() {
                   Continue
                 </button>
               ) : (
-                <button type="button" className="cv-btn cv-btn--primary" disabled={!newPreset.name.trim()} onClick={confirmCreatePreset}>Create from canonical content</button>
+                <button type="button" className="cv-btn cv-btn--primary" disabled={!newPreset.name.trim()} onClick={confirmCreatePreset}>Create CV</button>
               )}
             </div>
           </div>
@@ -631,7 +712,7 @@ export default function CvEditorPage() {
           <div className="cv-create-dialog" role="dialog" aria-modal="true" aria-labelledby="cv-create-title">
             <div className="cv-create-dialog__head">
               <div>
-                <span>Canonical Atlas item</span>
+                <span>New shared item</span>
                 <h2 id="cv-create-title">Add {pendingEntity.sectionId.slice(0, -1)}</h2>
               </div>
               <button type="button" onClick={() => setPendingEntity(null)} aria-label="Cancel creation"><X className="w-5 h-5" /></button>
@@ -697,7 +778,7 @@ export default function CvEditorPage() {
                   setPendingEntity(null)
                 }}
               >
-                Create canonical item
+                Add item
               </button>
             </div>
           </div>
@@ -708,14 +789,14 @@ export default function CvEditorPage() {
       <header className="cv-editor-bar">
         <div className="cv-editor-bar__left">
           <button onClick={() => router.push("/cv")} className="cv-editor-bar__back" type="button">
-            <ArrowLeft className="w-4 h-4" /> Preview
+            <ArrowLeft className="w-4 h-4" /> CVs
           </button>
           <h1 className="cv-editor-bar__title">CV Editor</h1>
         </div>
         <div className="cv-editor-bar__right">
           <span className="cv-editor-bar__status" aria-live="polite">
-            {saving && <><Loader2 className="w-3 h-3 animate-spin" /> Saving to Atlas…</>}
-            {saved && <><Check className="w-3 h-3" /> Saved · revision {revision}</>}
+            {saving && <><Loader2 className="w-3 h-3 animate-spin" /> Saving…</>}
+            {!saving && !error && !conflict && <><Check className="w-3 h-3" /> {saved ? "All changes saved" : "Changes save automatically"}</>}
           </span>
           {error && <span className="cv-editor-bar__status cv-editor-bar__status--err">{error}</span>}
           <button onClick={() => setShowContentHub(true)} className="cv-editor-bar__btn" type="button">
@@ -754,6 +835,7 @@ export default function CvEditorPage() {
             <button
               key={preset.id}
               type="button"
+              aria-pressed={activePresetId === preset.id}
               onClick={() => setActivePresetId(preset.id)}
               className={`cv-preset-tab ${activePresetId === preset.id ? "cv-preset-tab--active" : ""} ${!preset.visible ? "cv-preset-tab--hidden" : ""}`}
             >
@@ -763,7 +845,7 @@ export default function CvEditorPage() {
             </button>
           ))}
           <button type="button" onClick={createPreset} className="cv-preset-tab cv-preset-tab--add">
-            <Plus className="w-3 h-3" /> New Preset
+            <Plus className="w-3 h-3" /> New CV
           </button>
         </div>
       </div>
@@ -771,15 +853,42 @@ export default function CvEditorPage() {
       {/* ── Mobile view toggle ── */}
       {activePreset && (
         <div className="cv-editor-mobile-toggle">
-          <button type="button" onClick={() => setMobileView("editor")}
+          <button type="button" aria-pressed={mobileView === "editor"} onClick={() => switchMobileView("editor")}
             className={`cv-editor-mobile-toggle__btn ${mobileView === "editor" ? "cv-editor-mobile-toggle__btn--active" : ""}`}>
-            Editor
+            <PencilLine className="w-4 h-4" /> Edit CV
           </button>
-          <button type="button" onClick={() => setMobileView("preview")}
+          <button type="button" aria-pressed={mobileView === "preview"} onClick={() => switchMobileView("preview")}
             className={`cv-editor-mobile-toggle__btn ${mobileView === "preview" ? "cv-editor-mobile-toggle__btn--active" : ""}`}>
             <Eye className="w-3 h-3" /> Preview
           </button>
         </div>
+      )}
+
+      {activePreset && cv && (
+        <nav className="cv-section-nav" aria-label="CV sections">
+          <div className="cv-section-nav__heading">
+            <span><Rows3 className="w-4 h-4" /> Jump to section</span>
+            <span>{activeEditorIndex + 1} / {editorDestinations.length}</span>
+          </div>
+          <div className="cv-section-nav__controls">
+            <button type="button" aria-label="Previous section" disabled={activeEditorIndex === 0}
+              onClick={() => navigateToEditorSection(editorDestinations[activeEditorIndex - 1].id)}><ChevronLeft className="w-4 h-4" /></button>
+            <select aria-label="Choose CV section" value={editorDestinations[activeEditorIndex]?.id ?? "settings"}
+              onChange={(event) => navigateToEditorSection(event.target.value)}>
+              {editorDestinations.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+            </select>
+            <button type="button" aria-label="Next section" disabled={activeEditorIndex === editorDestinations.length - 1}
+              onClick={() => navigateToEditorSection(editorDestinations[activeEditorIndex + 1].id)}><ChevronRight className="w-4 h-4" /></button>
+          </div>
+          <div className="cv-section-nav__rail">
+            {editorDestinations.map((item) => (
+              <button key={item.id} type="button" aria-current={activeEditorSection === item.id ? "location" : undefined}
+                onClick={() => navigateToEditorSection(item.id)} title={item.detail}>
+                {item.icon}{item.label}
+              </button>
+            ))}
+          </div>
+        </nav>
       )}
 
       {activePreset && cv ? (
@@ -787,16 +896,16 @@ export default function CvEditorPage() {
           <div className="cv-editor-split__editor">
             <main className="cv-editor-main">
               {/* ─── Preset Settings ─── */}
-              <EditorCard title="Preset Settings" icon={<LayoutTemplate className="w-4 h-4" />}>
+              <EditorCard sectionId="settings" title="CV setup" icon={<LayoutTemplate className="w-4 h-4" />}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="cv-field">
                     <label className="cv-field__label">Preset Name</label>
-                    <input className="cv-field__input" value={activePreset.name}
+                    <input aria-label="Preset Name" className="cv-field__input" value={activePreset.name}
                       onChange={(e) => renamePreset(activePreset.id, e.target.value)} />
                   </div>
                   <div className="cv-field">
                     <label className="cv-field__label">Target country</label>
-                    <select className="cv-field__input" value={activePreset.targetCountry}
+                    <select aria-label="Target country" className="cv-field__input" value={activePreset.targetCountry}
                       onChange={(e) => {
                         const country = e.target.value as CvCountry
                         updatePresetMetadata(activePreset.id, (preset) => ({
@@ -812,7 +921,7 @@ export default function CvEditorPage() {
                   </div>
                   <div className="cv-field">
                     <label className="cv-field__label">Regional template</label>
-                    <select className="cv-field__input" value={activePreset.layout}
+                    <select aria-label="Regional template" className="cv-field__input" value={activePreset.layout}
                       onChange={(e) => setPendingTemplate(e.target.value as CvLayoutId)}>
                       {CV_TEMPLATES.map((template) => <option key={template.id} value={template.id}>{template.shortLabel}{template.id === templateForCountry(activePreset.targetCountry) ? " · recommended" : ""}</option>)}
                     </select>
@@ -820,7 +929,7 @@ export default function CvEditorPage() {
                   </div>
                   <div className="cv-field">
                     <label className="cv-field__label">Document language</label>
-                    <select className="cv-field__input" value={activePreset.documentLanguage}
+                    <select aria-label="Document language" className="cv-field__input" value={activePreset.documentLanguage}
                       onChange={(e) => updatePresetMetadata(activePreset.id, (preset) => changePresetLanguage(preset, e.target.value as CvLocale))}>
                       {COUNTRY_LOCALES[activePreset.targetCountry].map((locale) => <option key={locale} value={locale}>{new Intl.DisplayNames(["en"], { type: "language" }).of(locale) ?? locale}</option>)}
                     </select>
@@ -844,13 +953,13 @@ export default function CvEditorPage() {
                 <div className="cv-regional-settings">
                   <div className="cv-field">
                     <label className="cv-field__label">Target role override</label>
-                    <input className="cv-field__input" value={activePreset.targetRoleOverride ?? ""}
+                    <input aria-label="Target role override" className="cv-field__input" value={activePreset.targetRoleOverride ?? ""}
                       placeholder={cv.title || "Role title"}
                       onChange={(e) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, targetRoleOverride: e.target.value || undefined }))} />
                   </div>
                   <div className="cv-field">
                     <label className="cv-field__label">Preset summary override</label>
-                    <textarea className="cv-field__input cv-field__textarea" rows={3} value={activePreset.summaryOverride ?? ""}
+                    <textarea aria-label="Preset summary override" className="cv-field__input cv-field__textarea" rows={3} value={activePreset.summaryOverride ?? ""}
                       placeholder="Leave empty to use the canonical profile summary"
                       onChange={(e) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, summaryOverride: e.target.value || undefined }))} />
                   </div>
@@ -861,7 +970,7 @@ export default function CvEditorPage() {
                   {activePreset.regionalOptions.showSignature && <FieldWithHint label="Document date / place" value={activePreset.regionalOptions.documentDate} onChange={(documentDate) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, regionalOptions: { ...preset.regionalOptions, documentDate } }))} />}
                   <div className="cv-field">
                     <label className="cv-field__label">Optional footer</label>
-                    <textarea className="cv-field__input cv-field__textarea" rows={2} value={activePreset.regionalOptions.customFooter}
+                    <textarea aria-label="Optional footer" className="cv-field__input cv-field__textarea" rows={2} value={activePreset.regionalOptions.customFooter}
                       onChange={(e) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, regionalOptions: { ...preset.regionalOptions, customFooter: e.target.value } }))} />
                     {activePreset.targetCountry === "Italy" && <span className="cv-field__hint">No generic GDPR consent is added automatically. Add wording only when the specific application requires it.</span>}
                   </div>
@@ -876,7 +985,7 @@ export default function CvEditorPage() {
               </EditorCard>
 
               {/* ─── Profile ─── */}
-              <EditorCard title="Profile / Header">
+              <EditorCard sectionId="profile" title="Profile & contact" icon={<UserRound className="w-4 h-4" />}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <FieldWithHint label="Full Name" value={cv.name || ""} onChange={(v) => updateProfile("name", v || undefined)} />
                   <FieldWithHint label="Title / Role" value={cv.title || ""} onChange={(v) => updateProfile("title", v || undefined)} />
@@ -908,7 +1017,7 @@ export default function CvEditorPage() {
               </EditorCard>
 
               {/* ─── Section Layout Organizer ─── */}
-              <EditorCard title="Section Layout" icon={<GripVertical className="w-4 h-4" />}>
+              <EditorCard sectionId="layout" title="Arrange sections" icon={<GripVertical className="w-4 h-4" />}>
                 <SectionLayoutOrganizer
                   sections={cv.sections}
                   onMove={moveSection}
@@ -923,12 +1032,14 @@ export default function CvEditorPage() {
               {cv.sections.map((section) => (
                 <EditorCard
                   key={section.id}
+                  sectionId={`section-${section.id}`}
                   title={section.title}
                   badge={SECTION_TYPE_LABELS[section.type]}
                   titleEditable
                   onTitleChange={(t) => renameSection(section.id, t)}
                   muted={!section.visible}
                 >
+                  {!section.visible && <p className="cv-hidden-note"><EyeOff className="w-4 h-4" /> Hidden from your CV. Show this section in Arrange sections.</p>}
                   <SectionDataEditor
                     section={section}
                     onChange={(data) => updateSectionById(section.id, (s) => ({ ...s, data }))}
@@ -961,10 +1072,10 @@ export default function CvEditorPage() {
             <div className="cv-editor-preview-header">
               <span className="cv-editor-preview-header__title">Live Preview</span>
               <div className="cv-editor-preview-header__controls">
-                <button type="button" className="cv-editor-preview-zoom-btn"
+                <button type="button" className="cv-editor-preview-zoom-btn" aria-label="Zoom out"
                   onClick={() => setPreviewZoom((z) => Math.max(0.2, z - 0.1))}>−</button>
                 <span className="cv-editor-preview-zoom-label">{Math.round(previewZoom * 100)}%</span>
-                <button type="button" className="cv-editor-preview-zoom-btn"
+                <button type="button" className="cv-editor-preview-zoom-btn" aria-label="Zoom in"
                   onClick={() => setPreviewZoom((z) => Math.min(1, z + 0.1))}>+</button>
                 <span className="cv-editor-preview-header__layout">{CV_TEMPLATE_BY_ID[activePreset.layout].shortLabel} · {CV_TEMPLATE_BY_ID[activePreset.layout].pageGuidance}</span>
               </div>
@@ -998,8 +1109,9 @@ export default function CvEditorPage() {
 
 /* ── EditorCard ── */
 function EditorCard({
-  title, icon, badge, children, titleEditable, onTitleChange, muted,
+  sectionId, title, icon, badge, children, titleEditable, onTitleChange, muted,
 }: {
+  sectionId: string
   title: string
   icon?: React.ReactNode
   badge?: string
@@ -1009,27 +1121,33 @@ function EditorCard({
   muted?: boolean
 }) {
   const [open, setOpen] = useState(true)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const bodyId = useId()
+  useEffect(() => {
+    const card = cardRef.current
+    const reveal = () => setOpen(true)
+    card?.addEventListener("cv-open-section", reveal)
+    return () => card?.removeEventListener("cv-open-section", reveal)
+  }, [])
   return (
-    <div className={`cv-editor-card ${muted ? "cv-editor-card--muted" : ""}`}>
-      <div className="cv-editor-card__header" onClick={() => setOpen(!open)} role="button" tabIndex={0}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
+    <section ref={cardRef} id={`cv-editor-${sectionId}`} data-cv-editor-anchor={sectionId}
+      className={`cv-editor-card ${muted ? "cv-editor-card--muted" : ""}`}>
+      <div className="cv-editor-card__header">
+        <div className="cv-editor-card__identity">
           {icon}
           {titleEditable ? (
-            <input
-              className="cv-editor-card__title-input"
-              value={title}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => onTitleChange?.(e.target.value)}
-            />
-          ) : (
-            <span className="cv-editor-card__title">{title}</span>
-          )}
+            <input className="cv-editor-card__title-input" aria-label="Section title" value={title}
+              onChange={(e) => onTitleChange?.(e.target.value)} />
+          ) : <h2 className="cv-editor-card__title">{title}</h2>}
           {badge && <span className="cv-editor-card__badge">{badge}</span>}
         </div>
-        {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        <button type="button" className="cv-card-collapse" aria-expanded={open} aria-controls={bodyId}
+          aria-label={`${open ? "Collapse" : "Expand"} ${title}`} onClick={() => setOpen(!open)}>
+          {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
       </div>
-      {open && <div className="cv-editor-card__body">{children}</div>}
-    </div>
+      <div id={bodyId} hidden={!open} className="cv-editor-card__body">{children}</div>
+    </section>
   )
 }
 
@@ -1042,10 +1160,11 @@ function FieldWithHint({
   onChange: (v: string) => void
   placeholder?: string
 }) {
+  const fieldId = useId()
   return (
     <div className="cv-field">
-      <label className="cv-field__label">{label}</label>
-      <input
+      <label htmlFor={fieldId} className="cv-field__label">{label}</label>
+      <input id={fieldId}
         className="cv-field__input"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -1065,15 +1184,16 @@ function TextAreaWithHint({
   rows?: number
   ai?: boolean
 }) {
+  const fieldId = useId()
   return (
     <div className="cv-field">
       <div className="cv-field__label-row">
-        <label className="cv-field__label">{label}</label>
+        <label htmlFor={fieldId} className="cv-field__label">{label}</label>
         {ai && value.trim().length > 0 && (
           <AiTextAssistant text={value} onResult={onChange} />
         )}
       </div>
-      <textarea
+      <textarea id={fieldId}
         className="cv-field__input cv-field__textarea"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -1266,7 +1386,10 @@ function SectionLayoutOrganizer({
               >
                 <GripVertical className="w-3 h-3 text-slate-400 flex-shrink-0 cursor-grab" />
                 <span className="section-chip__title">{s.title}</span>
-                <span className="section-chip__type">{SECTION_TYPE_LABELS[s.type]}</span>
+                <select className="section-chip__placement" aria-label={`Placement for ${s.title}`} value={placement}
+                  onChange={(event) => onMove(s.id, event.target.value as "sidebar" | "main", sections.filter((section) => section.placement === event.target.value).length)}>
+                  <option value="sidebar">Sidebar</option><option value="main">Main</option>
+                </select>
                 <div className="section-chip__actions">
                   {i > 0 && (
                     <button type="button" className="section-chip__btn" onClick={() => onSwap(s.id, -1)} title="Move up">
@@ -2717,5 +2840,97 @@ const editorStyles = `
       padding: 12px 0 max(12px, env(safe-area-inset-bottom));
       background: #fff;
     }
+  }
+  /* Workspace: persistent navigation around independently scrolling panes. */
+  .cv-editor-page { height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; color: #172b37; background: #eef2f3; font-family: var(--font-open-sans), Arial, sans-serif; }
+  .cv-editor-page button, .cv-editor-page select { cursor: pointer; }
+  .cv-editor-page button:disabled { opacity: .4; cursor: not-allowed; }
+  .cv-editor-page :is(button, select, input, textarea):focus-visible { outline: 3px solid #0d9488; outline-offset: 3px; }
+  .cv-editor-bar { position: static; flex-shrink: 0; padding: 12px 24px; background: #122b35; }
+  .cv-editor-bar__title { font-size: 18px; letter-spacing: -.03em; }
+  .cv-editor-bar__btn, .cv-editor-bar__back { min-height: 40px; }
+  .cv-editor-bar__status { color: #b3ddd4; font-size: 12px; }
+  .cv-preset-bar { position: static; flex-shrink: 0; padding: 0 20px; background: #fff; border-bottom: 1px solid #d8e1e5; }
+  .cv-preset-bar__tabs { gap: 6px; padding: 6px 0; }
+  .cv-preset-tab { min-height: 44px; border-radius: 8px; color: #475569; }
+  .cv-preset-tab--active { background: #e5f3ef; color: #115e59; border-color: transparent; }
+  .cv-preset-tab__layout { display: none; }
+  .cv-section-nav { flex-shrink: 0; background: #f8fafb; border-bottom: 1px solid #d8e1e5; padding: 10px 24px; }
+  .cv-section-nav__heading { display: none; align-items: center; justify-content: space-between; font-size: 11px; color: #526574; margin-bottom: 6px; }
+  .cv-section-nav__heading > span:first-child { display: flex; align-items: center; gap: 6px; }
+  .cv-section-nav__controls { display: none; gap: 8px; }
+  .cv-section-nav__controls button, .cv-section-nav__controls select { min-height: 44px; border: 1px solid #cbd5df; border-radius: 8px; background: white; color: #172b37; }
+  .cv-section-nav__controls button { width: 44px; flex-shrink: 0; display: grid; place-items: center; }
+  .cv-section-nav__controls select { flex: 1; min-width: 0; padding: 0 12px; font-size: 16px; font-weight: 600; }
+  .cv-section-nav__rail { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
+  .cv-section-nav__rail button { display: flex; align-items: center; gap: 7px; flex-shrink: 0; min-height: 40px; padding: 8px 14px; border: 1px solid transparent; border-radius: 8px; font-size: 13px; color: #526574; background: transparent; }
+  .cv-section-nav__rail button:hover { background: #e8eeef; }
+  .cv-section-nav__rail button[aria-current] { background: #122b35; color: #fff; }
+  .cv-editor-split { flex: 1; min-height: 0; overflow: hidden; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .cv-editor-split__editor, .cv-editor-split__preview { position: relative; top: auto; height: 100%; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+  .cv-editor-split__preview { background: #dfe6e8; }
+  .cv-editor-main { margin: 24px auto; padding: 0 24px 48px; gap: 20px; }
+  .cv-editor-card { border-radius: 14px; border: 1px solid #d8e1e5; box-shadow: 0 3px 12px #122b3505; scroll-margin-top: 16px; flex-shrink: 0; }
+  .cv-editor-card--muted { opacity: 1; border-style: dashed; }
+  .cv-editor-card__header { padding: 12px 18px; background: #fff; gap: 8px; cursor: default; }
+  .cv-editor-card__identity { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+  .cv-editor-card__title { font-size: 16px; letter-spacing: -.02em; margin: 0; }
+  .cv-editor-card__title-input { width: 100%; font-size: 16px; min-height: 44px; }
+  .cv-editor-card__body { padding: 20px; }
+  .cv-card-collapse { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border: 1px solid #e2e8f0; border-radius: 9px; color: #526574; background: #f8fafb; }
+  .cv-field { gap: 6px; min-width: 0; }
+  .cv-field__label { font-size: 12px; color: #475569; text-transform: none; letter-spacing: 0; }
+  .cv-field__input { min-width: 0; min-height: 44px; border-color: #cbd5df; border-radius: 8px; font-size: 14px; line-height: 1.5; padding: 10px 12px; }
+  .cv-field__hint { font-size: 12px; line-height: 1.5; }
+  .cv-entry-card { padding: 16px; gap: 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafb; }
+  .cv-hidden-note { display: flex; align-items: center; gap: 8px; padding: 12px; margin: 0 0 16px; background: #f1f5f9; color: #475569; font-size: 12px; border-radius: 8px; }
+  .cv-btn, .section-zone__add { min-height: 44px; border-radius: 8px; font-size: 13px; }
+  .cv-btn--primary { background: #0f766e; border-color: #0f766e; color: #fff; }
+  .cv-btn--primary:hover { background: #115e59; }
+  .section-chip { flex-wrap: wrap; gap: 8px; padding: 10px; }
+  .section-chip__title { min-width: 80px; font-size: 13px; }
+  .section-chip__placement { min-height: 44px; padding: 6px; border: 1px solid #cbd5df; border-radius: 6px; background: #fff; color: #475569; font-size: 13px; }
+  .section-chip__actions { margin-left: auto; }
+  .section-chip__btn { min-width: 40px; min-height: 44px; justify-content: center; align-items: center; color: #526574; }
+  .cv-editor-preview-header { position: sticky; top: 0; z-index: 2; flex-shrink: 0; min-height: 58px; padding: 12px 16px; background: #eef3f4; color: #172b37; border-bottom: 1px solid #cbd5df; }
+  .cv-editor-preview-header__title { font-size: 12px; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+  .cv-editor-preview-header__layout { display: none; }
+  .cv-editor-preview-zoom-btn { width: 36px; height: 36px; border-color: #cbd5df; background: white; color: #172b37; }
+  .cv-editor-preview-zoom-label { color: #526574; }
+  .cv-editor-preview-scaler { flex: 0 0 auto; overflow: visible; }
+  .cv-create-dialog { border-radius: 16px; }
+  .cv-editor-conflict { flex-shrink: 0; }
+  @media screen and (max-width: 1024px) {
+    .cv-editor-bar { padding: 8px 16px; }
+    .cv-editor-split { grid-template-columns: 1fr; }
+    .cv-editor-split__editor { height: 100%; }
+    .cv-editor-split--preview-mode .cv-editor-split__preview { position: relative; height: 100%; min-height: 0; }
+    .cv-section-nav { padding: 8px 16px; }
+    .cv-section-nav__heading, .cv-section-nav__controls { display: flex; }
+    .cv-section-nav__rail { display: none; }
+    .cv-editor-mobile-toggle { order: 5; position: static; flex-shrink: 0; z-index: 10; padding: 8px 16px max(8px, env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid #d8e1e5; border-bottom: 0; gap: 8px; }
+    .cv-editor-mobile-toggle__btn { flex: 1; justify-content: center; gap: 8px; min-height: 48px; border: 0; border-radius: 10px; font-size: 14px; font-weight: 600; color: #526574; }
+    .cv-editor-mobile-toggle__btn--active { background: #122b35; color: #fff; }
+    .cv-editor-main { max-width: 800px; }
+    .cv-editor-split__editor .cv-editor-main { max-width: 800px; }
+  }
+  @media screen and (max-width: 768px) {
+    .cv-editor-bar { gap: 2px; padding: 6px 12px; }
+    .cv-editor-bar__title { font-size: 16px; }
+    .cv-editor-bar__right { flex-wrap: nowrap; }
+    .cv-editor-bar__status { font-size: 10px; }
+    .cv-editor-bar__btn { font-size: 11px; padding: 4px 8px; }
+    .cv-preset-bar { padding: 0 12px; }
+    .cv-preset-tab { font-size: 12px; padding: 8px 12px; }
+    .cv-editor-main { margin: 12px auto; padding: 0 12px 28px; gap: 14px; }
+    .cv-editor-card__header { padding: 8px 12px; }
+    .cv-editor-card__body { padding: 16px 12px; }
+    .cv-editor-card__badge { display: none; }
+    .cv-field__input, .cv-tags-input, .cv-tag__input, .section-chip__placement { font-size: 16px; }
+    .cv-entry-card { padding: 12px; }
+    .cv-entry-row > .cv-field__input { flex-basis: 100%; }
+    .cv-editor-page :is(.cv-btn--icon, .cv-tag__remove, .ai-assist__trigger, .portfolio-importer__add) { min-width: 44px; min-height: 44px; }
+    .cv-editor-preview-header { align-items: center; min-height: 48px; }
+    .cv-create-dialog { border-radius: 0; }
   }
 `

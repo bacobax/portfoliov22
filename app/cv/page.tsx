@@ -126,6 +126,26 @@ export default async function CvPage() {
             text-align: center;
           }
         }
+        @media screen {
+          .cv-page { background: #e7edef; padding: 24px; gap: 24px; }
+          .toolbar { width: 100%; max-width: 1060px; flex-wrap: wrap; padding: 20px; background: #fff; border: 1px solid #d8e1e5; border-radius: 14px; box-shadow: 0 3px 12px #122b3505; }
+          .toolbar__intro { display: flex; flex-direction: column; gap: 3px; color: #122b35; }
+          .toolbar__intro span { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: #526574; }
+          .toolbar__intro strong { font-size: 20px; letter-spacing: -.03em; }
+          .toolbar__layouts { order: 3; width: 100%; flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding-top: 8px; justify-content: flex-start; }
+          .toolbar__layout-btn { border: 1px solid #d8e1e5; border-radius: 8px; min-height: 44px; flex-shrink: 0; font-size: 13px; letter-spacing: 0; }
+          .toolbar__layout-btn:first-child { border-right: 1px solid #d8e1e5; }
+          .toolbar__layout-btn--active { background: #122b35; }
+          .toolbar__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+          .toolbar__button { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-height: 44px; border-radius: 8px; letter-spacing: 0; font-size: 13px; }
+          .toolbar button:focus-visible { outline: 3px solid #0d9488; outline-offset: 3px; }
+        }
+        @media screen and (max-width: 768px) {
+          .cv-page { padding: 12px 8px 88px; gap: 16px; }
+          .toolbar { padding: 16px; gap: 12px; }
+          .toolbar__actions { position: fixed; bottom: 0; left: 0; right: 0; z-index: 20; background: #fff; padding: 10px 12px max(10px, env(safe-area-inset-bottom)); border-top: 1px solid #d8e1e5; flex-wrap: nowrap; }
+          .toolbar__button { flex: 1; padding: 8px; font-size: 12px; }
+        }
         @media print {
           body {
             background: #ffffff;

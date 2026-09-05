@@ -7,18 +7,14 @@ type Point = {
   y: number;
   z: number;
   size: number;
-  phase: number;
 };
 
-type TextPoint = { x: number; y: number; z: number };
-type ParticleWord = { label: string; points: TextPoint[] };
 type ThemeColor = { h: number; s: number; l: number };
 
 type MascotAnchor = { x: number; y: number; s: number; w: number };
 type AnchorElement = { element: HTMLElement; config: MascotAnchor };
 
 const DEFAULT_ANCHOR: MascotAnchor = { x: 0.52, y: 0.05, s: 1, w: 1 };
-const FORMATION_ANCHOR = { x: 0.62, y: 0.05 };
 
 const clamp = (value: number, min = 0, max = 1) =>
   Math.min(max, Math.max(min, value));
@@ -48,12 +44,6 @@ const hslToRgb = ({ h, s, l }: ThemeColor) => {
 
 const INK = { r: 16, g: 16, b: 20 };
 const PAPER = { r: 171, g: 166, b: 241 };
-const PARTICLE_WORDS = [
-  "AI",
-  "COMPUTER\nVISION",
-  "NATURAL\nLANGUAGE",
-  "FULL\nSTACK",
-];
 
 type ParticleMascotProps = {
   /** invoked when the puppet is clicked, with its current viewport centre */
@@ -104,11 +94,8 @@ export function ParticleMascot({
         y: Math.cos(phi),
         z: Math.sin(phi) * Math.sin(theta),
         size: 0.55 + ((index * 29) % 100) / 105,
-        phase: ((index * 47) % 360) * (Math.PI / 180),
       };
     });
-    let particleWords: ParticleWord[] = [];
-
     let width = window.innerWidth;
     let height = window.innerHeight;
     let dpr = Math.min(window.devicePixelRatio || 1, 1.6);
@@ -144,68 +131,6 @@ export function ParticleMascot({
     let lastAnchorIndex = -1;
     let spinAngle = 0;
     const clickTarget = { x: mascot.x, y: mascot.y };
-
-    const buildParticleWords = () => {
-      const mask = document.createElement("canvas");
-      mask.width = 960;
-      mask.height = 420;
-      const maskContext = mask.getContext("2d", { willReadFrequently: true });
-      if (!maskContext) return;
-
-      particleWords = PARTICLE_WORDS.map((label) => {
-        const lines = label.split("\n");
-        const maxFontSize = lines.length > 1 ? 144 : 245;
-        let fontSize = maxFontSize;
-        maskContext.font = `900 ${fontSize}px Archivo, Arial Black, sans-serif`;
-        while (
-          Math.max(
-            ...lines.map((line) => maskContext.measureText(line).width),
-          ) > 850 &&
-          fontSize > 50
-        ) {
-          fontSize -= 4;
-          maskContext.font = `900 ${fontSize}px Archivo, Arial Black, sans-serif`;
-        }
-
-        maskContext.clearRect(0, 0, mask.width, mask.height);
-        maskContext.fillStyle = "#fff";
-        maskContext.textAlign = "center";
-        maskContext.textBaseline = "middle";
-        const lineHeight = fontSize * 0.94;
-        const firstY = mask.height / 2 - ((lines.length - 1) * lineHeight) / 2;
-        lines.forEach((line, index) => {
-          maskContext.fillText(
-            line,
-            mask.width / 2,
-            firstY + index * lineHeight,
-          );
-        });
-
-        const pixels = maskContext.getImageData(0, 0, mask.width, mask.height);
-        const candidates: Array<{ x: number; y: number }> = [];
-        const step = pointCount > 1500 ? 3 : 4;
-        for (let y = 0; y < mask.height; y += step) {
-          for (let x = 0; x < mask.width; x += step) {
-            if (pixels.data[(y * mask.width + x) * 4 + 3] > 80) {
-              candidates.push({ x, y });
-            }
-          }
-        }
-
-        const textPoints = points.map((_, index) => {
-          const source = candidates[
-            (index * 1543 + (index % 17) * 43) % candidates.length
-          ] ?? { x: mask.width / 2, y: mask.height / 2 };
-          return {
-            x: ((source.x - mask.width / 2) / mask.width) * 3.9,
-            y: ((source.y - mask.height / 2) / mask.height) * 2.1,
-            z: (((index * 73) % 101) / 100 - 0.5) * 0.12,
-          };
-        });
-
-        return { label, points: textPoints };
-      });
-    };
 
     const resize = () => {
       width = window.innerWidth;
@@ -364,29 +289,6 @@ export function ParticleMascot({
       spinAngle += spinImpulse * 0.16;
       spinImpulse *= 0.92;
 
-      /* hero formation geometry (also drives the unified mobile pose) */
-      const formationCenterX = compactHero
-        ? width * 0.5
-        : width * 0.5 + FORMATION_ANCHOR.x * 0.86 * (width * 0.5);
-      const formationCenterY =
-        (heroRect?.top ?? 0) +
-        (compactHero
-          ? height * 0.22
-          : height * 0.5 - FORMATION_ANCHOR.y * 0.8 * (height * 0.5));
-      const formationRadius = compactHero
-        ? Math.min(width * 0.24, height * 0.125)
-        : unit;
-      const formationAlpha = heroRect
-        ? smoothstep(clamp(heroRect.bottom / (height * 0.55)))
-        : 0;
-      /* The formation blob is its OWN entity (same as desktop) on every
-         screen size — it never merges with the eyed puppet. On mobile it is
-         simply centred in the free band above the hero title. */
-      const showFormation =
-        !inSearchPose &&
-        !inWelcomePose &&
-        (compactHero ? formationAlpha > 0.04 : inCover);
-
       let ax = state.x;
       let ay = state.y;
       if (mobile) {
@@ -418,9 +320,7 @@ export function ParticleMascot({
         targetY -= hop * unit * 0.24;
       }
 
-      /* Mobile hero: the formation blob owns the centre of the free band, so
-         the puppet floats beside it in the top-right corner — separate, as
-         always. */
+      /* Keep the puppet clear of the mobile hero title. */
       if (compactHero && inCover && !inSearchPose) {
         targetX = width * 0.85 + pointer.x * 0.3 * unit;
         targetY = height * 0.115 + bob * 0.6;
@@ -525,23 +425,6 @@ export function ParticleMascot({
       const stretchY = (1 - speedSquash) * (1 + hop * 0.14);
       const stretchX = (1 + speedSquash * 0.5) * (1 - hop * 0.07);
 
-      /* Cover choreography: spend most of the cycle as the original blob,
-         then resolve into one crisp particle phrase and breathe back out. */
-      const wordCycle = 10.8;
-      const wordPhase = seconds % wordCycle;
-      const wordIndex = Math.floor(seconds / wordCycle) % PARTICLE_WORDS.length;
-      let textMorph = 0;
-      if (showFormation && !reducedMotion) {
-        if (wordPhase >= 3 && wordPhase < 4.35) {
-          textMorph = smoothstep((wordPhase - 3) / 1.35);
-        } else if (wordPhase >= 4.35 && wordPhase < 7.35) {
-          textMorph = 1;
-        } else if (wordPhase >= 7.35 && wordPhase < 8.7) {
-          textMorph = 1 - smoothstep((wordPhase - 7.35) / 1.35);
-        }
-      }
-      const activeWord = particleWords[wordIndex];
-
       surfaceFrame += 1;
       if (surfaceFrame % 4 === 0) {
         surfaceDark = isDarkSurface(puppetCenterX, puppetCenterY);
@@ -570,90 +453,7 @@ export function ParticleMascot({
       const sinY = Math.sin(mascot.rotY);
       const cosX = Math.cos(mascot.rotX);
       const sinX = Math.sin(mascot.rotX);
-      const formationYaw =
-        seconds * 0.16 +
-        Math.sin(seconds * 0.17) * 0.7 +
-        Math.sin(seconds * 0.071) * 0.28;
-      const formationPitch =
-        Math.sin(seconds * 0.13) * 0.48 + Math.cos(seconds * 0.083) * 0.2;
-      const formationCosY = Math.cos(formationYaw);
-      const formationSinY = Math.sin(formationYaw);
-      const formationCosX = Math.cos(formationPitch);
-      const formationSinX = Math.sin(formationPitch);
-
       if (mascot.alpha > 0.02) {
-        if (showFormation) {
-          for (
-            let pointIndex = 0;
-            pointIndex < points.length;
-            pointIndex += 1
-          ) {
-            const point = points[pointIndex];
-            const noise =
-              Math.sin(point.x * 3.1 + seconds * 0.9) *
-              Math.sin(point.y * 3.7 - seconds * 0.7) *
-              Math.sin(point.z * 2.6 + seconds * 1.1);
-            const ripple = Math.sin(point.y * 7 + seconds * 1.6) * 0.35;
-            const wobble =
-              1 +
-              (noise * 0.22 + ripple * 0.08) * DEFAULT_ANCHOR.w +
-              (point.phase % 0.02);
-
-            const rx = point.x * formationCosY - point.z * formationSinY;
-            const rz0 = point.x * formationSinY + point.z * formationCosY;
-            const ry = point.y * formationCosX - rz0 * formationSinX;
-            const rz = point.y * formationSinX + rz0 * formationCosX;
-
-            const perspective = 0.82 + (rz + 1) * 0.13;
-            const blobX =
-              formationCenterX + rx * formationRadius * wobble * perspective;
-            const blobY =
-              formationCenterY + ry * formationRadius * wobble * perspective;
-            const textPoint = activeWord?.points[pointIndex];
-            const textYaw = Math.sin(seconds * 0.23) * 0.12;
-            const textCos = Math.cos(textYaw);
-            const textSin = Math.sin(textYaw);
-            const textX3 = textPoint
-              ? textPoint.x * textCos - textPoint.z * textSin
-              : 0;
-            const textZ3 = textPoint
-              ? textPoint.x * textSin + textPoint.z * textCos
-              : 0;
-            const textPerspective = 0.94 + textZ3 * 0.08;
-            const textX =
-              formationCenterX + textX3 * formationRadius * textPerspective;
-            const textY =
-              formationCenterY + (textPoint?.y ?? 0) * formationRadius;
-            let x = lerp(blobX, textX, textMorph);
-            let y = lerp(blobY, textY, textMorph);
-
-            /* same local hover-repel used by the AI-section blob: particles
-               push away from the pointer within a small radius */
-            const pdx = x - pointerPx.x;
-            const pdy = y - pointerPx.y;
-            const pdist = Math.max(1, Math.hypot(pdx, pdy));
-            const pinfluence = reducedMotion
-              ? 0
-              : Math.max(0, 1 - pdist / 90);
-            x += (pdx / pdist) * pinfluence * 14;
-            y += (pdy / pdist) * pinfluence * 14;
-
-            const size = Math.max(
-              0.5,
-              point.size *
-                lerp(perspective, textPerspective * 1.22, textMorph) *
-                (mobile ? 0.95 : 1.08),
-            );
-            context.globalAlpha =
-              lerp(0.5 + (rz + 1) * 0.22, 0.92, textMorph) *
-              mascot.alpha *
-              formationAlpha;
-            context.beginPath();
-            context.arc(x, y, size, 0, Math.PI * 2);
-            context.fill();
-          }
-        }
-
         /* The puppet is always its own small, tightly packed sphere. */
         const puppetPointStep = mobile ? 2 : 3;
         for (
@@ -679,7 +479,7 @@ export function ParticleMascot({
           context.fill();
         }
 
-        /* The two-eye face lives on the puppet only — never on the formation. */
+        /* The two-eye face belongs to the puppet. */
         const eyeBodyX = puppetCenterX;
         const eyeBodyY = puppetCenterY;
         const eyeBodyRadius = puppetRadius;
@@ -743,7 +543,7 @@ export function ParticleMascot({
         context.fillStyle = `rgb(${particleRed}, ${particleGreen}, ${particleBlue})`;
       }
 
-      /* keep the click target glued to the puppet (never the formation) */
+      /* Keep the click target glued to the puppet. */
       if (hitbox) {
         const hitRadius = puppetRadius * 0.95;
         const usable =
@@ -809,7 +609,6 @@ export function ParticleMascot({
       }, 140);
     };
 
-    buildParticleWords();
     resize();
     window.addEventListener("resize", onResize);
     window.addEventListener("pointermove", onPointerMove, { passive: true });

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import type { StaticImageData } from "next/image"
+import { ArrowLeft, Download, PencilLine } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import type { CvData, CvLayoutId } from "./cv-types"
@@ -48,11 +49,13 @@ export function CvLayoutSwitcher({
   return (
     <>
       <div className="toolbar">
-        <div className="toolbar__layouts">
+        <div className="toolbar__intro"><span>Curriculum vitae</span><strong>{active.name}</strong></div>
+        <div className="toolbar__layouts" role="group" aria-label="Choose CV version">
           {presets.map((preset) => (
             <button
               key={preset.id}
               type="button"
+              aria-pressed={active.id === preset.id}
               onClick={() => setActiveId(preset.id)}
               className={`toolbar__layout-btn ${active.id === preset.id ? "toolbar__layout-btn--active" : ""}`}
             >
@@ -60,14 +63,14 @@ export function CvLayoutSwitcher({
             </button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+        <div className="toolbar__actions">
           <button
             type="button"
             onClick={() => router.push("/")}
             className="toolbar__button"
             style={{ background: "transparent", color: "#0f172a", borderColor: "#0f172a" }}
           >
-            ← HOME
+            <ArrowLeft size={16} /> Home
           </button>
           {isAuthenticated && (
             <button
@@ -76,11 +79,11 @@ export function CvLayoutSwitcher({
               className="toolbar__button"
               style={{ background: "#3b82f6", borderColor: "#3b82f6" }}
             >
-              EDIT CV
+              <PencilLine size={16} /> Edit CV
             </button>
           )}
           <button type="button" onClick={handlePrint} className="toolbar__button">
-            PRINT / SAVE AS PDF
+            <Download size={16} /> Save as PDF
           </button>
         </div>
       </div>

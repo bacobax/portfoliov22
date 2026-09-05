@@ -70,7 +70,7 @@ export default async function ProjectPage({
 
         <section className="wrap project-detail-hero">
           <article className="project-detail-copy">
-            <span className="mono">( Project spotlight )</span>
+            <span className="mono">( Project overview )</span>
             <h1>{project.title}</h1>
             <p>{project.description}</p>
             <div className="project-detail-actions">
@@ -122,7 +122,7 @@ export default async function ProjectPage({
 
         {metricEntries.length > 0 ? (
           <section className="wrap project-detail-metrics">
-            <p className="sec-label mono">( Impact metrics )</p>
+            <p className="sec-label mono">( Results )</p>
             <div className="metric-grid">
               {metricEntries.map(([label, value]) => (
                 <article key={label} className="metric">
