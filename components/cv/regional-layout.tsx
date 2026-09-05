@@ -12,18 +12,19 @@ function LogSection({ section }: { section: CvDisplaySection }) {
       <h2 id={`cv-${section.id}`}>{section.title}</h2>
       <div className="region-log__items">
         {section.content.entries.map((entry, index) => (
-          <LogEntry key={`${entry.title}-${entry.dates}-${index}`} entry={entry} />
+          <LogEntry key={`${entry.title}-${entry.dates}-${index}`} entry={entry} isProject={section.id === "projects"} />
         ))}
       </div>
     </section>
   )
 }
 
-function LogEntry({ entry }: { entry: CvDisplayLogEntry }) {
+function LogEntry({ entry, isProject }: { entry: CvDisplayLogEntry; isProject: boolean }) {
   const descriptionText = entry.description.map((block) => block.type === "paragraph" ? block.text : block.items.join(" ")).join(" ")
   const bulletCount = entry.description.reduce((count, block) => count + (block.type === "bullets" ? block.items.length : 0), 0)
   const short = descriptionText.split(/\s+/).length <= 85 && bulletCount <= 3
   const href = entry.url ? cvLinkHref(entry.url) : undefined
+  const githubOnRequest = isProject && href && cvLinkLabel(href) === "GitHub"
   return (
     <article className={`region-entry ${short ? "region-entry--short" : "region-entry--long"}`}>
       <div className="region-entry__content">
@@ -40,7 +41,10 @@ function LogEntry({ entry }: { entry: CvDisplayLogEntry }) {
         {entry.tags.length > 0 && (
           <p className="region-technologies" aria-label={`${entry.title} skills`}>{entry.tags.join(", ")}</p>
         )}
-        {href && <p className="region-entry-link"><a href={href} target="_blank" rel="noreferrer">{cvLinkLabel(href)}</a></p>}
+        {href && <p className="region-entry-link">
+          <a className={githubOnRequest ? "region-project-github" : undefined} href={href} target="_blank" rel="noreferrer">{cvLinkLabel(href)}</a>
+          {githubOnRequest && <span className="region-project-github-print">GitHub available upon request</span>}
+        </p>}
       </div>
     </article>
   )
@@ -360,6 +364,7 @@ const regionalStyles = `
   .regional-cv .region-entry__subtitle { font-size:.95em; font-weight:500; margin:1mm 0 0; }
   .regional-cv .region-entry__bullets { padding-left:4mm; margin:1.5mm 0 0; list-style:disc outside; }
   .regional-cv .region-entry__description { margin:1.5mm 0 0; white-space:pre-line; }
+  .regional-cv .region-project-github-print { display:none; }
   .regional-cv .region-entry__bullets li { margin:0 0 1mm; orphans:2; widows:2; }
   .regional-cv .region-entry__bullets li:first-child { break-before:avoid; }
   .regional-cv .region-entry__bullets li:last-child:not(:first-child) { break-before:avoid; }
@@ -371,6 +376,8 @@ const regionalStyles = `
   .regional-cv a { color:inherit; overflow-wrap:anywhere; text-decoration:underline; text-underline-offset:2px; }
   .regional-cv p { orphans:2; widows:2; }
   @media print {
+    .regional-cv .region-project-github { display:none !important; }
+    .regional-cv .region-project-github-print { display:inline; }
     .regional-cv { width:auto !important; max-width:none !important; min-height:0 !important; padding:0 !important; box-shadow:none; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
     .regional-cv .region-section { break-inside:auto; page-break-inside:auto; }
     .regional-cv .region-section > h2 { break-after:avoid; page-break-after:avoid; }
