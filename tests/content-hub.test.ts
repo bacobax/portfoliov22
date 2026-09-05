@@ -6,6 +6,7 @@ import {
   createInitialHub,
   editorPatchSchema,
   materializeCvPresets,
+  publicCvPresets,
   reconcileResolvedPresets,
   validateHubReferences,
 } from "@/lib/content-hub"
@@ -15,6 +16,35 @@ import { createEmptyPreset } from "@/lib/cv-presets"
 const sampleHub = () => createInitialHub(cloneDefaultContent())
 
 describe("canonical content hub", () => {
+  it("keeps all CV wording changes local to the selected draft", () => {
+    const hub = sampleHub()
+    const drafts = materializeCvPresets(hub)
+    const originalName = hub.portfolio.profileData.name
+    const originalEntry = hub.portfolio.experienceLog[0]
+    drafts[0].content.name = "CV-only name"
+    const experience = drafts[0].content.sections.find((section) => section.id === "experience")
+    if (experience?.data.type === "log" && experience.data.entries[0]) {
+      experience.data.entries[0] = { ...experience.data.entries[0], title: "CV-only role", subtitle: "CV-only company", dateStart: "2025-01", dateEnd: "Present", description: "CV-only description", tags: ["CV-only"] }
+    }
+    const next = applyEditorOperations(hub, [{ type: "replace-presets", presets: drafts, activePresetId: drafts[0].id }])
+    expect(next.portfolio.profileData.name).toBe(originalName)
+    expect(next.portfolio.experienceLog[0]).toEqual(originalEntry)
+    expect(materializeCvPresets(next)[0].content.name).toBe("CV-only name")
+    const resolved = materializeCvPresets(next)[0].content.sections.find((section) => section.id === "experience")
+    expect(resolved?.data.type === "log" && resolved.data.entries[0].title).toBe("CV-only role")
+  })
+
+  it("keeps public snapshots frozen until the draft is published", () => {
+    const hub = sampleHub()
+    const presetId = hub.presets[0].id
+    const publishedName = publicCvPresets(hub)[0].content.name
+    hub.portfolio.profileData.name = "Updated shared name"
+    expect(materializeCvPresets(hub)[0].content.name).toBe("Updated shared name")
+    expect(publicCvPresets(hub)[0].content.name).toBe(publishedName)
+    const published = applyEditorOperations(hub, [{ type: "publish-cv", presetId }])
+    expect(publicCvPresets(published).find((preset) => preset.id === presetId)?.content.name).toBe("Updated shared name")
+  })
+
   it("normalizes stable entity ids and validates the canonical schema", () => {
     const hub = sampleHub()
     expect(contentHubDocumentSchema.safeParse(hub).success).toBe(true)

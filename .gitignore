@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Agent CV working copies and local credentials
+/.cv-work/
+.cv-session*

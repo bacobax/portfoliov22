@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "cv": "tsx scripts/cv.ts",
     "migrate:content-hub": "tsx scripts/migrate-content-hub.ts",
+    "migrate:cv-documents": "tsx scripts/migrate-cv-documents.ts",
     "build:embeddings": "node scripts/build-embeddings.mjs",
     "smoke:semantic": "node -e \"const fs=require('fs');const p=process.env.OUTPUT_PATH||'public/semantic/embeddings.json';if(!fs.existsSync(p)){throw new Error('Missing embeddings file: '+p)};console.log('semantic smoke ok:',p);\""
   },

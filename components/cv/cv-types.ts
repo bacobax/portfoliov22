@@ -38,6 +38,7 @@ export type CvData = {
   regionalOptions?: CvRegionalOptions
   targetRoleOverride?: string
   summaryOverride?: string
+  design?: CvDesign
   sections: CvDisplaySection[]
 }
 
@@ -59,6 +60,7 @@ export const CV_LAYOUTS: CvLayoutMeta[] = [
   { id: "post_soviet_local_resume", label: "Post-Soviet Local" },
 ]
 import type { CvProfileExtras } from "@/lib/cv-content"
+import type { CvDesign } from "@/lib/cv-document"
 import type {
   CvCountry,
   CvLayoutId,

@@ -85,7 +85,7 @@ function transformSection(section: CvSection, locale: CvLocale): CvDisplaySectio
 
 /** Build CvData purely from CV content — no server dependencies */
 export function createCvData(cv: CvContent, preset?: Pick<CvPreset,
-  "targetCountry" | "documentLanguage" | "regionalOptions" | "targetRoleOverride" | "summaryOverride"
+  "targetCountry" | "documentLanguage" | "regionalOptions" | "targetRoleOverride" | "summaryOverride" | "design"
 >): CvData {
   const locale = preset?.documentLanguage ?? "en"
   return {
@@ -101,6 +101,7 @@ export function createCvData(cv: CvContent, preset?: Pick<CvPreset,
     regionalOptions: preset?.regionalOptions,
     targetRoleOverride: preset?.targetRoleOverride,
     summaryOverride: preset?.summaryOverride,
+    design: preset?.design,
     sections: cv.sections
       .filter((s) => s.visible)
       .map((section) => transformSection(section, locale)),

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://portfolio.local/schemas/cv-document-v1.json",
+  "title": "Agent-editable CV document v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "baseRevision", "cv"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "baseRevision": { "type": "integer", "minimum": 0 },
+    "cv": { "$ref": "#/$defs/cv" }
+  },
+  "$defs": {
+    "design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["page", "marginMm", "columns", "sidebarPosition", "sidebarWidthMm", "fontFamily", "baseFontPt", "lineHeight", "accent", "ink", "muted", "sectionGapMm", "entryGapMm", "photoShape", "pageBreakBefore"],
+      "properties": {
+        "page": { "enum": ["A4", "Letter"] },
+        "marginMm": { "type": "number", "minimum": 6, "maximum": 30 },
+        "columns": { "enum": ["single", "sidebar"] },
+        "sidebarPosition": { "enum": ["left", "right"] },
+        "sidebarWidthMm": { "type": "number", "minimum": 38, "maximum": 80 },
+        "fontFamily": { "enum": ["sans", "serif", "humanist"] },
+        "baseFontPt": { "type": "number", "minimum": 7, "maximum": 13 },
+        "lineHeight": { "type": "number", "minimum": 1.1, "maximum": 1.9 },
+        "accent": { "$ref": "#/$defs/color" }, "ink": { "$ref": "#/$defs/color" }, "muted": { "$ref": "#/$defs/color" },
+        "sectionGapMm": { "type": "number", "minimum": 1, "maximum": 16 },
+        "entryGapMm": { "type": "number", "minimum": 1, "maximum": 12 },
+        "photoShape": { "enum": ["square", "rounded", "circle"] },
+        "pageBreakBefore": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" },
+    "section": {
+      "type": "object",
+      "required": ["id", "title", "type", "placement", "visible", "data"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 }, "title": { "type": "string" },
+        "titleMode": { "enum": ["template", "custom"] },
+        "type": { "enum": ["log", "tags", "text", "links", "simple-list"] },
+        "placement": { "enum": ["sidebar", "main"] }, "visible": { "type": "boolean" },
+        "data": { "type": "object", "required": ["type"] }
+      }
+    },
+    "cv": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "layout", "targetCountry", "documentLanguage", "templateVersion", "regionalOptions", "visible", "design", "content"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 }, "name": { "type": "string" },
+        "layout": { "enum": ["british_irish", "germanic_tabular", "nordic_concise", "french_speaking_concise", "dutch_tailored", "southern_european", "europass_friendly_structured", "post_soviet_local_resume"] },
+        "targetCountry": { "type": "string" }, "documentLanguage": { "type": "string" },
+        "templateVersion": { "type": "integer", "minimum": 1 }, "targetRoleOverride": { "type": "string" }, "summaryOverride": { "type": "string" },
+        "regionalOptions": { "type": "object" }, "visible": { "type": "boolean" }, "design": { "$ref": "#/$defs/design" },
+        "content": {
+          "type": "object", "required": ["sections"],
+          "properties": {
+            "name": { "type": "string" }, "title": { "type": "string" }, "cvDescription": { "type": "string" },
+            "location": { "type": "string" }, "email": { "type": "string" }, "phone": { "type": "string" }, "piva": { "type": "string" },
+            "profileExtras": { "type": "object" }, "sections": { "type": "array", "items": { "$ref": "#/$defs/section" } }
+          }
+        }
+      }
+    }
+  }
+}

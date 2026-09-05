@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/mongodb";
 import { loadContentHub } from "@/lib/content-hub-db";
-import { materializeCvPresets } from "@/lib/content-hub";
+import { materializeCvPresets, publicCvPresets } from "@/lib/content-hub";
 import type { Document } from "mongodb";
 import {
   createRegionalPreset,
@@ -83,7 +83,7 @@ export async function loadCvPresetsWithFallback(
   portfolio: PortfolioContent,
 ): Promise<CvPresetsDocument> {
   const hub = await loadContentHub();
-  if (hub) return { presets: materializeCvPresets(hub) };
+  if (hub) return { presets: publicCvPresets(hub) };
 
   const doc = await loadCvPresets();
 

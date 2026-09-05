@@ -143,13 +143,33 @@ export function RegionalCvLayout({
   const main = data.sections.filter((section) => section.placement === "main")
   const role = data.targetRoleOverride?.trim() || data.title
   const hasSidebar = sidebar.length > 0
+  const design = data.design
+  const pageBreaks = new Set(design?.pageBreakBefore ?? [])
+  const renderSection = (section: CvDisplaySection) => (
+    <div key={section.id} className={pageBreaks.has(section.id) ? "region-section-break" : undefined}>
+      <RenderSection section={section} summaryOverride={data.summaryOverride} />
+    </div>
+  )
+  const fonts = { sans: "Arial, Helvetica, sans-serif", serif: "Georgia, 'Times New Roman', serif", humanist: "'Trebuchet MS', Arial, sans-serif" }
+  const pageWidth = design?.page === "Letter" ? "216mm" : "210mm"
+  const pageHeight = design?.page === "Letter" ? "279mm" : "297mm"
 
   return (
     <>
-      <style>{regionalStyles}</style>
+      <style>{`${regionalStyles}\n@page { size: ${design?.page ?? "A4"}; margin: 0; }`}</style>
       <article
-        className={`cv-document regional-cv regional-cv--${layout} ${hasSidebar ? "regional-cv--has-sidebar" : ""}`}
-        style={{ "--cv-accent": definition.accent } as React.CSSProperties}
+        className={`cv-document regional-cv regional-cv--${layout} ${hasSidebar && design?.columns !== "single" ? "regional-cv--has-sidebar" : ""} ${hasSidebar && design?.columns !== "single" && design?.sidebarPosition === "right" ? "regional-cv--sidebar-right" : ""}`}
+        style={{
+          "--cv-accent": design?.accent ?? definition.accent,
+          "--cv-ink": design?.ink ?? "#17202a", "--cv-muted": design?.muted ?? "#5f6973",
+          "--cv-page-width": pageWidth, "--cv-page-height": pageHeight,
+          "--cv-margin": `${design?.marginMm ?? 18}mm`, "--cv-sidebar-width": `${design?.sidebarWidthMm ?? 54}mm`,
+          "--cv-font": fonts[design?.fontFamily ?? "sans"], "--cv-font-size": `${design?.baseFontPt ?? 9.5}pt`,
+          "--cv-line-height": design?.lineHeight ?? 1.45, "--cv-section-gap": `${design?.sectionGapMm ?? 5}mm`,
+          "--cv-entry-gap": `${design?.entryGapMm ?? 4}mm`, "--cv-photo-radius": design?.photoShape === "circle" ? "50%" : design?.photoShape === "rounded" ? "4mm" : "0",
+          width: pageWidth, minHeight: pageHeight, padding: `${design?.marginMm ?? 18}mm`,
+          fontFamily: fonts[design?.fontFamily ?? "sans"], fontSize: `${design?.baseFontPt ?? 9.5}pt`, lineHeight: design?.lineHeight ?? 1.45,
+        } as React.CSSProperties}
         lang={data.documentLanguage ?? "en"}
       >
         <header className="region-header">
@@ -172,11 +192,11 @@ export function RegionalCvLayout({
         <div className="region-body">
           {hasSidebar && (
             <aside className="region-sidebar">
-              {sidebar.map((section) => <RenderSection key={section.id} section={section} summaryOverride={data.summaryOverride} />)}
+              {sidebar.map(renderSection)}
             </aside>
           )}
           <main className="region-main">
-            {main.map((section) => <RenderSection key={section.id} section={section} summaryOverride={data.summaryOverride} />)}
+            {main.map(renderSection)}
           </main>
         </div>
 
@@ -199,10 +219,10 @@ export function RegionalCvLayout({
 const regionalStyles = `
   .regional-cv {
     --cv-ink: #17202a; --cv-muted: #5f6973; --cv-paper: #fff; --cv-soft: #f3f5f6;
-    width: 210mm; max-width: 100%; min-height: 297mm; box-sizing: border-box;
-    background: var(--cv-paper); color: var(--cv-ink); padding: 18mm 18mm 16mm;
-    box-shadow: 0 22px 55px rgba(15,23,42,.14); font-family: Arial, Helvetica, sans-serif;
-    font-size: 9.5pt; line-height: 1.45; overflow-wrap: anywhere;
+    width: var(--cv-page-width, 210mm); max-width: 100%; min-height: var(--cv-page-height, 297mm); box-sizing: border-box;
+    background: var(--cv-paper); color: var(--cv-ink); padding: var(--cv-margin, 18mm);
+    box-shadow: 0 22px 55px rgba(15,23,42,.14); font-family: var(--cv-font, Arial, Helvetica, sans-serif);
+    font-size: var(--cv-font-size, 9.5pt); line-height: var(--cv-line-height, 1.45); overflow-wrap: anywhere;
   }
   .region-header { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: start; gap: 16px; padding-bottom: 14px; border-bottom: 2px solid var(--cv-accent); }
   .region-header__eyebrow { margin: 0 0 5px; color: var(--cv-accent); font-size: 7pt; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
@@ -210,20 +230,23 @@ const regionalStyles = `
   .region-header__role { margin: 7px 0 0; color: var(--cv-muted); font-size: 11pt; font-weight: 600; }
   .region-contact { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; max-width: 65mm; font-style: normal; font-size: 8.5pt; text-align: right; }
   .region-contact a { color: inherit; text-decoration: none; }
-  .region-portrait { position: relative; width: 27mm; height: 32mm; overflow: hidden; background: var(--cv-soft); }
+  .region-portrait { position: relative; width: 27mm; height: 32mm; overflow: hidden; background: var(--cv-soft); border-radius: var(--cv-photo-radius, 0); }
   .region-portrait img { width: 100%; height: 100%; object-fit: cover; }
   .region-personal { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 10px 0 0; padding: 8px 0; border-bottom: 1px solid #d9dee2; font-size: 8pt; }
   .region-personal div { display: flex; gap: 5px; } .region-personal dt { color: var(--cv-muted); } .region-personal dd { margin: 0; font-weight: 600; }
   .region-body { display: grid; grid-template-columns: 1fr; gap: 20px; margin-top: 16px; }
-  .regional-cv--has-sidebar .region-body { grid-template-columns: 54mm minmax(0,1fr); }
+  .regional-cv--has-sidebar .region-body { grid-template-columns: var(--cv-sidebar-width, 54mm) minmax(0,1fr); }
+  .regional-cv--sidebar-right .region-sidebar { grid-column: 2; grid-row: 1; padding-right: 0; padding-left: 13px; border-right: 0; border-left: 1px solid #d9dee2; }
+  .regional-cv--sidebar-right .region-main { grid-column: 1; grid-row: 1; }
   .region-sidebar { padding-right: 13px; border-right: 1px solid #d9dee2; }
   .region-main { min-width: 0; }
-  .region-sidebar, .region-main { display: flex; flex-direction: column; gap: 15px; }
+  .region-sidebar, .region-main { display: flex; flex-direction: column; gap: var(--cv-section-gap, 5mm); }
   .region-section { break-inside: avoid; page-break-inside: avoid; }
   .region-section > h2 { margin: 0 0 8px; padding-bottom: 4px; border-bottom: 1px solid #cbd1d6; color: var(--cv-accent); font-size: 9pt; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; break-after: avoid; }
   .region-text p { margin: 0; color: #39434c; }
-  .region-log__items { display: flex; flex-direction: column; gap: 11px; }
-  .region-entry { display: grid; grid-template-columns: minmax(0,1fr); gap: 3px; break-inside: avoid; }
+  .region-log__items { display: flex; flex-direction: column; gap: var(--cv-entry-gap, 4mm); }
+  .region-entry { display: grid; grid-template-columns: minmax(0,1fr); gap: 3px; break-inside: avoid; page-break-inside: avoid; }
+  .region-section-break { break-before: page; page-break-before: always; }
   .region-entry__date { color: var(--cv-muted); font-size: 7.8pt; font-variant-numeric: tabular-nums; }
   .region-entry__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
   .region-entry__heading h3 { margin: 0; font-size: 10pt; line-height: 1.2; }
@@ -266,8 +289,8 @@ const regionalStyles = `
   .regional-cv--nordic_concise .region-body { gap:8mm; }
 
   .regional-cv--french_speaking_concise { --cv-accent:#22577a; padding:12mm 14mm; font-size:8.6pt; }
-  .regional-cv--french_speaking_concise .region-header { margin:-12mm -14mm 0; padding:12mm 14mm 8mm; background:#eef4f7; border:0; }
-  .regional-cv--french_speaking_concise .region-body { grid-template-columns:51mm minmax(0,1fr); gap:7mm; }
+  .regional-cv--french_speaking_concise .region-header { margin:calc(-1 * var(--cv-margin)) calc(-1 * var(--cv-margin)) 0; padding:12mm var(--cv-margin) 8mm; background:#eef4f7; border:0; }
+  .regional-cv--french_speaking_concise.regional-cv--has-sidebar .region-body { grid-template-columns:var(--cv-sidebar-width, 51mm) minmax(0,1fr); gap:7mm; }
   .regional-cv--french_speaking_concise .region-sidebar { padding-right:7mm; }
   .regional-cv--french_speaking_concise .region-main, .regional-cv--french_speaking_concise .region-sidebar { gap:10px; }
 
@@ -277,7 +300,7 @@ const regionalStyles = `
   .regional-cv--dutch_tailored .region-section > h2 { border:0; padding:0; }
 
   .regional-cv--southern_european { --cv-accent:#9a3412; padding:15mm; }
-  .regional-cv--southern_european .region-header { margin:-15mm -15mm 0; padding:12mm 15mm 9mm; color:#fff; background:var(--cv-accent); border:0; }
+  .regional-cv--southern_european .region-header { margin:calc(-1 * var(--cv-margin)) calc(-1 * var(--cv-margin)) 0; padding:12mm var(--cv-margin) 9mm; color:#fff; background:var(--cv-accent); border:0; }
   .regional-cv--southern_european .region-header__eyebrow, .regional-cv--southern_european .region-header__role, .regional-cv--southern_european .region-contact { color:#fff; }
   .regional-cv--southern_european .region-portrait { border:3px solid rgba(255,255,255,.65); }
   .regional-cv--southern_european .region-tags li { border-radius:3px; }

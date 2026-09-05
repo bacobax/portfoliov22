@@ -14,6 +14,9 @@ import {
   Eye,
   EyeOff,
   FileText,
+  Code2,
+  Palette,
+  Send,
   GripVertical,
   LayoutTemplate,
   Loader2,
@@ -38,6 +41,8 @@ import type {
   CvLinkItem,
 } from "@/lib/cv-content"
 import type { CvPreset, CvLayoutId } from "@/lib/cv-presets"
+import { cvAgentDocumentSchema } from "@/lib/cv-agent-document"
+import { CV_DOCUMENT_SCHEMA_VERSION } from "@/lib/cv-document"
 import { changePresetLanguage, changePresetTemplate, createRegionalPreset } from "@/lib/cv-presets"
 import { createCvData } from "@/lib/cv-data-transform"
 import { RegionalCvLayout } from "@/components/cv/regional-layout"
@@ -92,6 +97,10 @@ export default function CvEditorPage() {
   const [activePresetId, setActivePresetId] = useState("")
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [publishedPresetIds, setPublishedPresetIds] = useState<string[]>([])
+  const [editorView, setEditorView] = useState<"content" | "design" | "source">("content")
+  const [sourceText, setSourceText] = useState("")
+  const [sourceError, setSourceError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showContentHub, setShowContentHub] = useState(false)
   const [, setRevision] = useState<number | null>(null)
@@ -175,6 +184,14 @@ export default function CvEditorPage() {
     activePresetIdRef.current = activePresetId
   }, [activePresetId])
 
+  useEffect(() => {
+    if (editorView !== "source" || revisionRef.current === null) return
+    const current = presets.find((preset) => preset.id === activePresetId)
+    if (current) setSourceText(JSON.stringify({ schemaVersion: CV_DOCUMENT_SCHEMA_VERSION, baseRevision: revisionRef.current, cv: current }, null, 2))
+    // Refresh source when the selected CV changes; typing in the source must not reset itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePresetId, editorView])
+
   /* ── auth check ── */
   useEffect(() => {
     ;(async () => {
@@ -194,13 +211,17 @@ export default function CvEditorPage() {
       if (!response.ok) throw new Error(data.error || "Failed to load data")
       const loaded: CvPreset[] = data.presets ?? []
       setPresets(loaded)
+      setPublishedPresetIds(data.publishedPresetIds ?? [])
       if (data.canonicalCvSeed) setCanonicalCvSeed(data.canonicalCvSeed as CvContent)
       if (typeof data.revision === "number") {
         revisionRef.current = data.revision
         setRevision(data.revision)
       }
       setActivePresetId((current) => {
-        const next = loaded.some((preset) => preset.id === current)
+        const requested = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("cv") : null
+        const next = requested && loaded.some((preset) => preset.id === requested)
+          ? requested
+          : loaded.some((preset) => preset.id === current)
           ? current
           : loaded[0]?.id ?? ""
         activePresetIdRef.current = next
@@ -310,6 +331,43 @@ export default function CvEditorPage() {
     },
     [persist],
   )
+
+  const switchEditorView = (view: "content" | "design" | "source") => {
+    setEditorView(view)
+    setSourceError(null)
+    if (view === "source") {
+      const current = presets.find((preset) => preset.id === activePresetId)
+      if (current && revisionRef.current !== null) setSourceText(JSON.stringify({ schemaVersion: CV_DOCUMENT_SCHEMA_VERSION, baseRevision: revisionRef.current, cv: current }, null, 2))
+    }
+  }
+
+  const applySource = () => {
+    let candidate: unknown
+    try { candidate = JSON.parse(sourceText) } catch (sourceParseError) {
+      setSourceError(sourceParseError instanceof Error ? sourceParseError.message : "Invalid JSON")
+      return
+    }
+    const parsed = cvAgentDocumentSchema.safeParse(candidate)
+    if (!parsed.success || parsed.data.cv.id !== activePresetId) {
+      setSourceError(parsed.success ? "The document ID must match the selected CV." : parsed.error.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`).join("\n"))
+      return
+    }
+    setSourceError(null)
+    updatePresets((items) => items.map((item) => item.id === activePresetId ? parsed.data.cv : item))
+  }
+
+  const publishActive = async () => {
+    const baseRevision = revisionRef.current
+    if (!activePresetId || baseRevision === null || saving) return
+    setError(null)
+    const response = await fetch(`/api/cv/documents/${encodeURIComponent(activePresetId)}/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ baseRevision }) })
+    const payload = await response.json().catch(() => null) as { revision?: number; error?: string } | null
+    if (!response.ok || typeof payload?.revision !== "number") { setError(payload?.error ?? "Publish failed"); return }
+    revisionRef.current = payload.revision
+    setRevision(payload.revision)
+    setPublishedPresetIds((ids) => [...new Set([...ids, activePresetId])])
+    setSaved(true)
+  }
 
   /* ── profile fields ── */
   const updateProfile = useCallback(
@@ -799,6 +857,9 @@ export default function CvEditorPage() {
             {!saving && !error && !conflict && <><Check className="w-3 h-3" /> {saved ? "All changes saved" : "Changes save automatically"}</>}
           </span>
           {error && <span className="cv-editor-bar__status cv-editor-bar__status--err">{error}</span>}
+          {activePresetId && <button onClick={() => void publishActive()} disabled={saving} className="cv-editor-bar__btn cv-editor-publish" type="button">
+            <Send className="w-4 h-4" /> {publishedPresetIds.includes(activePresetId) ? "Publish update" : "Publish CV"}
+          </button>}
           <button onClick={() => setShowContentHub(true)} className="cv-editor-bar__btn" type="button">
             <Database className="w-4 h-4" /> Content Hub
           </button>
@@ -814,10 +875,13 @@ export default function CvEditorPage() {
           <button type="button" onClick={() => {
             revisionRef.current = conflict.revision
             setRevision(conflict.revision)
-            const draft = conflict.draft
+            setPresets(conflict.draft)
+            const local = conflict.draft.find((preset) => preset.id === activePresetId)
+            if (local) setSourceText(JSON.stringify({ schemaVersion: CV_DOCUMENT_SCHEMA_VERSION, baseRevision: conflict.revision, cv: local }, null, 2))
+            setEditorView("source")
             setConflict(null)
-            persist(draft)
-          }}>Keep mine</button>
+            setSaving(false)
+          }}>Review local JSON</button>
           <button type="button" onClick={() => {
             revisionRef.current = conflict.revision
             setRevision(conflict.revision)
@@ -842,6 +906,7 @@ export default function CvEditorPage() {
               {!preset.visible && <EyeOff className="w-3 h-3" />}
               {preset.name}
               <span className="cv-preset-tab__layout">{CV_TEMPLATE_BY_ID[preset.layout].shortLabel}</span>
+              <span className="cv-preset-tab__layout">{publishedPresetIds.includes(preset.id) ? "Published" : "Private draft"}</span>
             </button>
           ))}
           <button type="button" onClick={createPreset} className="cv-preset-tab cv-preset-tab--add">
@@ -894,7 +959,41 @@ export default function CvEditorPage() {
       {activePreset && cv ? (
         <div className={`cv-editor-split ${mobileView === "preview" ? "cv-editor-split--preview-mode" : ""}`}>
           <div className="cv-editor-split__editor">
-            <main className="cv-editor-main">
+            <div className="cv-document-mode" role="tablist" aria-label="CV editing mode">
+              <button type="button" role="tab" aria-selected={editorView === "content"} onClick={() => switchEditorView("content")}><FileText className="w-4 h-4" /> Content</button>
+              <button type="button" role="tab" aria-selected={editorView === "design"} onClick={() => switchEditorView("design")}><Palette className="w-4 h-4" /> Design</button>
+              <button type="button" role="tab" aria-selected={editorView === "source"} onClick={() => switchEditorView("source")}><Code2 className="w-4 h-4" /> Source</button>
+            </div>
+            {editorView === "design" && <main className="cv-editor-main">
+              <EditorCard sectionId="design" title="Document design" icon={<Palette className="w-4 h-4" />}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <SelectField label="Page" value={activePreset.design.page} options={["A4", "Letter"]} onChange={(page) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, page: page as "A4" | "Letter" } }))} />
+                  <SelectField label="Columns" value={activePreset.design.columns} options={["sidebar", "single"]} onChange={(columns) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, columns: columns as "sidebar" | "single" } }))} />
+                  <SelectField label="Sidebar position" value={activePreset.design.sidebarPosition} options={["left", "right"]} onChange={(sidebarPosition) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, sidebarPosition: sidebarPosition as "left" | "right" } }))} />
+                  <SelectField label="Font" value={activePreset.design.fontFamily} options={["sans", "humanist", "serif"]} onChange={(fontFamily) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, fontFamily: fontFamily as "sans" | "humanist" | "serif" } }))} />
+                  <NumberField label="Page margin (mm)" value={activePreset.design.marginMm} min={6} max={30} step={1} onChange={(marginMm) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, marginMm } }))} />
+                  <NumberField label="Sidebar width (mm)" value={activePreset.design.sidebarWidthMm} min={38} max={80} step={1} onChange={(sidebarWidthMm) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, sidebarWidthMm } }))} />
+                  <NumberField label="Font size (pt)" value={activePreset.design.baseFontPt} min={7} max={13} step={0.5} onChange={(baseFontPt) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, baseFontPt } }))} />
+                  <NumberField label="Line height" value={activePreset.design.lineHeight} min={1.1} max={1.9} step={0.05} onChange={(lineHeight) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, lineHeight } }))} />
+                  <NumberField label="Section spacing (mm)" value={activePreset.design.sectionGapMm} min={1} max={16} step={1} onChange={(sectionGapMm) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, sectionGapMm } }))} />
+                  <NumberField label="Entry spacing (mm)" value={activePreset.design.entryGapMm} min={1} max={12} step={1} onChange={(entryGapMm) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, entryGapMm } }))} />
+                  <ColorField label="Accent" value={activePreset.design.accent} onChange={(accent) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, accent } }))} />
+                  <ColorField label="Text" value={activePreset.design.ink} onChange={(ink) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, ink } }))} />
+                  <ColorField label="Muted text" value={activePreset.design.muted} onChange={(muted) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, muted } }))} />
+                  <SelectField label="Photo shape" value={activePreset.design.photoShape} options={["square", "rounded", "circle"]} onChange={(photoShape) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, photoShape: photoShape as "square" | "rounded" | "circle" } }))} />
+                  <FieldWithHint label="Page break before section IDs (comma-separated)" value={activePreset.design.pageBreakBefore.join(", ")} onChange={(value) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design: { ...preset.design, pageBreakBefore: value.split(",").map((item) => item.trim()).filter(Boolean) } }))} />
+                </div>
+              </EditorCard>
+            </main>}
+            {editorView === "source" && <main className="cv-editor-main">
+              <EditorCard sectionId="source" title="JSON source" icon={<Code2 className="w-4 h-4" />}>
+                <p className="cv-source-help">This is the same versioned document used by the agent CLI. Apply validates it before replacing the draft.</p>
+                <textarea className="cv-source-editor" aria-label="CV JSON source" spellCheck={false} value={sourceText} onChange={(event) => setSourceText(event.target.value)} />
+                {sourceError && <pre className="cv-source-error" role="alert">{sourceError}</pre>}
+                <button type="button" className="cv-btn cv-btn--primary" onClick={applySource}>Validate and apply</button>
+              </EditorCard>
+            </main>}
+            <main className="cv-editor-main" style={{ display: editorView === "content" ? undefined : "none" }}>
               {/* ─── Preset Settings ─── */}
               <EditorCard sectionId="settings" title="CV setup" icon={<LayoutTemplate className="w-4 h-4" />}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1152,6 +1251,18 @@ function EditorCard({
 }
 
 /* ── FieldWithHint ── */
+function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) {
+  return <div className="cv-field"><label className="cv-field__label">{label}</label><select className="cv-field__input" value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></div>
+}
+
+function NumberField({ label, value, min, max, step, onChange }: { label: string; value: number; min: number; max: number; step: number; onChange: (value: number) => void }) {
+  return <div className="cv-field"><label className="cv-field__label">{label}</label><input className="cv-field__input" type="number" value={value} min={min} max={max} step={step} onChange={(event) => { const next = Number(event.target.value); if (event.target.value && next >= min && next <= max) onChange(next) }} /></div>
+}
+
+function ColorField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return <div className="cv-field"><label className="cv-field__label">{label}</label><div className="cv-color-field"><input aria-label={`${label} color picker`} type="color" value={value} onChange={(event) => onChange(event.target.value)} /><input className="cv-field__input" aria-label={`${label} hex color`} value={value} readOnly /></div></div>
+}
+
 function FieldWithHint({
   label, value, onChange, placeholder,
 }: {

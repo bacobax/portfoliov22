@@ -13,6 +13,7 @@ import {
   cvPresetSchema,
   type CvPreset,
 } from "@/lib/cv-presets"
+import { cvDesignSchema, defaultCvDesign, type CvDesign } from "@/lib/cv-document"
 import {
   COUNTRY_LOCALES,
   CV_COUNTRIES,
@@ -68,11 +69,29 @@ export interface CvPresetSectionConfig {
   placement: "sidebar" | "main"
   visible: boolean
   itemIds: string[]
+  localData?: CvSectionData
+  localEntries?: CvLogEntry[]
+  entryOrder?: string[]
 }
 
 export interface CvEntityOverride {
+  title?: string
+  subtitle?: string
+  dateStart?: string
+  dateEnd?: string
   description?: string
+  tags?: string[]
   url?: string
+}
+
+export interface CvContentOverrides {
+  name?: string
+  title?: string
+  location?: string
+  email?: string
+  phone?: string
+  piva?: string
+  profileExtras?: CvProfileExtras
 }
 
 export interface CvPresetConfig {
@@ -86,6 +105,8 @@ export interface CvPresetConfig {
   summaryOverride?: string
   regionalOptions: CvRegionalOptions
   visible: boolean
+  design: CvDesign
+  contentOverrides: CvContentOverrides
   sections: CvPresetSectionConfig[]
   overrides: Record<string, CvEntityOverride>
 }
@@ -100,6 +121,8 @@ export interface ContentHubDocument {
   cvProfileExtras: CvProfileExtras
   sharedSections: SharedCvSection[]
   presets: CvPresetConfig[]
+  publishedPresets: CvPreset[]
+  publicationInitialized: boolean
 }
 
 const sharedCvSectionSchema = z.object({
@@ -128,6 +151,13 @@ const cvPresetSectionConfigSchema = z.object({
   placement: z.enum(["sidebar", "main"]),
   visible: z.boolean(),
   itemIds: z.array(z.string()),
+  localData: cvSectionDataSchema.optional(),
+  localEntries: z.array(z.object({
+    id: z.string(), showcaseVisible: z.boolean().optional(), title: z.string(),
+    subtitle: z.string(), dateStart: z.string(), dateEnd: z.string(),
+    description: z.string(), tags: z.array(z.string()), url: z.string().optional(),
+  })).optional(),
+  entryOrder: z.array(z.string()).optional(),
 })
 
 const cvPresetConfigSchema = z.object({
@@ -150,10 +180,18 @@ const cvPresetConfigSchema = z.object({
     customFooter: z.string(),
   }),
   visible: z.boolean(),
+  design: cvDesignSchema.default(defaultCvDesign()),
+  contentOverrides: z.object({
+    name: z.string().optional(), title: z.string().optional(), location: z.string().optional(),
+    email: z.string().optional(), phone: z.string().optional(), piva: z.string().optional(),
+    profileExtras: cvProfileExtrasSchema.optional(),
+  }).default({}),
   sections: z.array(cvPresetSectionConfigSchema),
   overrides: z.record(
     z.object({
-      description: z.string().optional(),
+      title: z.string().optional(), subtitle: z.string().optional(),
+      dateStart: z.string().optional(), dateEnd: z.string().optional(),
+      description: z.string().optional(), tags: z.array(z.string()).optional(),
       url: z.string().optional(),
     }),
   ),
@@ -177,6 +215,8 @@ export const contentHubDocumentSchema = z.object({
   cvProfileExtras: cvProfileExtrasSchema,
   sharedSections: z.array(sharedCvSectionSchema),
   presets: z.array(cvPresetConfigSchema),
+  publishedPresets: z.array(cvPresetSchema).default([]),
+  publicationInitialized: z.boolean().default(false),
 })
 
 const entityKindSchema = z.enum(["experience", "education", "project"])
@@ -207,6 +247,10 @@ export const editorOperationSchema = z.discriminatedUnion("type", [
     type: z.literal("delete-entity"),
     entityType: entityKindSchema,
     entityId: z.string(),
+  }),
+  z.object({
+    type: z.literal("publish-cv"),
+    presetId: z.string().min(1),
   }),
 ])
 
@@ -307,9 +351,6 @@ const splitYear = (year: string): { dateStart: string; dateEnd: string } => {
   }
 }
 
-const joinYear = (start: string, end: string): string =>
-  [start, end].filter(Boolean).join(" - ")
-
 const skillGroups = (skills: SkillsData) =>
   [
     { category: "AI Tools", items: skills.aiTools ?? [] },
@@ -339,12 +380,13 @@ const experienceLogEntry = (
   const override = entryOverride(preset, entry.id || "")
   return {
     id: entry.id || "",
-    title: entry.title,
-    subtitle: entry.company,
-    ...dates,
+    title: override.title ?? entry.title,
+    subtitle: override.subtitle ?? entry.company,
+    dateStart: override.dateStart ?? dates.dateStart,
+    dateEnd: override.dateEnd ?? dates.dateEnd,
     description:
       override.description ?? entry.cvDescription?.trim() ?? entry.description,
-    tags: [...entry.tags],
+    tags: override.tags ?? [...entry.tags],
     url: override.url,
   }
 }
@@ -357,12 +399,13 @@ const educationLogEntry = (
   const override = entryOverride(preset, entry.id || "")
   return {
     id: entry.id || "",
-    title: entry.degree,
-    subtitle: entry.institution,
-    ...dates,
+    title: override.title ?? entry.degree,
+    subtitle: override.subtitle ?? entry.institution,
+    dateStart: override.dateStart ?? dates.dateStart,
+    dateEnd: override.dateEnd ?? dates.dateEnd,
     description:
       override.description ?? entry.cvDescription?.trim() ?? entry.description,
-    tags: [...entry.tags],
+    tags: override.tags ?? [...entry.tags],
     url: override.url,
   }
 }
@@ -375,13 +418,13 @@ const projectLogEntry = (
   const override = entryOverride(preset, project.id || "")
   return {
     id: project.id || "",
-    title: project.title,
-    subtitle: category.name,
-    dateStart: project.status,
-    dateEnd: "",
+    title: override.title ?? project.title,
+    subtitle: override.subtitle ?? category.name,
+    dateStart: override.dateStart ?? project.status,
+    dateEnd: override.dateEnd ?? "",
     description:
       override.description ?? project.cvDescription?.trim() ?? project.description,
-    tags: Object.entries(project.metrics).map(([key, value]) => `${key}: ${value}`),
+    tags: override.tags ?? Object.entries(project.metrics).map(([key, value]) => `${key}: ${value}`),
     url: override.url ?? project.projectUrl ?? project.githubUrl,
   }
 }
@@ -391,7 +434,12 @@ const resolveSectionData = (
   preset: CvPresetConfig,
   section: CvPresetSectionConfig,
 ): CvSectionData => {
-  const selected = new Set(section.itemIds)
+  if (section.localData) return clone(section.localData)
+  const ordered = (entries: CvLogEntry[]): CvLogEntry[] => {
+    if (!section.entryOrder?.length) return entries
+    const byId = new Map(entries.map((entry) => [entry.id, entry]))
+    return [...section.entryOrder.flatMap((id) => byId.has(id) ? [byId.get(id)!] : []), ...entries.filter((entry) => !section.entryOrder!.includes(entry.id))]
+  }
   switch (section.source) {
     case "profile":
       return { type: "text", content: hub.portfolio.profileData.bio }
@@ -408,23 +456,26 @@ const resolveSectionData = (
     case "experience":
       return {
         type: "log",
-        entries: hub.portfolio.experienceLog
-          .filter((entry) => selected.has(entry.id || ""))
-          .map((entry) => experienceLogEntry(entry, preset)),
+        entries: ordered([...section.itemIds.flatMap((id) => {
+          const entry = hub.portfolio.experienceLog.find((item) => item.id === id)
+          return entry ? [experienceLogEntry(entry, preset)] : []
+        }), ...(section.localEntries ?? [])]),
       }
     case "education":
       return {
         type: "log",
-        entries: hub.portfolio.educationLog
-          .filter((entry) => selected.has(entry.id || ""))
-          .map((entry) => educationLogEntry(entry, preset)),
+        entries: ordered([...section.itemIds.flatMap((id) => {
+          const entry = hub.portfolio.educationLog.find((item) => item.id === id)
+          return entry ? [educationLogEntry(entry, preset)] : []
+        }), ...(section.localEntries ?? [])]),
       }
     case "projects":
       return {
         type: "log",
-        entries: allProjects(hub.portfolio)
-          .filter(({ project }) => selected.has(project.id || ""))
-          .map(({ project, category }) => projectLogEntry(project, category, preset)),
+        entries: ordered([...section.itemIds.flatMap((id) => {
+          const found = allProjects(hub.portfolio).find(({ project }) => project.id === id)
+          return found ? [projectLogEntry(found.project, found.category, preset)] : []
+        }), ...(section.localEntries ?? [])]),
       }
     case "shared": {
       const shared = hub.sharedSections.find((item) => item.id === section.sourceId)
@@ -438,14 +489,15 @@ export function materializeCvPreset(
   preset: CvPresetConfig,
 ): CvPreset {
   const contact = hub.portfolio.contactData
+  const contentOverrides = preset.contentOverrides ?? {}
   const content: CvContent = {
-    name: hub.portfolio.profileData.name,
-    title: hub.portfolio.profileData.title,
-    location: contact.location,
-    email: contact.email,
-    phone: contact.phone,
-    piva: contact.piva,
-    profileExtras: hub.cvProfileExtras,
+    name: contentOverrides.name ?? hub.portfolio.profileData.name,
+    title: contentOverrides.title ?? hub.portfolio.profileData.title,
+    location: contentOverrides.location ?? contact.location,
+    email: contentOverrides.email ?? contact.email,
+    phone: contentOverrides.phone ?? contact.phone,
+    piva: contentOverrides.piva ?? contact.piva,
+    profileExtras: contentOverrides.profileExtras ?? hub.cvProfileExtras,
     sections: preset.sections.map((section) => ({
       id: section.id,
       title: section.title,
@@ -467,12 +519,18 @@ export function materializeCvPreset(
     summaryOverride: preset.summaryOverride,
     regionalOptions: clone(preset.regionalOptions),
     visible: preset.visible,
+    design: preset.design ?? defaultCvDesign(CV_TEMPLATE_BY_ID[preset.layout].accent),
     content: cvContentSchema.parse(content),
   }
 }
 
 export function materializeCvPresets(hub: ContentHubDocument): CvPreset[] {
   return hub.presets.map((preset) => materializeCvPreset(hub, preset))
+}
+
+export function publicCvPresets(hub: ContentHubDocument): CvPreset[] {
+  const presets = hub.publicationInitialized ? hub.publishedPresets : materializeCvPresets(hub)
+  return clone(presets).filter((preset) => preset.visible)
 }
 
 export function canonicalCvSeedFromHub(hub: ContentHubDocument): CvContent {
@@ -506,6 +564,8 @@ export function canonicalCvSeedFromHub(hub: ContentHubDocument): CvContent {
     templateVersion: 1,
     regionalOptions: clone(CV_TEMPLATE_BY_ID.southern_european.defaultOptions),
     visible: false,
+    design: defaultCvDesign(CV_TEMPLATE_BY_ID.southern_european.accent),
+    contentOverrides: {},
     sections: [
       ...defaultSectionConfigs(hub.portfolio),
       ...sharedConfigs,
@@ -633,6 +693,8 @@ export function createInitialHub(
     cvProfileExtras: { drivingLicences: [], references: [] },
     sharedSections: [],
     presets: [],
+    publishedPresets: [],
+    publicationInitialized: true,
   }
 
   if (resolvedPresets.length === 0) {
@@ -646,6 +708,8 @@ export function createInitialHub(
         templateVersion: 1,
         regionalOptions: clone(CV_TEMPLATE_BY_ID.germanic_tabular.defaultOptions),
         visible: true,
+        design: defaultCvDesign(CV_TEMPLATE_BY_ID.germanic_tabular.accent),
+        contentOverrides: {},
         sections: defaultSectionConfigs(portfolio),
         overrides: {},
       },
@@ -658,14 +722,19 @@ export function createInitialHub(
         templateVersion: 1,
         regionalOptions: clone(CV_TEMPLATE_BY_ID.southern_european.defaultOptions),
         visible: true,
+        design: defaultCvDesign(CV_TEMPLATE_BY_ID.southern_european.accent),
+        contentOverrides: {},
         sections: defaultSectionConfigs(portfolio),
         overrides: {},
       },
     ]
+    hub.publishedPresets = materializeCvPresets(hub)
     return hub
   }
 
-  return reconcileResolvedPresets(hub, resolvedPresets)
+  const reconciled = reconcileResolvedPresets(hub, resolvedPresets)
+  reconciled.publishedPresets = materializeCvPresets(reconciled)
+  return reconciled
 }
 
 const findEntityById = (
@@ -685,108 +754,6 @@ const findEntityById = (
   return undefined
 }
 
-const canonicalDescription = (
-  entity: ExperienceEntry | EducationEntry | Project,
-): string => entity.cvDescription?.trim() || entity.description
-
-const updateKnownSkills = (skills: SkillsData, data: CvSectionData): SkillsData => {
-  if (data.type !== "tags") return skills
-  const next = clone(skills)
-  for (const group of data.groups) {
-    const key = normalizedKey(group.category).replaceAll(" ", "")
-    if (key === "frontend") next.frontend = [...group.items]
-    if (key === "backend") next.backend = [...group.items]
-    if (key === "devops" || key === "infrastructure") next.devops = [...group.items]
-    if (key === "aitools") next.aiTools = [...group.items]
-    if (key === "aisystems") next.aiSystems = [...group.items]
-  }
-  return next
-}
-
-const ensureSharedSection = (
-  hub: ContentHubDocument,
-  section: CvPreset["content"]["sections"][number],
-  preferredSourceId?: string,
-): string => {
-  const serialized = JSON.stringify(section.data)
-  const existing = preferredSourceId
-    ? hub.sharedSections.find((item) => item.id === preferredSourceId)
-    : hub.sharedSections.find(
-        (item) => item.title === section.title && JSON.stringify(item.data) === serialized,
-      )
-  if (existing) {
-    existing.title = section.title
-    existing.type = section.type
-    existing.data = clone(section.data)
-    return existing.id
-  }
-  const id = stableContentId("cv-section", [section.id, section.title, serialized])
-  hub.sharedSections.push({
-    id,
-    title: section.title,
-    type: section.type,
-    data: clone(section.data),
-  })
-  return id
-}
-
-const addUnknownLogEntity = (
-  hub: ContentHubDocument,
-  source: CvBindingSource,
-  entry: CvLogEntry,
-): string => {
-  const id = entry.id || stableContentId(source, [entry.title, entry.subtitle, entry.dateStart])
-  if (source === "experience") {
-    hub.portfolio.experienceLog.push({
-      id,
-      showcaseVisible: entry.showcaseVisible === true,
-      year: joinYear(entry.dateStart, entry.dateEnd),
-      title: entry.title,
-      company: entry.subtitle,
-      description: entry.description,
-      tags: [...entry.tags],
-    })
-  } else if (source === "education") {
-    hub.portfolio.educationLog.push({
-      id,
-      showcaseVisible: entry.showcaseVisible === true,
-      year: joinYear(entry.dateStart, entry.dateEnd),
-      degree: entry.title,
-      institution: entry.subtitle,
-      description: entry.description,
-      tags: [...entry.tags],
-    })
-  } else if (source === "projects") {
-    let category = hub.portfolio.projectCategories.find(
-      (item) => normalizedKey(item.name) === normalizedKey(entry.subtitle),
-    )
-    if (!category) {
-      category = {
-        id: stableContentId("category", [entry.subtitle || "CV imports"]),
-        name: entry.subtitle || "CV imports",
-        visual: "sphere",
-        projects: [],
-      }
-      hub.portfolio.projectCategories.push(category)
-    }
-    category.projects.push({
-      id,
-      showcaseVisible: entry.showcaseVisible === true,
-      title: entry.title,
-      description: entry.description,
-      status: ["PRODUCTION", "BETA", "DEVELOPMENT", "ONGOING", "TERMINED"].includes(
-        entry.dateStart,
-      )
-        ? (entry.dateStart as Project["status"])
-        : "ONGOING",
-      metrics: {},
-      projectUrl: entry.url,
-      showInCv: true,
-    })
-  }
-  return id
-}
-
 export function reconcileResolvedPresets(
   inputHub: ContentHubDocument,
   resolvedPresets: CvPreset[],
@@ -800,7 +767,22 @@ export function reconcileResolvedPresets(
   for (const resolved of resolvedPresets) {
     const previous = previousConfigs.get(resolved.id)
     const isActive = !activePresetId || resolved.id === activePresetId
-    const updatesCanonical = Boolean(activePresetId && resolved.id === activePresetId)
+    const headerDefaults: CvContentOverrides = {
+      name: hub.portfolio.profileData.name,
+      title: hub.portfolio.profileData.title,
+      location: hub.portfolio.contactData.location,
+      email: hub.portfolio.contactData.email,
+      phone: hub.portfolio.contactData.phone,
+      piva: hub.portfolio.contactData.piva,
+      profileExtras: hub.cvProfileExtras,
+    }
+    const nextContentOverrides: CvContentOverrides = {}
+    for (const key of ["name", "title", "location", "email", "phone", "piva", "profileExtras"] as const) {
+      if (JSON.stringify(resolved.content[key]) !== JSON.stringify(headerDefaults[key])) {
+        const value = resolved.content[key]
+        Object.assign(nextContentOverrides, { [key]: value === undefined ? undefined : clone(value) })
+      }
+    }
     const config: CvPresetConfig = {
       id: resolved.id,
       name: resolved.name,
@@ -812,20 +794,10 @@ export function reconcileResolvedPresets(
       summaryOverride: resolved.summaryOverride,
       regionalOptions: clone(resolved.regionalOptions),
       visible: resolved.visible,
+      design: clone(resolved.design ?? previous?.design ?? defaultCvDesign(CV_TEMPLATE_BY_ID[resolved.layout].accent)),
+      contentOverrides: nextContentOverrides,
       sections: [],
       overrides: clone(previous?.overrides ?? {}),
-    }
-
-    if (updatesCanonical) {
-      hub.portfolio.profileData.name = resolved.content.name ?? hub.portfolio.profileData.name
-      hub.portfolio.profileData.title = resolved.content.title ?? hub.portfolio.profileData.title
-      hub.portfolio.contactData.location = resolved.content.location ?? ""
-      hub.portfolio.contactData.email = resolved.content.email ?? ""
-      hub.portfolio.contactData.phone = resolved.content.phone ?? ""
-      hub.portfolio.contactData.piva = resolved.content.piva ?? ""
-      if (resolved.content.profileExtras) {
-        hub.cvProfileExtras = clone(resolved.content.profileExtras)
-      }
     }
 
     for (const section of resolved.content.sections) {
@@ -844,33 +816,20 @@ export function reconcileResolvedPresets(
       }
 
       if (source === "shared") {
-        if (isActive || !previousSection?.sourceId) {
-          sectionConfig.sourceId = ensureSharedSection(
-            hub,
-            section,
-            previousSection?.sourceId,
-          )
+        sectionConfig.localData = clone(section.data)
+      } else if (["profile", "skills", "links"].includes(source)) {
+        const baseData = previous && previousSection
+          ? resolveSectionData(hub, { ...previous, contentOverrides: {}, overrides: {} }, { ...previousSection, localData: undefined, localEntries: undefined })
+          : undefined
+        if (!baseData || JSON.stringify(section.data) !== JSON.stringify(baseData)) {
+          sectionConfig.localData = clone(section.data)
         }
-      } else if (source === "profile" && updatesCanonical && section.data.type === "text") {
-        hub.portfolio.profileData.bio = section.data.content
-      } else if (source === "skills" && updatesCanonical) {
-        hub.portfolio.skillsData = updateKnownSkills(
-          hub.portfolio.skillsData,
-          section.data,
-        )
-      } else if (source === "links" && updatesCanonical && section.data.type === "links") {
-        hub.portfolio.contactData.links = section.data.items.map((item, index) => ({
-          id:
-            hub.portfolio.contactData.links[index]?.id ||
-            stableContentId("link", [item.label, item.url], index),
-          label: item.label,
-          url: item.url,
-        }))
       } else if (
         ["experience", "education", "projects"].includes(source) &&
         section.data.type === "log"
       ) {
         for (const entry of section.data.entries) {
+          sectionConfig.entryOrder = [...(sectionConfig.entryOrder ?? []), entry.id]
           let entity = entry.id ? findEntityById(hub.portfolio, source, entry.id) : undefined
           if (!entity) {
             const naturalKey = `${normalizedKey(entry.title)}|${normalizedKey(entry.subtitle)}`
@@ -878,43 +837,28 @@ export function reconcileResolvedPresets(
             if (source === "education") entity = maps.education.get(naturalKey)
             if (source === "projects") entity = maps.projects.get(naturalKey)
           }
-          const entityId = entity?.id || addUnknownLogEntity(hub, source, entry)
+          if (!entity) {
+            sectionConfig.localEntries = [...(sectionConfig.localEntries ?? []), clone(entry)]
+            continue
+          }
+          const entityId = entity.id || ""
           sectionConfig.itemIds.push(entityId)
 
           if (isActive) {
             entity = findEntityById(hub.portfolio, source, entityId)
             if (!entity) continue
-            if (updatesCanonical && source === "experience") {
-              const experience = entity as ExperienceEntry
-              experience.title = entry.title
-              experience.company = entry.subtitle
-              experience.year = joinYear(entry.dateStart, entry.dateEnd)
-              experience.tags = [...entry.tags]
-            } else if (updatesCanonical && source === "education") {
-              const education = entity as EducationEntry
-              education.degree = entry.title
-              education.institution = entry.subtitle
-              education.year = joinYear(entry.dateStart, entry.dateEnd)
-              education.tags = [...entry.tags]
-            } else if (updatesCanonical) {
-              const project = entity as Project
-              project.title = entry.title
-              if (
-                ["PRODUCTION", "BETA", "DEVELOPMENT", "ONGOING", "TERMINED"].includes(
-                  entry.dateStart,
-                )
-              ) {
-                project.status = entry.dateStart as Project["status"]
+            const base = source === "experience"
+              ? experienceLogEntry(entity as ExperienceEntry, { ...config, overrides: {} })
+              : source === "education"
+                ? educationLogEntry(entity as EducationEntry, { ...config, overrides: {} })
+                : projectLogEntry(entity as Project, allProjects(hub.portfolio).find(({ project }) => project.id === entityId)!.category, { ...config, overrides: {} })
+            const nextOverride: CvEntityOverride = {}
+            for (const key of ["title", "subtitle", "dateStart", "dateEnd", "description", "tags", "url"] as const) {
+              if (JSON.stringify(entry[key]) !== JSON.stringify(base[key])) {
+                const value = entry[key]
+                Object.assign(nextOverride, { [key]: value === undefined ? undefined : clone(value) })
               }
             }
-            const fallback = canonicalDescription(entity)
-            const nextOverride: CvEntityOverride = {}
-            if (entry.description !== fallback) nextOverride.description = entry.description
-            const canonicalUrl =
-              source === "projects"
-                ? (entity as Project).projectUrl ?? (entity as Project).githubUrl
-                : undefined
-            if (entry.url && entry.url !== canonicalUrl) nextOverride.url = entry.url
             if (Object.keys(nextOverride).length > 0) {
               config.overrides[entityId] = nextOverride
             } else {
@@ -1003,16 +947,29 @@ export function applyEditorOperations(
   operations: EditorOperation[],
 ): ContentHubDocument {
   let hub = clone(inputHub)
+  if (!hub.publicationInitialized) {
+    hub.publishedPresets = materializeCvPresets(hub)
+    hub.publicationInitialized = true
+  }
   for (const operation of operations) {
     if (operation.type === "replace-portfolio") {
       hub.portfolio = normalizePortfolioForHub(operation.content)
       for (const target of operation.visibility ?? []) applyVisibility(hub, target)
     } else if (operation.type === "replace-presets") {
       hub = reconcileResolvedPresets(hub, operation.presets, operation.activePresetId)
+      const draftIds = new Set(hub.presets.map((preset) => preset.id))
+      hub.publishedPresets = hub.publishedPresets.filter((preset) => draftIds.has(preset.id))
     } else if (operation.type === "set-visibility") {
       applyVisibility(hub, operation.target)
     } else if (operation.type === "delete-entity") {
       deleteEntity(hub, operation.entityType, operation.entityId)
+    } else if (operation.type === "publish-cv") {
+      const config = hub.presets.find((preset) => preset.id === operation.presetId)
+      if (!config) throw new Error(`CV ${operation.presetId} does not exist`)
+      const snapshot = materializeCvPreset(hub, config)
+      const existingIndex = hub.publishedPresets.findIndex((preset) => preset.id === operation.presetId)
+      if (existingIndex >= 0) hub.publishedPresets[existingIndex] = snapshot
+      else hub.publishedPresets.push(snapshot)
     }
   }
   hub.updatedAt = new Date().toISOString()

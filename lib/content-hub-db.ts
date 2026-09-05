@@ -11,6 +11,7 @@ import {
   type EditorOperation,
 } from "@/lib/content-hub"
 import { getDb } from "@/lib/mongodb"
+import { hydrateStoredContentHub } from "@/lib/content-hub-storage"
 
 export async function loadContentHub(): Promise<ContentHubDocument | null> {
   const db = await getDb()
@@ -23,7 +24,8 @@ export async function loadContentHub(): Promise<ContentHubDocument | null> {
     return null
   }
 
-  const parsed = contentHubDocumentSchema.safeParse(document)
+  const hydrated = hydrateStoredContentHub(document)
+  const parsed = contentHubDocumentSchema.safeParse(hydrated)
   if (!parsed.success) {
     console.error("Failed to parse canonical content hub", parsed.error)
     throw new Error("Canonical content hub is invalid")
@@ -60,6 +62,7 @@ export async function updateContentHub(
     .replaceOne(
       { _id: CONTENT_HUB_ID, revision: baseRevision },
       next as ContentHubDocument & Document,
+      { ignoreUndefined: true },
     )
 
   if (result.modifiedCount !== 1) {
@@ -73,6 +76,8 @@ export const editorStateFromHub = (hub: ContentHubDocument) => ({
   revision: hub.revision,
   content: hub.portfolio,
   presets: materializeCvPresets(hub),
+  publishedPresets: hub.publishedPresets,
+  publishedPresetIds: hub.publishedPresets.map((preset) => preset.id),
   presetConfigs: hub.presets,
   sharedSections: hub.sharedSections,
   cvProfileExtras: hub.cvProfileExtras,

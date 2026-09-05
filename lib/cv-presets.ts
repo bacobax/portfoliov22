@@ -1,6 +1,7 @@
 import { z } from "zod"
 
 import { cvContentSchema, type CvContent, emptyCvContent } from "@/lib/cv-content"
+import { cvDesignSchema, defaultCvDesign, type CvDesign } from "@/lib/cv-document"
 import {
   COUNTRY_LOCALES,
   CV_COUNTRIES,
@@ -29,6 +30,7 @@ export interface CvPreset {
   summaryOverride?: string
   regionalOptions: CvRegionalOptions
   visible: boolean
+  design: CvDesign
   content: CvContent
 }
 
@@ -58,6 +60,7 @@ export const cvPresetSchema = z.object({
   summaryOverride: z.string().optional(),
   regionalOptions: cvRegionalOptionsSchema,
   visible: z.boolean(),
+  design: cvDesignSchema.default(defaultCvDesign()),
   content: cvContentSchema,
 }).superRefine((preset, ctx) => {
   if (!COUNTRY_LOCALES[preset.targetCountry].includes(preset.documentLanguage)) {
@@ -142,6 +145,7 @@ export function createRegionalPreset(input: {
     templateVersion: 1,
     regionalOptions: clone(CV_TEMPLATE_BY_ID[layout].defaultOptions),
     visible: true,
+    design: defaultCvDesign(CV_TEMPLATE_BY_ID[layout].accent),
     content: applyTemplateStructure(source, layout, input.locale, { templateTitles: true }),
   }
 }

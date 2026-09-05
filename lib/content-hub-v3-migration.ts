@@ -4,6 +4,7 @@ import {
   inferCvCountry,
   type CvLayoutId,
 } from "@/lib/cv-templates"
+import { defaultCvDesign } from "@/lib/cv-document"
 
 type LegacySection = Omit<CvPresetSectionConfig, "titleMode"> & { titleMode?: "template" | "custom" }
 type LegacyPreset = {
@@ -15,7 +16,7 @@ type LegacyPreset = {
   overrides: Record<string, { description?: string; url?: string }>
 }
 
-type LegacyHubV2 = Omit<ContentHubDocument, "schemaVersion" | "cvProfileExtras" | "presets"> & {
+type LegacyHubV2 = Omit<ContentHubDocument, "schemaVersion" | "cvProfileExtras" | "presets" | "publishedPresets" | "publicationInitialized"> & {
   schemaVersion: 2
   presets: LegacyPreset[]
 }
@@ -58,6 +59,8 @@ export function migrateContentHubV2ToV3(raw: unknown, now = new Date().toISOStri
     revision: legacy.revision + 1,
     updatedAt: now,
     cvProfileExtras: { drivingLicences: [], references: [] },
+    publishedPresets: [],
+    publicationInitialized: false,
     presets: legacy.presets.map((preset) => {
       const layout = legacyLayoutMap[preset.layout]
       if (!layout) throw new Error(`Unsupported legacy layout: ${preset.layout}`)
@@ -70,6 +73,8 @@ export function migrateContentHubV2ToV3(raw: unknown, now = new Date().toISOStri
         templateVersion: 1,
         regionalOptions: clone(CV_TEMPLATE_BY_ID[layout].defaultOptions),
         visible: preset.visible,
+        design: defaultCvDesign(CV_TEMPLATE_BY_ID[layout].accent),
+        contentOverrides: {},
         sections: structureSections(preset.sections, layout),
         overrides: clone(preset.overrides),
       }
