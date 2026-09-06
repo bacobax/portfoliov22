@@ -27,6 +27,7 @@ export function CvLayoutSwitcher({
 }) {
   const [activeId, setActiveId] = useState<string>(presets[0]?.id ?? "")
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isSessionLoading, setIsSessionLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
@@ -35,7 +36,10 @@ export function CvLayoutSwitcher({
         const res = await fetch("/api/auth/session")
         const d = (await res.json()) as { authenticated?: boolean }
         if (d.authenticated) setIsAuthenticated(true)
-      } catch {}
+      } catch {
+      } finally {
+        setIsSessionLoading(false)
+      }
     })()
   }, [])
 
@@ -72,7 +76,9 @@ export function CvLayoutSwitcher({
           >
             <ArrowLeft size={16} /> Home
           </button>
-          {isAuthenticated && (
+          {isSessionLoading ? (
+            <span className="toolbar__auth-skeleton app-skeleton-block" role="status" aria-label="Checking editor session" />
+          ) : isAuthenticated && (
             <button
               type="button"
               onClick={() => router.push("/cv/edit")}

@@ -6,6 +6,7 @@ import { Check, Database, Loader2, Plus, Trash2, X } from "lucide-react"
 import type { EditorOperation } from "@/lib/content-hub"
 import type { CvPreset } from "@/lib/cv-presets"
 import type { PortfolioContent } from "@/lib/default-content"
+import { ContentHubLoadingSkeleton } from "@/components/loading-states"
 
 type EditorState = {
   revision: number
@@ -41,6 +42,7 @@ const readState = (payload: unknown): EditorState | null => {
 
 export function ContentHubDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [state, setState] = useState<EditorState | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const [error, setError] = useState<string | null>(null)
   const [activePresetId, setActivePresetId] = useState("")
@@ -61,6 +63,7 @@ export function ContentHubDrawer({ open, onClose }: { open: boolean; onClose: ()
 
   const load = async () => {
     setError(null)
+    setIsLoading(true)
     try {
       const response = await fetch("/api/editor/content", { cache: "no-store" })
       const payload = await response.json().catch(() => null)
@@ -69,6 +72,8 @@ export function ContentHubDrawer({ open, onClose }: { open: boolean; onClose: ()
       applyServerState(next)
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load content hub")
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -167,7 +172,8 @@ export function ContentHubDrawer({ open, onClose }: { open: boolean; onClose: ()
           {saveState === "saved" && <><Check size={14} /> Saved at revision {state?.revision}</>}
           {saveState === "conflict" && <>Another editor saved first. Choose which version to keep.</>}
           {saveState === "error" && <>{error || "Save failed"}</>}
-          {saveState === "idle" && state && <>Atlas revision {state.revision}</>}
+          {saveState === "idle" && isLoading && <><Loader2 size={14} className="animate-spin" /> Refreshing Atlas…</>}
+          {saveState === "idle" && state && !isLoading && <>Atlas revision {state.revision}</>}
         </div>
 
         {conflict && (
@@ -180,7 +186,7 @@ export function ContentHubDrawer({ open, onClose }: { open: boolean; onClose: ()
           </div>
         )}
 
-        {!state && !error && <div className="hub-loading"><Loader2 className="animate-spin" /> Loading canonical content…</div>}
+        {!state && !error && <ContentHubLoadingSkeleton />}
         {!state && error && <div className="hub-loading"><p>{error}</p><button type="button" onClick={() => void load()}>Retry</button></div>}
 
         {state && (

@@ -741,6 +741,8 @@ ul{list-style:none}
 .editorial-loading{min-height:100svh;display:grid;place-content:center;gap:24px;padding:var(--pad)}
 .loading-rule{width:min(460px,72vw);height:2px;background:var(--line);overflow:hidden}
 .loading-rule i{display:block;width:35%;height:100%;background:var(--ink);animation:editorialLoading 1.1s var(--ease) infinite}
+.content-refresh-indicator{position:fixed;inset:0 0 auto;z-index:300;height:3px;overflow:hidden;background:transparent;pointer-events:none}
+.content-refresh-indicator i{display:block;width:32%;height:100%;background:var(--purple);animation:editorialLoading 1.1s var(--ease) infinite}
 @keyframes editorialLoading{from{transform:translateX(-120%)}to{transform:translateX(400%)}}
 .content-error{position:fixed;z-index:180;left:50%;top:82px;translate:-50% 0;width:min(620px,calc(100% - 32px));display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 18px;border-radius:12px;background:#b42318;color:white;box-shadow:0 12px 40px rgba(0,0,0,.24);font-family:var(--font-mono);font-size:.78rem}
 .content-error button{border:1px solid currentColor;border-radius:99px;padding:.45em 1em}
@@ -861,6 +863,7 @@ ul{list-style:none}
 .utility-dock>button:hover{background:rgba(171,166,241,.18)}
 .utility-dock svg{width:18px;height:18px}
 .utility-dock span{font-family:var(--font-mono);font-size:.58rem;letter-spacing:.05em;text-transform:uppercase}
+.utility-dock .utility-dock-auth-skeleton{width:58px;height:48px;min-height:48px;border-radius:10px;background-color:rgba(255,255,255,.12)}
 
 /* Accent picker — designed as part of the editorial utility dock. */
 .color-picker{position:relative;align-self:stretch}

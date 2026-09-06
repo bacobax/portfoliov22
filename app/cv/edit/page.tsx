@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useId, useRef, useState } from "react"
+import { CvLoadingSkeleton } from "@/components/loading-states"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -95,10 +96,12 @@ export default function CvEditorPage() {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [presets, setPresets] = useState<CvPreset[]>([])
   const [canonicalCvSeed, setCanonicalCvSeed] = useState<CvContent | null>(null)
   const [activePresetId, setActivePresetId] = useState("")
   const [saving, setSaving] = useState(false)
+  const [publishing, setPublishing] = useState(false)
   const [saved, setSaved] = useState(false)
   const [publishedPresetIds, setPublishedPresetIds] = useState<string[]>([])
   const [editorView, setEditorView] = useState<"content" | "design" | "source">("content")
@@ -208,6 +211,7 @@ export default function CvEditorPage() {
   }, [router])
 
   const refreshFromHub = useCallback(async () => {
+    setRefreshing(true)
     try {
       const response = await fetch("/api/editor/content", { cache: "no-store" })
       const data = await response.json()
@@ -234,6 +238,7 @@ export default function CvEditorPage() {
       console.error("Failed to load data", e)
       setError("Failed to load data")
     } finally {
+      setRefreshing(false)
       setLoading(false)
     }
   }, [])
@@ -361,15 +366,22 @@ export default function CvEditorPage() {
 
   const publishActive = async () => {
     const baseRevision = revisionRef.current
-    if (!activePresetId || baseRevision === null || saving) return
+    if (!activePresetId || baseRevision === null || saving || publishing) return
     setError(null)
-    const response = await fetch(`/api/cv/documents/${encodeURIComponent(activePresetId)}/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ baseRevision }) })
-    const payload = await response.json().catch(() => null) as { revision?: number; error?: string } | null
-    if (!response.ok || typeof payload?.revision !== "number") { setError(payload?.error ?? "Publish failed"); return }
-    revisionRef.current = payload.revision
-    setRevision(payload.revision)
-    setPublishedPresetIds((ids) => [...new Set([...ids, activePresetId])])
-    setSaved(true)
+    setPublishing(true)
+    try {
+      const response = await fetch(`/api/cv/documents/${encodeURIComponent(activePresetId)}/publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ baseRevision }) })
+      const payload = await response.json().catch(() => null) as { revision?: number; error?: string } | null
+      if (!response.ok || typeof payload?.revision !== "number") { setError(payload?.error ?? "Publish failed"); return }
+      revisionRef.current = payload.revision
+      setRevision(payload.revision)
+      setPublishedPresetIds((ids) => [...new Set([...ids, activePresetId])])
+      setSaved(true)
+    } catch (publishError) {
+      setError(publishError instanceof Error ? publishError.message : "Publish failed")
+    } finally {
+      setPublishing(false)
+    }
   }
 
   /* ── profile fields ── */
@@ -606,13 +618,8 @@ export default function CvEditorPage() {
   }, [activePresetId, editorDestinationKey, mobileView])
 
   /* ── guards ── */
-  if (!isAuthenticated) return null
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-      </div>
-    )
+  if (!isAuthenticated || loading) {
+    return <CvLoadingSkeleton editor />
   }
 
   return (
@@ -857,11 +864,12 @@ export default function CvEditorPage() {
         <div className="cv-editor-bar__right">
           <span className="cv-editor-bar__status" aria-live="polite">
             {saving && <><Loader2 className="w-3 h-3 animate-spin" /> Saving…</>}
-            {!saving && !error && !conflict && <><Check className="w-3 h-3" /> {saved ? "All changes saved" : "Changes save automatically"}</>}
+            {!saving && refreshing && <><Loader2 className="w-3 h-3 animate-spin" /> Refreshing from Atlas…</>}
+            {!saving && !refreshing && !error && !conflict && <><Check className="w-3 h-3" /> {saved ? "All changes saved" : "Changes save automatically"}</>}
           </span>
           {error && <span className="cv-editor-bar__status cv-editor-bar__status--err">{error}</span>}
-          {activePresetId && <button onClick={() => void publishActive()} disabled={saving} className="cv-editor-bar__btn cv-editor-publish" type="button">
-            <Send className="w-4 h-4" /> {publishedPresetIds.includes(activePresetId) ? "Publish update" : "Publish CV"}
+          {activePresetId && <button onClick={() => void publishActive()} disabled={saving || publishing} className="cv-editor-bar__btn cv-editor-publish" type="button">
+            {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} {publishing ? "Publishing…" : publishedPresetIds.includes(activePresetId) ? "Publish update" : "Publish CV"}
           </button>}
           <button onClick={() => setShowContentHub(true)} className="cv-editor-bar__btn" type="button">
             <Database className="w-4 h-4" /> Content Hub

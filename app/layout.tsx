@@ -9,6 +9,7 @@ import {
 import "./globals.css";
 import { Suspense } from "react";
 import { Toaster } from "sonner";
+import { PortfolioLoadingSkeleton } from "@/components/loading-states";
 
 const anonymousPro = Anonymous_Pro({
   weight: ["400", "700"],
@@ -48,7 +49,7 @@ export default function RootLayout({
       <body
         className={`font-mono ${anonymousPro.variable} ${openSans.variable} ${archivo.variable} ${ibmPlexMono.variable} antialiased`}
       >
-        <Suspense fallback={null}>{children}</Suspense>
+        <Suspense fallback={<PortfolioLoadingSkeleton />}>{children}</Suspense>
         <Toaster richColors position="top-center" />
       </body>
     </html>

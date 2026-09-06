@@ -171,6 +171,7 @@ export default function TechDashboardPortfolio() {
   const [isEditorMode, setIsEditorMode] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
   const [showProjectForm, setShowProjectForm] = useState(false);
   const [showEducationForm, setShowEducationForm] = useState(false);
   const [editingProject, setEditingProject] =
@@ -178,17 +179,16 @@ export default function TechDashboardPortfolio() {
   const [editingEducationIndex, setEditingEducationIndex] = useState<
     number | null
   >(null);
-  /* Always render a complete document on the first frame. The live payload is
-     layered onto this synchronously from cache and then refreshed from the
-     API, so a browser recovery can never expose the full-page loading screen. */
-  const [content, setContent] = useState<PortfolioContent | null>(() =>
-    withDerivedContent(cloneDefaultContent()),
-  );
+  /* A first visit starts empty so the page can honestly represent the network
+     wait. Returning visits may hydrate the last successful payload from the
+     session cache before paint, then refresh it in the background. */
+  const [content, setContent] = useState<PortfolioContent | null>(null);
   const [isContentLoading, setIsContentLoading] = useState(true);
   const [contentError, setContentError] = useState<string | null>(null);
   const [showContentHub, setShowContentHub] = useState(false);
   const [pendingAddition, setPendingAddition] = useState<PendingAddition | null>(null);
   const [presetTargets, setPresetTargets] = useState<Array<{ id: string; name: string }>>([]);
+  const [arePresetTargetsLoading, setArePresetTargetsLoading] = useState(false);
   const [contentSaveState, setContentSaveState] =
     useState<ContentSaveState>("idle");
   const [hubRevision, setHubRevision] = useState<number | null>(null);
@@ -399,6 +399,8 @@ export default function TechDashboardPortfolio() {
         }
       } catch (error) {
         console.error("Failed to verify session", error);
+      } finally {
+        setIsSessionLoading(false);
       }
     };
 
@@ -484,6 +486,9 @@ export default function TechDashboardPortfolio() {
   };
 
   const prepareAddition = async (addition: PendingAddition) => {
+    setPendingAddition(addition);
+    setPresetTargets([]);
+    setArePresetTargetsLoading(true);
     try {
       const response = await fetch("/api/editor/content", { cache: "no-store" });
       const data = (await response.json().catch(() => null)) as
@@ -494,8 +499,9 @@ export default function TechDashboardPortfolio() {
       }
     } catch (error) {
       console.error("Failed to load preset visibility targets", error);
+    } finally {
+      setArePresetTargetsLoading(false);
     }
-    setPendingAddition(addition);
   };
 
   const handleAddProject = (categoryIndex = activeCategoryIndex) => {
@@ -911,6 +917,14 @@ export default function TechDashboardPortfolio() {
                   CV · {preset.name}
                 </label>
               ))}
+              {arePresetTargetsLoading && [0, 1, 2].map((item) => (
+                <span
+                  key={item}
+                  className="app-skeleton-block"
+                  aria-hidden="true"
+                  style={{ minHeight: 44, border: "1px solid #cbd5e1" }}
+                />
+              ))}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
               <button type="button" onClick={() => setPendingAddition(null)} style={{ minHeight: 44, padding: "0 16px", border: "1px solid #64748b", background: "transparent" }}>
@@ -918,7 +932,7 @@ export default function TechDashboardPortfolio() {
               </button>
               <button
                 type="button"
-                disabled={!pendingAddition.showcase && pendingAddition.presetIds.length === 0}
+                disabled={arePresetTargetsLoading || (!pendingAddition.showcase && pendingAddition.presetIds.length === 0)}
                 onClick={() => {
                   const entityId = pendingAddition.value.id || "";
                   const target: VisibilityTarget = {
@@ -961,9 +975,9 @@ export default function TechDashboardPortfolio() {
                   }, true, [target]);
                   setPendingAddition(null);
                 }}
-                style={{ minHeight: 44, padding: "0 16px", border: 0, background: "#111827", color: "white", opacity: !pendingAddition.showcase && pendingAddition.presetIds.length === 0 ? .45 : 1 }}
+                style={{ minHeight: 44, padding: "0 16px", border: 0, background: "#111827", color: "white", opacity: arePresetTargetsLoading || (!pendingAddition.showcase && pendingAddition.presetIds.length === 0) ? .45 : 1 }}
               >
-                Create canonical item
+                {arePresetTargetsLoading ? "Loading destinations…" : "Create canonical item"}
               </button>
             </div>
           </div>
@@ -1071,6 +1085,7 @@ export default function TechDashboardPortfolio() {
         theme={theme}
         isEditorMode={isEditorMode}
         isAuthenticated={isAuthenticated}
+        isSessionLoading={isSessionLoading}
         onRetry={() => void fetchContent()}
         onToggleTheme={toggleTheme}
         onToggleEditor={handleToggleEditor}

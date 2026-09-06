@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { embedSemanticText, warmupSemanticEmbedder } from "@/lib/semantic/embedder"
 import { rankSemanticResults } from "@/lib/semantic/search"
 import type { SemanticEmbeddingItem, SemanticSearchResult } from "@/lib/semantic/types"
+import { SearchResultsLoadingSkeleton } from "@/components/loading-states"
 
 const EMBEDDINGS_URL = "/semantic/embeddings.json"
 const SEARCH_DEBOUNCE_MS = 400
@@ -105,7 +106,7 @@ export function SemanticSearch({
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
 
-  const isBusy = isSearching || isEmbeddingsLoading || isModelLoading
+  const isBusy = isSearching || isEmbeddingsLoading || isModelLoading || (isOpen && items === null && !error)
 
   const fetchEmbeddings = useCallback(
     async (url: string, cache: RequestCache): Promise<SemanticEmbeddingItem[]> => {
@@ -303,8 +304,8 @@ export function SemanticSearch({
     return () => window.clearTimeout(timeout)
   }, [isOpen])
 
-  const showGreeting = !query.trim() && results.length === 0 && !error
-  const showTyping = isSearching && results.length === 0 && !error && query.trim().length > 0
+  const showGreeting = !isBusy && !query.trim() && results.length === 0 && !error
+  const showLoadingResults = isBusy && results.length === 0 && !error
 
   if (!isOpen) {
     return null
@@ -372,13 +373,7 @@ export function SemanticSearch({
               </ul>
             )}
 
-            {showTyping && (
-              <div className="ss-bubble ss-typing">
-                <span />
-                <span />
-                <span />
-              </div>
-            )}
+            {showLoadingResults && <SearchResultsLoadingSkeleton />}
           </div>
 
           {quickPrompts.length > 0 && (

@@ -20,6 +20,7 @@ import { EditableText } from "@/components/editable-text";
 import { SemanticSearch, type QuickPrompt } from "@/components/SemanticSearch";
 import { AiParticleMorph } from "@/components/portfolio/ai-particle-morph";
 import { ParticleMascot } from "@/components/portfolio/particle-mascot";
+import { PortfolioLoadingSkeleton } from "@/components/loading-states";
 import type {
   ExperienceEntry,
   PortfolioContent,
@@ -76,6 +77,7 @@ type EditorialPortfolioProps = {
   theme: ThemeMode;
   isEditorMode: boolean;
   isAuthenticated: boolean;
+  isSessionLoading: boolean;
   onRetry: () => void;
   onToggleTheme: () => void;
   onToggleEditor: () => void;
@@ -368,18 +370,16 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
   };
 
   if (!content && props.isContentLoading) {
-    return (
-      <div className="editorial-site editorial-loading" aria-busy="true">
-        <span className="mono">Loading portfolio content</span>
-        <div className="loading-rule"><i /></div>
-      </div>
-    );
+    return <PortfolioLoadingSkeleton theme={theme} />;
   }
 
   return (
     <div
       className={`editorial-site recruiter-portfolio ${darkSection ? "editorial-dark" : ""} ${theme === "light" ? "editorial-soft" : ""} ${menuOpen ? "menu-open" : ""}`}
     >
+      {props.isContentLoading && (
+        <div className="content-refresh-indicator" role="status" aria-live="polite" aria-label="Refreshing portfolio content"><i /></div>
+      )}
       <a className="skip-link" href="#main">Skip to content</a>
 
       <ParticleMascot
@@ -1008,7 +1008,9 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
             <Database /><span>Content</span>
           </button>
         )}
-        {isAuthenticated && (
+        {props.isSessionLoading ? (
+          <span className="utility-dock-auth-skeleton app-skeleton-block" aria-label="Checking editor session" role="status" />
+        ) : isAuthenticated && (
           <button type="button" onClick={props.onLogout} title="Log out"><LogOut /><span>Logout</span></button>
         )}
       </div>
