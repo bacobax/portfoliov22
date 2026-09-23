@@ -677,7 +677,7 @@ export function EditorialPortfolio(props: EditorialPortfolioProps) {
         <section
           className="sec agent-workflow"
           id="ai-workflow"
-          data-editorial-theme="light"
+          data-editorial-theme="dark"
           data-mascot='{"x":0.95,"y":-0.7,"s":0.06,"w":0.18}'
         >
           <div className="wrap">
