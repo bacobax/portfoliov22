@@ -3,15 +3,18 @@
 ============================================================ */
 .editorial-site{
   /* The picker writes --portfolio-theme-color on <html>.  These fallbacks
-     retain the original periwinkle portfolio when no user colour is set. */
-  --paper:var(--portfolio-theme-color,#aba6f1);
+     retain the original periwinkle portfolio when no user colour is set.
+     Whatever colour lands here (picker or fallback) is blended a bit toward
+     ink so the light sections read as a deeper, more premium surface rather
+     than a pale pastel field. */
+  --paper:color-mix(in srgb,var(--portfolio-theme-color,#aba6f1) 86%,#0d0d12);
   --paper-soft:color-mix(in srgb,var(--paper) 87%,#f4f1e8);
   --ink:#101014;            /* near-black */
   --ink-2:#1b1b22;
   --cream:#f4f1e8;
   --volt:var(--portfolio-accent,#f4ee62); /* user-selectable electric accent */
-  --night:#0d0d12;
-  --night-2:#15151d;
+  --night:#0a0a0e;
+  --night-2:#121219;
   --line:rgba(16,16,20,.22);
   --line-dark:rgba(171,166,241,.22);
 
@@ -727,8 +730,9 @@ ul{list-style:none}
 .editorial-site{min-height:100svh}
 .editorial-site.editorial-soft{
   /* The light mode keeps its original cream fallback while still accepting a
-     selected colour as the page field. */
-  --paper:var(--portfolio-theme-color,#f4f1e8);
+     selected colour as the page field, blended slightly darker to match the
+     deepened surface tone used elsewhere. */
+  --paper:color-mix(in srgb,var(--portfolio-theme-color,#f4f1e8) 92%,#101014);
   --paper-soft:color-mix(in srgb,var(--paper) 97%,#101014);
   --line:rgba(16,16,20,.18)
 }
