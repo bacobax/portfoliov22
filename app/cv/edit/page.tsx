@@ -46,7 +46,7 @@ import { cvAgentDocumentSchema } from "@/lib/cv-agent-document"
 import { CV_DOCUMENT_SCHEMA_VERSION } from "@/lib/cv-document"
 import { changePresetLanguage, changePresetTemplate, createRegionalPreset } from "@/lib/cv-presets"
 import { createCvData } from "@/lib/cv-data-transform"
-import { RegionalCvLayout } from "@/components/cv/regional-layout"
+import { CvDocumentOutput } from "@/components/cv/cv-document-output"
 import { CvScaleToFit } from "@/components/cv/cv-scale-to-fit"
 import { CvDesignPanel, CvQualityReview } from "@/components/cv/cv-design-panel"
 import { CvPrintButton } from "@/components/cv/cv-print-button"
@@ -1177,7 +1177,7 @@ export default function CvEditorPage() {
             <div className="cv-editor-preview-scaler">
               {previewData && (
                 <CvScaleToFit maxScale={previewZoom} page={activePreset.design.page}>
-                  <RegionalCvLayout layout={activePreset.layout} data={previewData} profilePicture={profilePicture} />
+                  <CvDocumentOutput layout={activePreset.layout} data={previewData} profilePicture={profilePicture} />
                 </CvScaleToFit>
               )}
             </div>

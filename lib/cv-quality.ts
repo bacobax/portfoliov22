@@ -26,7 +26,6 @@ export function cvQualityNotes(preset: CvPreset): string[] {
   if (design.baseFontPt < 10.5) notes.push("Body text is below 10.5 pt. Review wording and spacing before shrinking the font.")
   if (design.marginMm < 12) notes.push("Margins below 12 mm can feel crowded. Check the printed page at normal size.")
   if (design.pageBreakBefore.length) notes.push("Manual page breaks are active. Try automatic flow first if a page has a large empty area.")
-  if (design.columns === "sidebar") notes.push("A single column gives long descriptions more room and a simpler extracted reading order.")
   if (design.showTaxId) notes.push("Tax identification is usually unnecessary on an employment CV; include it only when relevant.")
   for (const section of preset.content.sections.filter((item) => item.visible)) {
     if (section.data.type === "links") {

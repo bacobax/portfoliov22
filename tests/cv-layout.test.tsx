@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
 import { RegionalCvLayout } from "@/components/cv/regional-layout"
+import { AtsPrintCvLayout } from "@/components/cv/ats-print-layout"
 import { createCvData, formatLabel, parseCvDescription, descriptionBulletCount } from "@/lib/cv-data-transform"
 import { cvDesignSchema, professionalCvDesign } from "@/lib/cv-document"
 import { cvLinkHref, cvQualityNotes } from "@/lib/cv-quality"
@@ -62,5 +63,46 @@ describe("professional CV layout", () => {
     expect(cvDesignSchema.parse({ baseFontPt: 9.5 }).baseFontPt).toBe(9.5)
     expect(cvQualityNotes({ ...preset, design: { ...design, baseFontPt: 8 } })).toContain("Body text is below 10.5 pt. Review wording and spacing before shrinking the font.")
     expect(cvLinkHref("javascript:alert(1)")).toBeUndefined()
+  })
+  it("renders an ATS print document as one semantic column in authored order", () => {
+    const preset = professionalCvFixture()
+    preset.design = { ...preset.design, columns: "sidebar", sidebarPosition: "right", baseFontPt: 8, marginMm: 6 }
+    preset.regionalOptions = {
+      ...preset.regionalOptions,
+      showPhoto: true,
+      personalFields: ["nationality"],
+      customFooter: "References available upon request.",
+    }
+    preset.content.profileExtras = {
+      drivingLicences: [],
+      references: [],
+      nationality: "Swiss",
+      profileImage: { url: "https://example.com/photo.jpg", alt: "Portrait" },
+    }
+    const data = createCvData(preset.content, preset)
+    const html = renderToStaticMarkup(<AtsPrintCvLayout data={data} />)
+
+    expect(html).toContain('data-cv-output="ats-print"')
+    expect(html).toContain("Alex Morgan")
+    expect(html).toContain("alex@example.com")
+    expect(html).toContain("+41 00 000 00 00")
+    expect(html).toContain("Sep 2025 - Present")
+    expect(html).toContain("PyTorch, CLIP, Computer vision, Diffusion models")
+    expect(html).toContain("https://linkedin.com/in/example")
+    expect(html).toContain("Nationality:</strong> Swiss")
+    expect(html).toContain("References available upon request.")
+    expect(html).not.toContain("HIDDEN-TAX-ID")
+    expect(html).not.toContain("<img")
+    expect(html).not.toContain("<aside")
+    expect(html).not.toContain("<table")
+
+    const expectedOrder = ["Profile", "Experience", "Technical skills", "Selected projects", "Education", "Links"]
+    let cursor = -1
+    for (const heading of expectedOrder) {
+      const next = html.indexOf(`>${heading}</h2>`, cursor + 1)
+      expect(next).toBeGreaterThan(cursor)
+      expect(html.match(new RegExp(`>${heading}</h2>`, "g"))).toHaveLength(1)
+      cursor = next
+    }
   })
 })

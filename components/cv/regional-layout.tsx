@@ -161,12 +161,12 @@ export function RegionalCvLayout({
 
   return (
     <>
-      <style>{`${regionalStyles}\n@page { size: ${design.page}; margin: ${design.marginMm}mm; }`}</style>
+      <style>{regionalStyles}</style>
       <article
         data-appearance={design.appearance}
         data-dates={design.datePlacement}
         data-headings={design.headingStyle}
-        className={`cv-document regional-cv regional-cv--${layout} ${hasSidebar && design?.columns !== "single" ? "regional-cv--has-sidebar" : ""} ${hasSidebar && design?.columns !== "single" && design?.sidebarPosition === "right" ? "regional-cv--sidebar-right" : ""}`}
+        className={`cv-document cv-document--visual regional-cv regional-cv--${layout} ${hasSidebar && design?.columns !== "single" ? "regional-cv--has-sidebar" : ""} ${hasSidebar && design?.columns !== "single" && design?.sidebarPosition === "right" ? "regional-cv--sidebar-right" : ""}`}
         style={{
           "--cv-accent": design?.accent ?? definition.accent,
           "--cv-ink": design?.ink ?? "#17202a", "--cv-muted": design?.muted ?? "#5f6973",

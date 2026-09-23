@@ -28,10 +28,6 @@ export default async function CvPage() {
         :root {
           color-scheme: light;
         }
-        @page {
-          size: A4;
-          margin: 12mm;
-        }
         body {
           background: #e5e7eb;
         }

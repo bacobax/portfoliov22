@@ -20,9 +20,9 @@ export function CvPrintButton({ className = "toolbar__button" }: { className?: s
     finally { clearTimeout(timeout); setPreparing(false) }
   }
   return <div className="cv-print-control">
-    <button type="button" className={className} disabled={preparing} onClick={() => void print()}><Download size={16} />{preparing ? "Preparing…" : "Save as PDF"}</button>
-    <p className="cv-print-help">In the print dialog, turn off <strong>Headers and footers</strong> to remove the date, portfolio title, and bottom URL.</p>
-    <details className="cv-print-help"><summary>PDF settings</summary><p>Choose Save as PDF, use the document’s paper size, set scale to 100%, and turn off browser “Headers and footers” to remove the date, title, URL, and page numbers.</p><p>Check each page at normal size. Verify selectable text, dates, headings, and links before sending. Browser print settings control the final pagination.</p></details>
+    <button type="button" className={className} disabled={preparing} onClick={() => void print()}><Download size={16} />{preparing ? "Preparing…" : "Save ATS PDF"}</button>
+    <p className="cv-print-help">The saved CV uses a standardized single-column layout for reliable ATS reading order. In the print dialog, turn off <strong>Headers and footers</strong>.</p>
+    <details className="cv-print-help"><summary>PDF settings</summary><p>Choose Save as PDF, use the document’s paper size, set scale to 100%, and turn off browser “Headers and footers” to remove the date, title, URL, and page numbers.</p><p>The PDF intentionally omits photos, sidebars, and decorative regional styling. Check each page at normal size and verify selectable text, dates, headings, and links before sending.</p></details>
     {error && <p role="alert">{error}</p>}
   </div>
 }

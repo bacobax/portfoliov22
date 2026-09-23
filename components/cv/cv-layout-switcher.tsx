@@ -7,7 +7,7 @@ import { CvPrintButton } from "./cv-print-button"
 import { useRouter } from "next/navigation"
 
 import type { CvData, CvLayoutId } from "./cv-types"
-import { RegionalCvLayout } from "./regional-layout"
+import { CvDocumentOutput } from "./cv-document-output"
 import { CvScaleToFit } from "./cv-scale-to-fit"
 
 
@@ -93,7 +93,7 @@ export function CvLayoutSwitcher({
       </div>
 
       <CvScaleToFit page={active.data.design?.page}>
-        <RegionalCvLayout layout={active.layout} data={active.data} profilePicture={profilePicture} />
+        <CvDocumentOutput layout={active.layout} data={active.data} profilePicture={profilePicture} />
       </CvScaleToFit>
     </>
   )

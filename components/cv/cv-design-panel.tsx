@@ -35,7 +35,7 @@ export function CvDesignPanel({ preset, onChange }: { preset: CvPreset; onChange
       {select("Content flow", "columns", [["single", "Single column — recommended"], ["sidebar", "Main column with sidebar"]])}
       {number("Margins on every page (mm)", "marginMm", 6, 30)}
       {design.columns === "sidebar" && <>{select("Sidebar side", "sidebarPosition", [["left", "Left"], ["right", "Right"]])}{number("Sidebar width (mm)", "sidebarWidthMm", 38, 80)}</>}
-    </div><p>Single-column order follows Arrange sections. Two-column PDFs can have a less predictable extracted reading order.</p></fieldset>
+    </div><p>These controls shape the on-screen preview. PDF export always uses the authored section order in a standardized ATS-safe single column.</p></fieldset>
     <fieldset><legend>Typography & rhythm</legend><div className="cv-design-fields">
       {select("Font family", "fontFamily", [["sans", "Arial — sans serif"], ["humanist", "Trebuchet — humanist"], ["serif", "Georgia — serif"]])}
       {number("Body text (pt) · recommended 10.5–11", "baseFontPt", 7, 13, .5)}

@@ -2,12 +2,57 @@
  * CV_PLAYWRIGHT_MODULE can point to a bundled Playwright installation.
  */
 import { createRequire } from "node:module"
-import { mkdtemp } from "node:fs/promises"
+import { mkdtemp, readFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { professionalCvFixture } from "../tests/fixtures/professional-cv"
 import { createInitialHub, materializeCvPresets, applyEditorOperations, canonicalCvSeedFromHub } from "../lib/content-hub"
 import { cloneDefaultContent } from "../lib/default-content"
+
+const expectedSectionOrder = ["Profile", "Experience", "Technical skills", "Selected projects", "Education", "Links"]
+
+async function extractPdfText(path: string): Promise<{ text: string; pages: string[] }> {
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs")
+  const bytes = new Uint8Array(await readFile(path))
+  const document = await pdfjs.getDocument({ data: bytes, useSystemFonts: true }).promise
+  const pages: string[] = []
+  try {
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      const page = await document.getPage(pageNumber)
+      const content = await page.getTextContent()
+      pages.push(content.items.map((item) => "str" in item ? `${item.str}${item.hasEOL ? "\n" : " "}` : "").join(""))
+    }
+  } finally {
+    await document.destroy()
+  }
+  return {
+    pages,
+    text: pages.join("\n").replace(/\s+/g, " ").trim(),
+  }
+}
+
+async function assertAtsPdf(path: string): Promise<void> {
+  const { text, pages } = await extractPdfText(path)
+  const blankPage = pages.findIndex((page) => page.trim().length === 0)
+  if (blankPage >= 0) throw new Error(`${path}: page ${blankPage + 1} is blank`)
+  for (const required of [
+    "Alex Morgan",
+    "AI & Full Stack Engineer",
+    "alex@example.com",
+    "+41 00 000 00 00",
+    "Sep 2025 - Present",
+    "https://linkedin.com/in/example",
+  ]) {
+    if (!text.includes(required)) throw new Error(`${path}: missing extracted ATS text: ${required}`)
+  }
+  let cursor = -1
+  for (const heading of expectedSectionOrder) {
+    const next = text.indexOf(heading, cursor + 1)
+    if (next <= cursor) throw new Error(`${path}: section is missing or out of order: ${heading}`)
+    cursor = next
+  }
+  if (text.includes("HIDDEN-TAX-ID")) throw new Error(`${path}: hidden tax ID leaked into the PDF`)
+}
 
 async function main() {
   const require = createRequire(import.meta.url)
@@ -30,24 +75,38 @@ async function main() {
     const errors: string[] = []
     page.on("pageerror", (error: Error) => errors.push(error.message))
     await page.goto(process.env.CV_CHECK_URL || "http://localhost:3001/cv/edit")
-    await page.locator(".cv-document").waitFor()
+    await page.locator(".cv-document--visual").waitFor()
+    await page.locator('[data-cv-output="ats-print"]').waitFor({ state: "attached" })
     await page.getByRole("tab", { name: "Design", exact: true }).click()
+    const savePdf = async (name: string) => {
+      const path = join(output, name)
+      await page.locator('[data-cv-output="ats-print"]').waitFor({ state: "attached" })
+      await page.waitForFunction(() => {
+        const element = document.querySelector('[data-cv-output="ats-print"]')
+        return element && getComputedStyle(element).display === "none"
+      })
+      await page.pdf({ path, preferCSSPageSize: true, displayHeaderFooter: false, printBackground: true })
+      await assertAtsPdf(path)
+    }
+    await page.getByLabel("Presentation").selectOption("regional")
+    await page.waitForTimeout(900)
+    await savePdf("regional.pdf")
     await page.getByRole("button", { name: "Apply professional defaults" }).click()
     await page.waitForTimeout(900)
     await page.screenshot({ path: join(output, "editor-desktop.png") })
-    await page.pdf({ path: join(output, "single-column.pdf"), preferCSSPageSize: true, displayHeaderFooter: false, printBackground: true })
+    await savePdf("single-column.pdf")
     await page.getByLabel("Content flow").selectOption("sidebar")
     await page.getByLabel("Sidebar side").selectOption("right")
     await page.waitForTimeout(900)
-    await page.pdf({ path: join(output, "sidebar-right.pdf"), preferCSSPageSize: true, displayHeaderFooter: false, printBackground: true })
+    await savePdf("sidebar-right.pdf")
     await page.getByRole("button", { name: "Apply professional defaults" }).click()
     await page.getByLabel("Paper size").selectOption("Letter")
     await page.waitForTimeout(900)
-    await page.pdf({ path: join(output, "letter.pdf"), preferCSSPageSize: true, displayHeaderFooter: false, printBackground: true })
+    await savePdf("letter.pdf")
     for (const alignment of ["left", "above"]) {
       await page.getByLabel("Date alignment").selectOption(alignment)
       await page.waitForTimeout(900)
-      await page.pdf({ path: join(output, `dates-${alignment}.pdf`), preferCSSPageSize: true, displayHeaderFooter: false, printBackground: true })
+      await savePdf(`dates-${alignment}.pdf`)
     }
     // A single role longer than a page must be allowed to split.
     const draft = materializeCvPresets(hub)[0]
@@ -63,9 +122,10 @@ async function main() {
     }
     hub = applyEditorOperations(hub, [{ type: "replace-presets", presets: [draft], activePresetId: draft.id }])
     await page.reload()
-    await page.locator(".cv-document").waitFor()
-    await page.locator(".cv-document img").evaluate((image: HTMLImageElement) => image.decode())
-    await page.pdf({ path: join(output, "long-entry.pdf"), preferCSSPageSize: true, displayHeaderFooter: false, printBackground: true })
+    await page.locator(".cv-document--visual").waitFor()
+    await page.locator('[data-cv-output="ats-print"]').waitFor({ state: "attached" })
+    await page.locator(".cv-document--visual img").evaluate((image: HTMLImageElement) => image.decode())
+    await savePdf("long-entry.pdf")
     await page.setViewportSize({ width: 390, height: 844 })
     await page.getByRole("tab", { name: "Design", exact: true }).click()
     await page.screenshot({ path: join(output, "editor-mobile.png") })
