@@ -31,7 +31,7 @@ describe("regional CV catalog", () => {
     expect(new Set(CV_TEMPLATES.map((template) => template.id))).toEqual(new Set(CV_TEMPLATE_IDS))
     for (const locale of CV_LOCALES) {
       expect(labelsForLocale(locale).experience.trim().length).toBeGreaterThan(0)
-      if (locale !== "en") expect(labelsForLocale(locale).experience).not.toBe("Experience")
+      if (locale !== "en") expect(labelsForLocale(locale).experience).not.toBe("Professional Experience")
     }
   })
 
@@ -57,7 +57,7 @@ describe("regional CV catalog", () => {
     }
     const changed = changePresetLanguage(custom, "en")
     expect(changed.content.sections.find((section) => section.id === "projects")?.title).toBe("Selected work")
-    expect(changed.content.sections.find((section) => section.id === "experience")?.title).toBe("Experience")
+    expect(changed.content.sections.find((section) => section.id === "experience")?.title).toBe("Professional Experience")
   })
 
   it("changes template structure without losing content or custom headings", () => {

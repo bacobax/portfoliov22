@@ -96,7 +96,7 @@ describe("professional CV layout", () => {
     expect(html).not.toContain("<aside")
     expect(html).not.toContain("<table")
 
-    const expectedOrder = ["Profile", "Experience", "Technical skills", "Selected projects", "Education", "Links"]
+    const expectedOrder = ["Profile", "Professional Experience", "Technical skills", "Selected projects", "Education", "Links"]
     let cursor = -1
     for (const heading of expectedOrder) {
       const next = html.indexOf(`>${heading}</h2>`, cursor + 1)
@@ -104,5 +104,19 @@ describe("professional CV layout", () => {
       expect(html.match(new RegExp(`>${heading}</h2>`, "g"))).toHaveLength(1)
       cursor = next
     }
+  })
+})
+
+describe("ATS section headings", () => {
+  it("renames the legacy Experience heading so ATS parsers detect work history", () => {
+    const preset = professionalCvFixture()
+    expect(preset.content.sections.find((s) => s.id === "experience")?.title).toBe("Experience")
+    const data = createCvData(preset.content, preset)
+    expect(data.sections.find((s) => s.id === "experience")?.title).toBe("Professional Experience")
+    const html = renderToStaticMarkup(<AtsPrintCvLayout data={data} />)
+    expect(html).toContain(">Professional Experience</h2>")
+
+    const custom = { ...preset.content, sections: preset.content.sections.map((s) => s.id === "experience" ? { ...s, title: "Work History" } : s) }
+    expect(createCvData(custom, preset).sections.find((s) => s.id === "experience")?.title).toBe("Work History")
   })
 })

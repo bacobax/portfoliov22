@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import type { StaticImageData } from "next/image"
-import { ArrowLeft, PencilLine } from "lucide-react"
+import { ArrowLeft, PencilLine, Wand2 } from "lucide-react"
 import { CvPrintButton } from "./cv-print-button"
 import { useRouter } from "next/navigation"
 
@@ -79,14 +79,24 @@ export function CvLayoutSwitcher({
           {isSessionLoading ? (
             <span className="toolbar__auth-skeleton app-skeleton-block" role="status" aria-label="Checking editor session" />
           ) : isAuthenticated && (
-            <button
-              type="button"
-              onClick={() => router.push("/cv/edit")}
-              className="toolbar__button"
-              style={{ background: "#3b82f6", borderColor: "#3b82f6" }}
-            >
-              <PencilLine size={16} /> Edit CV
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => router.push("/cv/tailor")}
+                className="toolbar__button"
+                style={{ background: "#0f766e", borderColor: "#0f766e" }}
+              >
+                <Wand2 size={16} /> Tailor CV
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/cv/edit")}
+                className="toolbar__button"
+                style={{ background: "#3b82f6", borderColor: "#3b82f6" }}
+              >
+                <PencilLine size={16} /> Edit CV
+              </button>
+            </>
           )}
           <CvPrintButton />
         </div>

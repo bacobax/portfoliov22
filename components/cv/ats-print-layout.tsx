@@ -1,14 +1,24 @@
 import type { CvData, CvDisplayLogEntry, CvDisplaySection } from "./cv-types"
 import { cvDesignSchema } from "@/lib/cv-document"
 import { cvLinkHref, cvLinkLabel } from "@/lib/cv-quality"
+import type { CvLocale } from "@/lib/cv-templates"
 
-const personalDetailLabels: Record<string, string> = {
+const englishPersonalDetailLabels: Record<string, string> = {
   dateOfBirth: "Date of birth",
   placeOfBirth: "Place of birth",
   nationality: "Nationality",
   workAuthorization: "Work authorization",
   drivingLicences: "Driving licence",
   references: "References",
+}
+
+const italianPersonalDetailLabels: Record<string, string> = {
+  dateOfBirth: "Data di nascita",
+  placeOfBirth: "Luogo di nascita",
+  nationality: "Nazionalità",
+  workAuthorization: "Autorizzazione al lavoro",
+  drivingLicences: "Patente di guida",
+  references: "Referenze",
 }
 
 function printableLink(value: string): string {
@@ -27,7 +37,7 @@ function printableDate(value: string): string {
   return value.replace(/[\u2011\u2012\u2013\u2014]/g, " - ").replace(/\s+-\s+/g, " - ")
 }
 
-function AtsLogEntry({ entry }: { entry: CvDisplayLogEntry }) {
+function AtsLogEntry({ entry, locale }: { entry: CvDisplayLogEntry; locale: CvLocale }) {
   const href = entry.url ? cvLinkHref(entry.url) : undefined
   return (
     <article className="ats-entry">
@@ -37,7 +47,7 @@ function AtsLogEntry({ entry }: { entry: CvDisplayLogEntry }) {
       {entry.description.map((block, index) => block.type === "paragraph"
         ? <p key={index}>{block.text}</p>
         : <ul key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}</ul>)}
-      {entry.tags.length > 0 && <p className="ats-entry__skills"><strong>Skills:</strong> {entry.tags.join(", ")}</p>}
+      {entry.tags.length > 0 && <p className="ats-entry__skills"><strong>{locale === "it" ? "Competenze" : "Skills"}:</strong> {entry.tags.join(", ")}</p>}
       {entry.url && (
         <p className="ats-entry__link">
           <strong>{cvLinkLabel(entry.url)}:</strong>{" "}
@@ -48,7 +58,7 @@ function AtsLogEntry({ entry }: { entry: CvDisplayLogEntry }) {
   )
 }
 
-function AtsSection({ section }: { section: CvDisplaySection }) {
+function AtsSection({ section, locale }: { section: CvDisplaySection; locale: CvLocale }) {
   const content = section.content
   if (content.type === "log" && content.entries.length === 0) return null
   if (content.type === "text" && !content.text) return null
@@ -60,7 +70,7 @@ function AtsSection({ section }: { section: CvDisplaySection }) {
     <section className="ats-section" aria-labelledby={`ats-cv-${section.id}`}>
       <h2 id={`ats-cv-${section.id}`}>{section.title}</h2>
       {content.type === "log" && content.entries.map((entry, index) => (
-        <AtsLogEntry key={`${entry.title}-${entry.dates}-${index}`} entry={entry} />
+        <AtsLogEntry key={`${entry.title}-${entry.dates}-${index}`} entry={entry} locale={locale} />
       ))}
       {content.type === "text" && <p>{content.text}</p>}
       {content.type === "tags" && content.groups.map((group, index) => (
@@ -89,6 +99,7 @@ function AtsSection({ section }: { section: CvDisplaySection }) {
 
 function AtsPersonalDetails({ data }: { data: CvData }) {
   const extras = data.profileExtras
+  const personalDetailLabels = data.documentLanguage === "it" ? italianPersonalDetailLabels : englishPersonalDetailLabels
   const fields = data.regionalOptions?.personalFields ?? []
   if (!extras || fields.length === 0) return null
 
@@ -106,7 +117,7 @@ function AtsPersonalDetails({ data }: { data: CvData }) {
   if (present.length === 0) return null
 
   return (
-    <section className="ats-personal" aria-label="Personal details">
+    <section className="ats-personal" aria-label={data.documentLanguage === "it" ? "Dati personali" : "Personal details"}>
       {present.map((field) => (
         <p key={field}><strong>{personalDetailLabels[field]}:</strong> {values[field]}</p>
       ))}
@@ -120,6 +131,7 @@ export function AtsPrintCvLayout({ data }: { data: CvData }) {
   const fontSize = Math.max(10.5, design.baseFontPt)
   const footer = data.regionalOptions
   const hasFooter = Boolean(footer?.customFooter || footer?.showSignature)
+  const locale = data.documentLanguage ?? "en"
 
   return (
     <article
@@ -142,7 +154,7 @@ export function AtsPrintCvLayout({ data }: { data: CvData }) {
       </header>
 
       <main>
-        {data.sections.map((section) => <AtsSection key={section.id} section={section} />)}
+        {data.sections.map((section) => <AtsSection key={section.id} section={section} locale={locale} />)}
       </main>
 
       {hasFooter && (

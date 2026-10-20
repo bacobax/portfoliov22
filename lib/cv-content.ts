@@ -178,7 +178,7 @@ export function defaultSections(): CvSection[] {
     { id: "languages", title: "Languages", type: "simple-list", placement: "sidebar", visible: true, data: { type: "simple-list", items: [] } },
     { id: "certs", title: "Certifications", type: "simple-list", placement: "sidebar", visible: true, data: { type: "simple-list", items: [] } },
     { id: "links", title: "Links", type: "links", placement: "sidebar", visible: true, data: { type: "links", items: [] } },
-    { id: "experience", title: "Experience", type: "log", placement: "main", visible: true, data: { type: "log", entries: [] } },
+    { id: "experience", title: "Professional Experience", type: "log", placement: "main", visible: true, data: { type: "log", entries: [] } },
     { id: "projects", title: "Projects", type: "log", placement: "main", visible: true, data: { type: "log", entries: [] } },
     { id: "education", title: "Education", type: "log", placement: "main", visible: true, data: { type: "log", entries: [] } },
     { id: "awards", title: "Awards", type: "simple-list", placement: "main", visible: true, data: { type: "simple-list", items: [] } },
@@ -278,7 +278,7 @@ export function migrateCvContent(raw: Record<string, any>): Record<string, unkno
   if (Array.isArray(raw.experience) && raw.experience.length > 0) {
     sections.push({
       id: "experience",
-      title: "Experience",
+      title: "Professional Experience",
       type: "log",
       placement: "main",
       visible: true,

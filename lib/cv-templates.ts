@@ -214,7 +214,7 @@ type TemplateLabels = Record<TemplateSectionKey, string> & { present: string }
 
 const en: TemplateLabels = {
   profile: "Profile", skills: "Skills", languages: "Languages", certs: "Certifications",
-  links: "Links", experience: "Experience", projects: "Projects", education: "Education",
+  links: "Links", experience: "Professional Experience", projects: "Projects", education: "Education",
   awards: "Awards", publications: "Publications", present: "Present",
 }
 

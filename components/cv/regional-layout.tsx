@@ -1,25 +1,60 @@
 import Image, { type StaticImageData } from "next/image"
 
 import type { CvData, CvDisplaySection, CvDisplayLogEntry } from "./cv-types"
-import { CV_TEMPLATE_BY_ID, type CvLayoutId } from "@/lib/cv-templates"
+import { CV_TEMPLATE_BY_ID, type CvLayoutId, type CvLocale } from "@/lib/cv-templates"
 import { cvDesignSchema } from "@/lib/cv-document"
 import { cvLinkHref, cvLinkLabel } from "@/lib/cv-quality"
+import type { CvPath } from "@/lib/cv-tailor"
+import { Editable, EntryControls, SectionControls } from "./cv-edit-context"
 
-function LogSection({ section }: { section: CvDisplaySection }) {
-  if (section.content.type !== "log" || section.content.entries.length === 0) return null
+type SectionRef = { section: CvDisplaySection; index: number; prevIndex?: number; nextIndex?: number }
+
+function SectionHeading({ id, sectionRef }: { id?: string; sectionRef: SectionRef }) {
+  return (
+    <>
+      <h2 id={id}><Editable path={["sections", sectionRef.index, "title"]} value={sectionRef.section.title} placeholder="Section title" /></h2>
+      <SectionControls sectionIndex={sectionRef.index} prevIndex={sectionRef.prevIndex} nextIndex={sectionRef.nextIndex} />
+    </>
+  )
+}
+
+function LogSection({ sectionRef, locale }: { sectionRef: SectionRef; locale: CvLocale }) {
+  const { section } = sectionRef
+  if (section.content.type !== "log") return null
+  const shown = section.content.entries.flatMap((entry, index) => entry.hidden ? [] : [{ entry, index }])
+  if (shown.length === 0) return null
   return (
     <section className={`region-section region-log region-section--${section.id}`} aria-labelledby={`cv-${section.id}`}>
-      <h2 id={`cv-${section.id}`}>{section.title}</h2>
+      <SectionHeading id={`cv-${section.id}`} sectionRef={sectionRef} />
       <div className="region-log__items">
-        {section.content.entries.map((entry, index) => (
-          <LogEntry key={`${entry.title}-${entry.dates}-${index}`} entry={entry} isProject={section.id === "projects"} />
+        {shown.map(({ entry, index }, position) => (
+          <LogEntry
+            key={index}
+            entry={entry}
+            path={["sections", sectionRef.index, "content", "entries", index]}
+            sectionIndex={sectionRef.index}
+            entryIndex={index}
+            prevIndex={shown[position - 1]?.index}
+            nextIndex={shown[position + 1]?.index}
+            isProject={section.id === "projects"}
+            locale={locale}
+          />
         ))}
       </div>
     </section>
   )
 }
 
-function LogEntry({ entry, isProject }: { entry: CvDisplayLogEntry; isProject: boolean }) {
+function LogEntry({ entry, path, sectionIndex, entryIndex, prevIndex, nextIndex, isProject, locale }: {
+  entry: CvDisplayLogEntry
+  path: CvPath
+  sectionIndex: number
+  entryIndex: number
+  prevIndex?: number
+  nextIndex?: number
+  isProject: boolean
+  locale: CvLocale
+}) {
   const descriptionText = entry.description.map((block) => block.type === "paragraph" ? block.text : block.items.join(" ")).join(" ")
   const bulletCount = entry.description.reduce((count, block) => count + (block.type === "bullets" ? block.items.length : 0), 0)
   const short = descriptionText.split(/\s+/).length <= 85 && bulletCount <= 3
@@ -27,45 +62,49 @@ function LogEntry({ entry, isProject }: { entry: CvDisplayLogEntry; isProject: b
   const githubOnRequest = isProject && href && cvLinkLabel(href) === "GitHub"
   return (
     <article className={`region-entry ${short ? "region-entry--short" : "region-entry--long"}`}>
+      <EntryControls sectionIndex={sectionIndex} entryIndex={entryIndex} prevIndex={prevIndex} nextIndex={nextIndex} />
       <div className="region-entry__content">
         <div className="region-entry__heading">
           <div>
-            <h3>{entry.title}</h3>
-            {entry.subtitle && <p className="region-entry__subtitle">{entry.subtitle}</p>}
+            <h3><Editable path={[...path, "title"]} value={entry.title} placeholder="Title" /></h3>
+            {entry.subtitle && <p className="region-entry__subtitle"><Editable path={[...path, "subtitle"]} value={entry.subtitle} placeholder="Subtitle" /></p>}
           </div>
-          {entry.dates && <span className="region-entry__date">{entry.dates}</span>}
+          {entry.dates && <span className="region-entry__date"><Editable path={[...path, "dates"]} value={entry.dates} placeholder="Dates" /></span>}
         </div>
         {entry.description.map((block, index) => block.type === "paragraph"
-          ? <p className="region-entry__description" key={index}>{block.text}</p>
-          : <ul className="region-entry__bullets" key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}</ul>)}
+          ? <p className="region-entry__description" key={index}><Editable path={[...path, "description", index, "text"]} value={block.text} mode="multiline" placeholder="Description" /></p>
+          : <ul className="region-entry__bullets" key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}><Editable path={[...path, "description", index, "items", itemIndex]} value={item} mode="bullet" placeholder="Bullet point" /></li>)}</ul>)}
         {entry.tags.length > 0 && (
-          <p className="region-technologies" aria-label={`${entry.title} skills`}>{entry.tags.join(", ")}</p>
+          <p className="region-technologies" aria-label={`${entry.title} skills`}><Editable path={[...path, "tags"]} value={entry.tags.join(", ")} mode="list" placeholder="Comma-separated skills" /></p>
         )}
         {href && <p className="region-entry-link">
           <a className={githubOnRequest ? "region-project-github" : undefined} href={href} target="_blank" rel="noreferrer">{cvLinkLabel(href)}</a>
-          {githubOnRequest && <span className="region-project-github-print">GitHub available upon request</span>}
+          {githubOnRequest && <span className="region-project-github-print">{locale === "it" ? "GitHub disponibile su richiesta" : "GitHub available upon request"}</span>}
         </p>}
       </div>
     </article>
   )
 }
 
-function RenderSection({ section, summaryOverride }: { section: CvDisplaySection; summaryOverride?: string }) {
+function RenderSection({ sectionRef, summaryOverride, locale }: { sectionRef: SectionRef; summaryOverride?: string; locale: CvLocale }) {
+  const { section, index: sectionIndex } = sectionRef
   const content = section.content
-  if (content.type === "log") return <LogSection section={section} />
+  const base = ["sections", sectionIndex, "content"] as const
+  if (content.type === "log") return <LogSection sectionRef={sectionRef} locale={locale} />
   if (content.type === "text") {
-    const text = section.id === "profile" && summaryOverride ? summaryOverride : content.text
+    const useOverride = section.id === "profile" && Boolean(summaryOverride)
+    const text = useOverride ? summaryOverride! : content.text
     if (!text) return null
-    return <section className="region-section region-text"><h2>{section.title}</h2><p>{text}</p></section>
+    return <section className="region-section region-text"><SectionHeading sectionRef={sectionRef} /><p><Editable path={useOverride ? ["summaryOverride"] : [...base, "text"]} value={text} mode="multiline" placeholder="Summary" /></p></section>
   }
   if (content.type === "tags") {
     if (content.groups.length === 0) return null
     return (
       <section className="region-section region-skills">
-        <h2>{section.title}</h2>
-        {content.groups.map((group) => (
-          <div className="region-skill-group" key={group.category}>
-            <p>{group.category && <><strong>{group.category}:</strong>{" "}</>}{group.items.join(", ")}</p>
+        <SectionHeading sectionRef={sectionRef} />
+        {content.groups.map((group, index) => (
+          <div className="region-skill-group" key={index}>
+            <p>{group.category && <><strong><Editable path={[...base, "groups", index, "category"]} value={group.category} placeholder="Category" />:</strong>{" "}</>}<Editable path={[...base, "groups", index, "items"]} value={group.items.join(", ")} mode="list" placeholder="Comma-separated skills" /></p>
           </div>
         ))}
       </section>
@@ -75,21 +114,24 @@ function RenderSection({ section, summaryOverride }: { section: CvDisplaySection
     if (content.items.length === 0) return null
     return (
       <section className="region-section region-links">
-        <h2>{section.title}</h2>
-        <ul>{content.items.map((item, index) => <li key={`${item.url}-${index}`}>{cvLinkHref(item.url) ? <a href={cvLinkHref(item.url)} target="_blank" rel="noreferrer">{item.label || cvLinkLabel(item.url)}</a> : <span>{item.label || item.url}</span>}</li>)}</ul>
+        <SectionHeading sectionRef={sectionRef} />
+        <ul>{content.items.map((item, index) => {
+          const label = <Editable path={[...base, "items", index, "label"]} value={item.label || cvLinkLabel(item.url)} placeholder="Link label" />
+          return <li key={`${item.url}-${index}`}>{cvLinkHref(item.url) ? <a href={cvLinkHref(item.url)} target="_blank" rel="noreferrer">{label}</a> : <span>{item.label ? label : item.url}</span>}</li>
+        })}</ul>
       </section>
     )
   }
   if (content.items.length === 0) return null
   return (
     <section className="region-section region-list">
-      <h2>{section.title}</h2>
-      <ul>{content.items.map((item) => <li key={item}>{item}</li>)}</ul>
+      <SectionHeading sectionRef={sectionRef} />
+      <ul>{content.items.map((item, index) => <li key={index}><Editable path={[...base, "items", index]} value={item} placeholder="List item" /></li>)}</ul>
     </section>
   )
 }
 
-const extraLabels: Record<string, string> = {
+const englishExtraLabels: Record<string, string> = {
   dateOfBirth: "Date of birth",
   placeOfBirth: "Place of birth",
   nationality: "Nationality",
@@ -98,8 +140,18 @@ const extraLabels: Record<string, string> = {
   references: "References",
 }
 
+const italianExtraLabels: Record<string, string> = {
+  dateOfBirth: "Data di nascita",
+  placeOfBirth: "Luogo di nascita",
+  nationality: "Nazionalità",
+  workAuthorization: "Autorizzazione al lavoro",
+  drivingLicences: "Patente di guida",
+  references: "Referenze",
+}
+
 function PersonalDetails({ data }: { data: CvData }) {
   const extras = data.profileExtras
+  const extraLabels = data.documentLanguage === "it" ? italianExtraLabels : englishExtraLabels
   const fields = data.regionalOptions?.personalFields ?? []
   if (!extras || fields.length === 0) return null
   const values: Partial<Record<string, string>> = {
@@ -145,14 +197,17 @@ export function RegionalCvLayout({
 }) {
   const definition = CV_TEMPLATE_BY_ID[layout]
   const design = cvDesignSchema.parse(data.design ?? { accent: definition.accent })
-  const sidebar = design.columns === "single" ? [] : data.sections.filter((section) => section.placement === "sidebar")
-  const main = design.columns === "single" ? data.sections : data.sections.filter((section) => section.placement === "main")
+  const visible = data.sections.flatMap((section, index) => section.visible === false ? [] : [{ section, index }])
+  const withNeighbours = (zone: typeof visible): SectionRef[] => zone.map((item, position) => ({ ...item, prevIndex: zone[position - 1]?.index, nextIndex: zone[position + 1]?.index }))
+  const sidebar = withNeighbours(design.columns === "single" ? [] : visible.filter(({ section }) => section.placement === "sidebar"))
+  const main = withNeighbours(design.columns === "single" ? visible : visible.filter(({ section }) => section.placement === "main"))
   const role = data.targetRoleOverride?.trim() || data.title
   const hasSidebar = sidebar.length > 0
   const pageBreaks = new Set(design?.pageBreakBefore ?? [])
-  const renderSection = (section: CvDisplaySection) => (
-    <div key={section.id} className={pageBreaks.has(section.id) ? "region-section-break" : undefined}>
-      <RenderSection section={section} summaryOverride={data.summaryOverride} />
+  const locale = data.documentLanguage ?? "en"
+  const renderSection = (sectionRef: SectionRef) => (
+    <div key={sectionRef.section.id} className={pageBreaks.has(sectionRef.section.id) ? "region-section-break" : undefined}>
+      <RenderSection sectionRef={sectionRef} summaryOverride={data.summaryOverride} locale={locale} />
     </div>
   )
   const fonts = { sans: "Arial, Helvetica, sans-serif", serif: "Georgia, 'Times New Roman', serif", humanist: "'Trebuchet MS', Arial, sans-serif" }
@@ -184,13 +239,13 @@ export function RegionalCvLayout({
         <header className="region-header">
           <Portrait data={data} profilePicture={profilePicture} />
           <div className="region-header__identity">
-            <h1>{data.name}</h1>
-            <p className="region-header__role">{role}</p>
+            <h1><Editable path={["name"]} value={data.name} placeholder="Your name" /></h1>
+            <p className="region-header__role"><Editable path={data.targetRoleOverride?.trim() ? ["targetRoleOverride"] : ["title"]} value={role} placeholder="Target role" /></p>
           </div>
           <address className="region-contact">
-            {design.showLocation && (design.locationLabel || data.location) && <span>{design.locationLabel || data.location}{" "}</span>}
-            {data.email && <a href={`mailto:${data.email}`}>{data.email}</a>}
-            {data.phone && <a href={`tel:${data.phone.replace(/\s/g, "")}`}>{data.phone}</a>}
+            {design.showLocation && (design.locationLabel || data.location) && <span><Editable path={design.locationLabel ? ["design", "locationLabel"] : ["location"]} value={design.locationLabel || data.location} placeholder="Location" />{" "}</span>}
+            {data.email && <a href={`mailto:${data.email}`}><Editable path={["email"]} value={data.email} placeholder="Email" /></a>}
+            {data.phone && <a href={`tel:${data.phone.replace(/\s/g, "")}`}><Editable path={["phone"]} value={data.phone} placeholder="Phone" /></a>}
             {design.showTaxId && data.piva && <span>{data.piva}</span>}
           </address>
         </header>
@@ -210,7 +265,7 @@ export function RegionalCvLayout({
 
         {(data.regionalOptions?.showSignature || data.regionalOptions?.customFooter) && (
           <footer className="region-footer">
-            {data.regionalOptions.customFooter && <p>{data.regionalOptions.customFooter}</p>}
+            {data.regionalOptions.customFooter && <p><Editable path={["regionalOptions", "customFooter"]} value={data.regionalOptions.customFooter} mode="multiline" placeholder="Footer" /></p>}
             {data.regionalOptions.showSignature && (
               <div className="region-signature">
                 <span>{data.regionalOptions.documentDate}</span>

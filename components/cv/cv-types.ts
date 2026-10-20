@@ -13,6 +13,8 @@ export interface CvDisplayLogEntry {
   description: CvDescriptionBlock[]
   tags: string[]
   url?: string
+  /** Set only by the private CV builder to keep an entry without rendering it. */
+  hidden?: boolean
 }
 
 export type CvDescriptionBlock =

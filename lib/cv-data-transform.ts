@@ -72,10 +72,13 @@ function transformSectionData(data: CvSectionData, locale: CvLocale, hideStatus 
   }
 }
 
+/** ATS parsers recognize work history only under headings such as "Professional Experience". */
+const LEGACY_EXPERIENCE_TITLE = /^\s*experience\s*$/i
+
 function transformSection(section: CvSection, locale: CvLocale, hideStatus: boolean): CvDisplaySection {
   return {
     id: section.id,
-    title: section.title,
+    title: section.id === "experience" && LEGACY_EXPERIENCE_TITLE.test(section.title) ? "Professional Experience" : section.title,
     type: section.type,
     placement: section.placement,
     visible: section.visible,
