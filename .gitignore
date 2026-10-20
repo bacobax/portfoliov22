@@ -43,3 +43,6 @@ next-env.d.ts
 # Agent CV working copies and local credentials
 /.cv-work/
 .cv-session*
+
+# impeccable: platform binary is downloaded by the launcher on first run
+.claude/skills/impeccable/scripts/bin/
