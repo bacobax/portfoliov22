@@ -1,0 +1,373 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-20T21:26:47.384066Z",
+  "title": "Design System: Francesco Bassignana Portfolio",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "primary",
+        "displayName": "Notebook Paper",
+        "canonical": "color-mix(in srgb, var(--portfolio-theme-color, #aba6f1) 86%, #0d0d12)",
+        "tonalRamp": [
+          "oklch(15% 0.07 262)",
+          "oklch(26% 0.07 262)",
+          "oklch(37% 0.07 262)",
+          "oklch(48% 0.07 262)",
+          "oklch(60% 0.07 262)",
+          "oklch(72% 0.07 262)",
+          "oklch(84% 0.07 262)",
+          "oklch(95% 0.07 262)"
+        ]
+      },
+      "paper-soft": {
+        "role": "primary",
+        "displayName": "Paper Wash",
+        "canonical": "color-mix(in srgb, var(--paper) 87%, #f4f1e8)",
+        "tonalRamp": [
+          "oklch(15% 0.05 262)",
+          "oklch(26% 0.05 262)",
+          "oklch(37% 0.05 262)",
+          "oklch(48% 0.05 262)",
+          "oklch(60% 0.05 262)",
+          "oklch(72% 0.05 262)",
+          "oklch(84% 0.05 262)",
+          "oklch(95% 0.05 262)"
+        ]
+      },
+      "signal": {
+        "role": "secondary",
+        "displayName": "Signal",
+        "canonical": "var(--portfolio-accent)",
+        "tonalRamp": [
+          "oklch(15% 0.09 262)",
+          "oklch(26% 0.09 262)",
+          "oklch(37% 0.09 262)",
+          "oklch(48% 0.09 262)",
+          "oklch(60% 0.09 262)",
+          "oklch(72% 0.09 262)",
+          "oklch(84% 0.09 262)",
+          "oklch(95% 0.09 262)"
+        ]
+      },
+      "volt-fallback": {
+        "role": "secondary",
+        "displayName": "Volt Fallback",
+        "canonical": "#f4ee62",
+        "tonalRamp": [
+          "oklch(15% 0.15 107)",
+          "oklch(26% 0.15 107)",
+          "oklch(37% 0.15 107)",
+          "oklch(48% 0.15 107)",
+          "oklch(60% 0.15 107)",
+          "oklch(72% 0.15 107)",
+          "oklch(84% 0.15 107)",
+          "oklch(95% 0.15 107)"
+        ]
+      },
+      "periwinkle-fallback": {
+        "role": "secondary",
+        "displayName": "Periwinkle Fallback",
+        "canonical": "#aba6f1",
+        "tonalRamp": [
+          "oklch(15% 0.1 285)",
+          "oklch(26% 0.1 285)",
+          "oklch(37% 0.1 285)",
+          "oklch(48% 0.1 285)",
+          "oklch(60% 0.1 285)",
+          "oklch(72% 0.1 285)",
+          "oklch(84% 0.1 285)",
+          "oklch(95% 0.1 285)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Notebook Ink",
+        "canonical": "#101014",
+        "tonalRamp": [
+          "oklch(15% 0.01 285)",
+          "oklch(26% 0.01 285)",
+          "oklch(37% 0.01 285)",
+          "oklch(48% 0.01 285)",
+          "oklch(60% 0.01 285)",
+          "oklch(72% 0.01 285)",
+          "oklch(84% 0.01 285)",
+          "oklch(95% 0.01 285)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink Two",
+        "canonical": "#1b1b22",
+        "tonalRamp": [
+          "oklch(15% 0.012 285)",
+          "oklch(26% 0.012 285)",
+          "oklch(37% 0.012 285)",
+          "oklch(48% 0.012 285)",
+          "oklch(60% 0.012 285)",
+          "oklch(72% 0.012 285)",
+          "oklch(84% 0.012 285)",
+          "oklch(95% 0.012 285)"
+        ]
+      },
+      "cream": {
+        "role": "neutral",
+        "displayName": "Cream",
+        "canonical": "#f4f1e8",
+        "tonalRamp": [
+          "oklch(15% 0.015 90)",
+          "oklch(26% 0.015 90)",
+          "oklch(37% 0.015 90)",
+          "oklch(48% 0.015 90)",
+          "oklch(60% 0.015 90)",
+          "oklch(72% 0.015 90)",
+          "oklch(84% 0.015 90)",
+          "oklch(95% 0.015 90)"
+        ]
+      },
+      "night": {
+        "role": "neutral",
+        "displayName": "Night",
+        "canonical": "#0a0a0e",
+        "tonalRamp": [
+          "oklch(15% 0.008 285)",
+          "oklch(26% 0.008 285)",
+          "oklch(37% 0.008 285)",
+          "oklch(48% 0.008 285)",
+          "oklch(60% 0.008 285)",
+          "oklch(72% 0.008 285)",
+          "oklch(84% 0.008 285)",
+          "oklch(95% 0.008 285)"
+        ]
+      },
+      "night-2": {
+        "role": "neutral",
+        "displayName": "Night Two",
+        "canonical": "#121219",
+        "tonalRamp": [
+          "oklch(15% 0.012 285)",
+          "oklch(26% 0.012 285)",
+          "oklch(37% 0.012 285)",
+          "oklch(48% 0.012 285)",
+          "oklch(60% 0.012 285)",
+          "oklch(72% 0.012 285)",
+          "oklch(84% 0.012 285)",
+          "oklch(95% 0.012 285)"
+        ]
+      },
+      "rule-light": {
+        "role": "neutral",
+        "displayName": "Light Rule",
+        "canonical": "rgba(16,16,20,.22)"
+      },
+      "rule-dark": {
+        "role": "neutral",
+        "displayName": "Dark Rule",
+        "canonical": "rgba(171,166,241,.22)"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero headline only; contact headline and footer wordmark share the register."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section h2 statements."
+      },
+      "headline-thin": {
+        "displayName": "Headline Thin",
+        "purpose": "The 300-weight second clause inside a split h2."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Project names, roles, workflow steps, capability groups."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Paragraphs capped at 36-52ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase mono marginalia: kickers, indices, dates, tags, nav."
+      }
+    },
+    "shadows": [
+      {
+        "name": "stage-pool",
+        "value": "0 36px 80px -52px rgba(13,13,18,.75)",
+        "purpose": "Beneath the hero morph stage and large night media frames."
+      },
+      {
+        "name": "panel-pool",
+        "value": "0 24px 60px -30px rgba(16,16,20,.5)",
+        "purpose": "Beneath ink panels."
+      },
+      {
+        "name": "hud",
+        "value": "0 14px 46px rgba(0,0,0,.24)",
+        "purpose": "Floating night HUDs (utility dock, tour bars), paired with 12-14px backdrop blur."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-editorial",
+        "value": "cubic-bezier(.22,1,.36,1)",
+        "purpose": "The single easing for every transition."
+      },
+      {
+        "name": "duration-hover",
+        "value": "0.3s",
+        "purpose": "Hover lifts, underline draws, fills."
+      },
+      {
+        "name": "duration-reveal",
+        "value": "0.45s-0.55s",
+        "purpose": "Panel and copy reveals."
+      },
+      {
+        "name": "duration-tone-swap",
+        "value": "0.7s",
+        "purpose": "Site-wide paper/night background crossfade."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "stack-grid",
+        "value": "1080px"
+      },
+      {
+        "name": "single-column-intro",
+        "value": "820px"
+      },
+      {
+        "name": "no-webgl",
+        "value": "760px"
+      },
+      {
+        "name": "phone",
+        "value": "560px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main action pill: ink fill, lifts on hover, arrow nudges.",
+      "html": "<a class=\"ds-btn\" href=\"#\">View selected work <span class=\"ds-arr\">→</span></a>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;gap:.6em;min-height:48px;text-decoration:none;background:#101014;color:#f4f1e8;border-radius:99px;padding:.85em 1.5em;font-family:Archivo, system-ui, sans-serif;font-weight:600;font-size:.95rem;letter-spacing:.01em;transition:transform .3s cubic-bezier(.22,1,.36,1)}.ds-btn .ds-arr{transition:transform .3s cubic-bezier(.22,1,.36,1)}.ds-btn:hover{transform:translateY(-2px)}.ds-btn:hover .ds-arr{transform:translateX(4px)}.ds-btn:focus-visible{outline:2px solid #101014;outline-offset:4px}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary action pill with a 1.5px border that fills on hover.",
+      "html": "<a class=\"ds-btn-ghost\" href=\"#\"><svg width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z\"/><path d=\"M14 2v4a2 2 0 0 0 2 2h4\"/><path d=\"M16 13H8\"/><path d=\"M16 17H8\"/></svg> Open CV</a>",
+      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;gap:.6em;min-height:48px;text-decoration:none;background:transparent;color:#101014;border:1.5px solid #101014;border-radius:99px;padding:.85em 1.5em;font-family:Archivo, system-ui, sans-serif;font-weight:600;font-size:.95rem;transition:background-color .3s,color .3s,transform .3s cubic-bezier(.22,1,.36,1)}.ds-btn-ghost:hover{background:#101014;color:#a2b6dc;transform:translateY(-2px)}.ds-btn-ghost:focus-visible{outline:2px solid #101014;outline-offset:4px}"
+    },
+    {
+      "name": "Capability Tag",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "Outlined mono pill for skills and tools.",
+      "html": "<span class=\"ds-tag\">PyTorch</span><span class=\"ds-tag\">Next.js</span>",
+      "css": ".ds-tag{display:inline-flex;align-items:center;min-height:34px;margin:0 6px 6px 0;border:1px solid #101014;border-radius:99px;padding:7px 12px;font-family:'IBM Plex Mono', ui-monospace, monospace;font-size:.65rem;letter-spacing:.05em;color:#101014;background:transparent}"
+    },
+    {
+      "name": "Nav Link",
+      "kind": "nav",
+      "description": "Mono uppercase link with an underline that draws in from the left.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#\">Work</a><a href=\"#\">Experience</a><a href=\"#\">Contact</a></nav>",
+      "css": ".ds-nav{display:flex;gap:28px}.ds-nav a{position:relative;padding:6px 2px;text-decoration:none;color:#101014;font-family:'IBM Plex Mono', ui-monospace, monospace;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase}.ds-nav a::after{content:'';position:absolute;left:0;right:100%;bottom:2px;height:1.5px;background:currentColor;transition:right .3s cubic-bezier(.22,1,.36,1)}.ds-nav a:hover::after,.ds-nav a:focus-visible::after{right:0}"
+    },
+    {
+      "name": "Section Kicker",
+      "kind": "custom",
+      "description": "Mono label followed by a hairline that runs to the edge.",
+      "html": "<div class=\"ds-kicker\">( AI-assisted engineering )</div>",
+      "css": ".ds-kicker{display:flex;align-items:center;gap:14px;font-family:'IBM Plex Mono', ui-monospace, monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:#101014}.ds-kicker::after{content:'';flex:1;height:1px;background:rgba(16,16,20,.22)}"
+    },
+    {
+      "name": "Project Cell",
+      "kind": "card",
+      "refersTo": "media-frame",
+      "description": "Hairline-ruled cell with a rounded night media frame, mono index, heavy title.",
+      "html": "<article class=\"ds-cell\"><div class=\"ds-media\"><span>01 / RESEARCH</span><i></i></div><span class=\"ds-idx\">GENERATIVE MODELS</span><h3>Project name</h3><p>One-line description of what the system does and how it runs.</p></article>",
+      "css": ".ds-cell{max-width:360px;padding:24px;border-top:1px solid rgba(16,16,20,.22);border-bottom:1px solid rgba(16,16,20,.22);font-family:Archivo, system-ui, sans-serif;color:#101014}.ds-media{position:relative;aspect-ratio:4/3;border-radius:18px;overflow:hidden;background:#0a0a0e;color:#a2b6dc;padding:18px;font-family:'IBM Plex Mono', ui-monospace, monospace;font-size:.7rem;letter-spacing:.14em}.ds-media i{position:absolute;right:18px;bottom:18px;width:8px;height:8px;border-radius:50%;background:#bad1fd}.ds-idx{display:block;margin-top:24px;font-family:'IBM Plex Mono', ui-monospace, monospace;font-size:.7rem;letter-spacing:.16em;opacity:.55}.ds-cell h3{margin:12px 0 0;font-size:2rem;font-weight:800;line-height:.96;letter-spacing:-.035em}.ds-cell p{margin:14px 0 0;max-width:38ch;line-height:1.55}"
+    },
+    {
+      "name": "Ink Panel",
+      "kind": "card",
+      "refersTo": "ink-panel",
+      "description": "Dark panel with mono header and signal dot row.",
+      "html": "<div class=\"ds-panel\"><div class=\"ds-phead\"><span>PIPELINE</span><span class=\"ds-dots\"><i></i><i></i><i></i></span></div><p>data → model → eval → ship</p></div>",
+      "css": ".ds-panel{width:320px;background:#101014;color:#f4f1e8;border-radius:18px;padding:24px;box-shadow:0 24px 60px -30px rgba(16,16,20,.5);font-family:'IBM Plex Mono', ui-monospace, monospace}.ds-phead{display:flex;justify-content:space-between;font-size:.72rem;letter-spacing:.16em;opacity:.7}.ds-dots{display:flex;gap:6px}.ds-dots i{width:8px;height:8px;border-radius:50%;background:#a2b6dc;opacity:.5}.ds-dots i:first-child{background:#bad1fd;opacity:1}.ds-panel p{margin:40px 0 0;font-size:.8rem;letter-spacing:.08em}"
+    },
+    {
+      "name": "Utility Dock",
+      "kind": "custom",
+      "description": "Floating night HUD holding icon buttons.",
+      "html": "<div class=\"ds-dock\"><button aria-label=\"Theme\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\"/></svg></button><button aria-label=\"Edit\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z\"/></svg></button></div>",
+      "css": ".ds-dock{display:inline-flex;gap:7px;padding:7px;border:1px solid rgba(244,241,232,.18);border-radius:16px;background:rgba(13,13,18,.88);color:#f4f1e8;backdrop-filter:blur(14px);box-shadow:0 16px 50px rgba(0,0,0,.28)}.ds-dock button{width:42px;height:42px;display:grid;place-items:center;border:0;border-radius:10px;background:none;color:inherit;cursor:pointer;transition:background-color .2s}.ds-dock button:hover{background:rgba(171,166,241,.17)}.ds-dock button:focus-visible{outline:2px solid #f4f1e8;outline-offset:2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Lab Notebook, Printed",
+    "overview": "Research rigour set like an editorial print piece. The page is a single tinted paper field, ruled by hairlines into columns and rows the way a lab notebook is ruled, with heavy, tightly tracked grotesk headlines doing the talking and small uppercase mono annotations labelling everything else: indices (`01`, `02`), section kickers, dates, tool names. It reads as something a careful researcher wrote down and then had typeset, not as a SaaS landing page.\n\nThe rhythm alternates between daylight and a dark working room. Paper sections (hero, capabilities, about) hold identity and reading; when the visitor scrolls into Work, AI Workflow, Experience, or Contact the whole site crossfades (0.7s) to near-black night, and the paper colour becomes the type colour. Density is generous: large section padding, wide gutters, few elements per row, and long measures capped at 36 to 52ch. The only living things are the particle systems (the hero formation blob, the eyed puppet mascot, the Claude Code / Codex morph) and one signal colour.\n\nThe paper hue is not fixed. The editor chooses a theme colour; the system blends it 14% toward ink so the field reads as a deepened surface rather than a pastel. Every surface, rule, and accent must keep working whatever hue lands there.",
+    "keyCharacteristics": [
+      "One tinted paper field that swaps wholesale to night for dark sections; no per-card colour.",
+      "Archivo 800 at very large sizes with negative tracking; IBM Plex Mono uppercase for every label.",
+      "Hairline rules (1px) build the grid; 1.5px rules mark emphasis (proof rail, ticker, ghost buttons).",
+      "Fully rounded ink pills for actions; 18px rounded dark frames for media and panels.",
+      "Particle motion and a single signal dot are the only ornament."
+    ],
+    "rules": [
+      {
+        "name": "The One Field Rule",
+        "body": "The background belongs to the whole site, not to a section or card. Dark sections are declared with `data-editorial-theme=\"dark\"`, and the site swaps `--bg`, `--fg`, and `--rule` together. Never paint a section its own background.",
+        "section": "colors"
+      },
+      {
+        "name": "The Signal Dot Rule",
+        "body": "The signal colour appears at dot, line, or underline scale only (5 to 15px dots, 2 to 6px bars, a 0.09em underline). If it covers an area larger than a button, it is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The Any-Hue Rule",
+        "body": "The paper hue is editor-chosen. Never hard-code a new colour that only works with periwinkle or blue; derive from `--paper`, `--ink`, `--fg`, `--bg`, and `--rule`.",
+        "section": "colors"
+      },
+      {
+        "name": "The Marginalia Rule",
+        "body": "Anything that is metadata (index numbers, dates, categories, statuses, counts, tool names) is set in uppercase IBM Plex Mono with wide tracking. Anything that is a claim or a name is set in Archivo.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tight Heavy Rule",
+        "body": "Headlines at 800 always carry negative tracking (-0.02em to -0.055em) and line-height at or below 1.0. Never set a large Archivo headline at default tracking.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Notebook Rule",
+        "body": "Surfaces on the paper are flat. A shadow is only allowed beneath a dark object (media, panel, HUD) and must be soft, dark, and negatively spread. Never use a shadow to separate light content from light content; use a rule.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do derive every colour from `--paper`, `--ink`, `--cream`, `--night`, `--fg`, `--bg`, `--rule`, and `--volt` so the editor-chosen hue keeps working.",
+      "Do mark a new dark section with `data-editorial-theme=\"dark\"` and let the site swap tone, rather than giving the section its own background.",
+      "Do set metadata in uppercase IBM Plex Mono at 0.6 to 0.78rem with 0.06 to 0.18em tracking, at reduced opacity.",
+      "Do build content grids from 1px hairlines between cells; reserve 1.5px rules for emphasis.",
+      "Do use the single easing `cubic-bezier(.22,1,.36,1)` and respect `prefers-reduced-motion`.",
+      "Do keep the formation blob and the eyed puppet as separate entities everywhere."
+    ],
+    "donts": [
+      "Don't add drop shadows to light content on the paper, or use shadows to separate cards; depth is tonal.",
+      "Don't fill large areas with the signal or volt colour; it lives at dot and line scale.",
+      "Don't introduce a third typeface or set large Archivo headlines without negative tracking.",
+      "Don't box content in bordered cards on the paper; use ruled cells.",
+      "Don't give the formation blob eyes or attach the search hitbox to it."
+    ]
+  }
+}
