@@ -5,6 +5,7 @@ import { RegionalCvLayout } from "@/components/cv/regional-layout"
 import { CvEditProvider, type CvEditApi } from "@/components/cv/cv-edit-context"
 import {
   createTailoredCv,
+  moveAtPath,
   parseTailoredCv,
   setAtPath,
   splitList,
@@ -17,7 +18,7 @@ import { professionalCvFixture } from "./fixtures/professional-cv"
 const photo = { src: "/photo.png", width: 100, height: 100 }
 const noop = () => {}
 const api: CvEditApi = {
-  set: noop, swap: noop, insertBullet: noop, removeBullet: noop, hideEntry: noop,
+  set: noop, swap: noop, move: noop, insertBullet: noop, removeBullet: noop, hideEntry: noop,
   hideSection: noop, addBullet: noop, focusKey: null, clearFocus: noop,
 }
 
@@ -52,6 +53,11 @@ describe("tailored CV draft", () => {
     const swapped = swapAtPath(draft.data, ["sections"], 0, 1)
     expect(swapped.sections.map((section) => section.id).slice(0, 2)).toEqual(["experience", "profile"])
     expect(swapAtPath(draft.data, ["sections"], 0, 99)).toBe(draft.data)
+    const ids = draft.data.sections.map((section) => section.id)
+    const moved = moveAtPath(draft.data, ["sections"], 0, 2)
+    expect(moved.sections.map((section) => section.id)).toEqual([ids[1], ids[2], ids[0], ...ids.slice(3)])
+    expect(moveAtPath(draft.data, ["sections"], 2, 0).sections.map((section) => section.id).slice(0, 3)).toEqual([ids[2], ids[0], ids[1]])
+    expect(moveAtPath(draft.data, ["sections"], 1, 1)).toBe(draft.data)
     expect(splitList(" a, b ,, c ")).toEqual(["a", "b", "c"])
   })
 

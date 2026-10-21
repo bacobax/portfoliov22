@@ -13,6 +13,7 @@ import { RegionalCvLayout } from "./regional-layout"
 import { cvDesignSchema } from "@/lib/cv-document"
 import {
   getAtPath,
+  moveAtPath,
   setAtPath,
   swapAtPath,
   tailoredPdfTitle,
@@ -114,6 +115,7 @@ export function CvTailorBuilder({
   const api = useMemo<CvEditApi>(() => ({
     set: setData,
     swap: (listPath, a, b) => update((current) => ({ ...current, data: swapAtPath(current.data, listPath, a, b) })),
+    move: (listPath, from, to) => update((current) => ({ ...current, data: moveAtPath(current.data, listPath, from, to) })),
     insertBullet: (itemsPath, index) => {
       update((current) => {
         const items = getAtPath(current.data, itemsPath)
@@ -320,6 +322,11 @@ const tailorStyles = `
   .cv-edit-controls button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 2px; background: none; }
   .cv-edit-controls button:disabled { opacity: .3; }
   .cv-edit-controls--entry { flex-direction: column; top: 0; right: calc(100% + 6px); }
+  .cv-edit-controls__grip { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 2px; cursor: grab !important; }
+  .cv-edit-controls__grip:active { cursor: grabbing !important; }
+  .region-entry[data-dragging] { opacity: .35; }
+  .region-entry[data-drop]::after { content: ""; position: absolute; left: -4px; right: -4px; top: -5px; height: 2px; background: #b8321b; pointer-events: none; }
+  .region-entry[data-drop="after"]::after { top: auto; bottom: -5px; }
   .cv-edit-controls--section { top: -4px; right: 0; }
   .region-entry:hover > .cv-edit-controls--entry, .region-entry:focus-within > .cv-edit-controls--entry,
   .region-section > h2:hover + .cv-edit-controls--section, .cv-edit-controls--section:hover, .region-section > h2:focus-within + .cv-edit-controls--section, .cv-edit-controls:focus-within { opacity: 1; pointer-events: auto; }

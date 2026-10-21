@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { CvLoadingSkeleton } from "@/components/loading-states"
+import { arrayMove, useDragSort } from "@/components/cv/use-drag-sort"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
@@ -1805,6 +1806,9 @@ function LogSectionEditor({
 
   const appendEntry = (entry: CvLogEntry) => onChange([...entries, entry])
 
+  const move = (from: number, to: number) => onChange(arrayMove(entries, from, to))
+  const sort = useDragSort(move)
+
   return (
     <div className="cv-section-editor">
       {/* Portfolio import helper */}
@@ -1813,12 +1817,33 @@ function LogSectionEditor({
       )}
 
       {entries.map((entry, i) => (
-        <div key={entry.id} className="cv-entry-card">
+        <div
+          key={entry.id}
+          className={`cv-entry-card${sort.dragIndex === i ? " cv-entry-card--dragging" : ""}`}
+          data-drop={sort.dropSlot === i ? "before" : sort.dropSlot === i + 1 && i === entries.length - 1 ? "after" : undefined}
+          {...sort.itemProps(i)}
+        >
           <div className="cv-entry-card__header">
-            <span className="cv-entry-card__num">#{i + 1}</span>
-            <button type="button" className="cv-btn cv-btn--sm cv-btn--danger" onClick={() => remove(i)}>
-              <Trash2 className="w-3 h-3" />
-            </button>
+            <span
+              className="cv-entry-card__grip"
+              title="Drag to reorder"
+              aria-hidden="true"
+              {...sort.handleProps(i)}
+            >
+              <GripVertical className="w-4 h-4" />
+            </span>
+            <span className="cv-entry-card__num">#{i + 1}{entry.title.trim() ? ` · ${entry.title.trim()}` : ""}</span>
+            <span className="cv-entry-card__actions">
+              <button type="button" className="cv-btn cv-btn--sm" title="Move up" aria-label={`Move entry ${i + 1} up`} disabled={i === 0} onClick={() => move(i, i - 1)}>
+                <ChevronUp className="w-3 h-3" />
+              </button>
+              <button type="button" className="cv-btn cv-btn--sm" title="Move down" aria-label={`Move entry ${i + 1} down`} disabled={i === entries.length - 1} onClick={() => move(i, i + 1)}>
+                <ChevronDown className="w-3 h-3" />
+              </button>
+              <button type="button" className="cv-btn cv-btn--sm cv-btn--danger" title="Delete entry" aria-label={`Delete entry ${i + 1}`} onClick={() => remove(i)}>
+                <Trash2 className="w-3 h-3" />
+              </button>
+            </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <FieldWithHint label="Title" value={entry.title} onChange={(v) => update(i, { title: v })} />

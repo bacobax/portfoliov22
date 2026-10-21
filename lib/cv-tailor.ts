@@ -151,6 +151,15 @@ export function swapAtPath<T>(root: T, listPath: CvPath, a: number, b: number): 
   return setAtPath(root, listPath, next)
 }
 
+/** Move item `from` of the array at `listPath` so it ends up at index `to`. */
+export function moveAtPath<T>(root: T, listPath: CvPath, from: number, to: number): T {
+  const list = getAtPath(root, listPath)
+  if (!Array.isArray(list) || from === to || [from, to].some((i) => i < 0 || i >= list.length)) return root
+  const next = [...list]
+  next.splice(to, 0, ...next.splice(from, 1))
+  return setAtPath(root, listPath, next)
+}
+
 export function splitList(value: string): string[] {
   return value.split(",").map((item) => item.trim()).filter(Boolean)
 }

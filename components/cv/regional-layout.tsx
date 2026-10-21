@@ -5,7 +5,7 @@ import { CV_TEMPLATE_BY_ID, type CvLayoutId, type CvLocale } from "@/lib/cv-temp
 import { cvDesignSchema } from "@/lib/cv-document"
 import { cvLinkHref, cvLinkLabel } from "@/lib/cv-quality"
 import type { CvPath } from "@/lib/cv-tailor"
-import { Editable, EntryControls, SectionControls } from "./cv-edit-context"
+import { Editable, EntryControls, SectionControls, useEntryDropTarget } from "./cv-edit-context"
 
 type SectionRef = { section: CvDisplaySection; index: number; prevIndex?: number; nextIndex?: number }
 
@@ -60,8 +60,9 @@ function LogEntry({ entry, path, sectionIndex, entryIndex, prevIndex, nextIndex,
   const short = descriptionText.split(/\s+/).length <= 85 && bulletCount <= 3
   const href = entry.url ? cvLinkHref(entry.url) : undefined
   const githubOnRequest = isProject && href && cvLinkLabel(href) === "GitHub"
+  const dropTarget = useEntryDropTarget(sectionIndex, entryIndex)
   return (
-    <article className={`region-entry ${short ? "region-entry--short" : "region-entry--long"}`}>
+    <article className={`region-entry ${short ? "region-entry--short" : "region-entry--long"}`} {...dropTarget}>
       <EntryControls sectionIndex={sectionIndex} entryIndex={entryIndex} prevIndex={prevIndex} nextIndex={nextIndex} />
       <div className="region-entry__content">
         <div className="region-entry__heading">
