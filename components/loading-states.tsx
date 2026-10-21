@@ -59,7 +59,7 @@ export function PortfolioLoadingSkeleton({ theme = "dark" }: { theme?: "dark" | 
 
 export function CvLoadingSkeleton({ editor = false }: { editor?: boolean }) {
   return (
-    <div className={`cv-loading-skeleton ${editor ? "cv-loading-skeleton--editor" : ""}`} role="status" aria-live="polite" aria-busy="true" aria-label={editor ? "Loading CV editor" : "Loading CV"}>
+    <div className={`cv-loading-skeleton cv-proof ${editor ? "cv-loading-skeleton--editor" : ""}`} role="status" aria-live="polite" aria-busy="true" aria-label={editor ? "Loading CV editor" : "Loading CV"}>
       <div className="cv-skeleton-toolbar">
         <div><SkeletonBlock /><SkeletonBlock className="cv-skeleton-toolbar-title" /></div>
         <div className="cv-skeleton-toolbar-actions"><SkeletonBlock /><SkeletonBlock /><SkeletonBlock /></div>

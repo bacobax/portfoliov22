@@ -169,7 +169,7 @@ export function CvTailorBuilder({
   }
 
   if (!draft) {
-    return <main className="cv-tailor-empty"><p>No CV is available to start from. Create one in the CV editor first.</p></main>
+    return <main className="cv-tailor-empty cv-proof"><p>No CV is available to start from. Create one in the CV editor first.</p></main>
   }
 
   const design = cvDesignSchema.parse(draft.data.design ?? {})
@@ -178,7 +178,7 @@ export function CvTailorBuilder({
     + (section.content.type === "log" ? section.content.entries.filter((entry) => entry.hidden).length : 0), 0)
 
   return (
-    <div className="cv-tailor">
+    <div className="cv-tailor cv-proof">
       <style>{tailorStyles}</style>
       <style>{`@page { size: ${design.page}; margin: ${Math.max(12, design.marginMm)}mm; }`}</style>
 
@@ -272,7 +272,7 @@ export function CvTailorBuilder({
           if ((event.target as HTMLElement).closest(".regional-cv a")) event.preventDefault()
         }}
       >
-        <CvScaleToFit page={design.page}>
+        <CvScaleToFit page={design.page} proof>
           <CvEditProvider api={api}>
             <RegionalCvLayout layout={draft.layout} data={draft.data} profilePicture={profilePicture} />
           </CvEditProvider>
@@ -308,79 +308,22 @@ function formatTime(iso: string) {
 
 const tailorStyles = `
   :root { color-scheme: light; }
-  body { background: #e7edef; }
   @media (pointer: fine) { .cv-tailor, .cv-tailor * { cursor: auto !important; } .cv-tailor button, .cv-tailor a { cursor: pointer !important; } .cv-tailor .cv-editable { cursor: text !important; } }
   @media (pointer: coarse) { .tech-cursor { display: none !important; } }
 
-  .cv-tailor { display: grid; grid-template-columns: 320px minmax(0, 1fr); min-height: 100vh; font-family: var(--font-open-sans), "Open Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #122b35; }
-  .cv-tailor-panel { position: sticky; top: 0; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; padding: 20px; background: #fff; border-right: 1px solid #d8e1e5; }
-  .cv-tailor-panel__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .cv-tailor-back { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #122b35; text-decoration: none; padding: 6px 8px; margin-left: -8px; border-radius: 6px; }
-  .cv-tailor-back:hover { background: #f1f5f6; }
-  .cv-tailor-status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #526574; }
-  .cv-tailor-status--error { color: #b42318; }
-  .cv-tailor-status button { color: inherit; text-decoration: underline; background: none; border: 0; padding: 0; font: inherit; }
-  .cv-tailor-panel__intro span { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: #0f766e; font-weight: 600; }
-  .cv-tailor-panel__intro h1 { margin: 4px 0 8px; font-size: 22px; letter-spacing: -.03em; }
-  .cv-tailor-panel__intro p { margin: 0; font-size: 13px; line-height: 1.55; color: #3d5160; }
-  .cv-tailor kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 1px 5px; border: 1px solid #d8e1e5; border-bottom-width: 2px; border-radius: 4px; background: #f8fafb; }
-  .cv-tailor-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
-  .cv-tailor-field > span { font-weight: 600; }
-  .cv-tailor-field input, .cv-tailor-reset select { min-height: 40px; padding: 8px 10px; border: 1px solid #c9d5da; border-radius: 8px; font: inherit; color: inherit; background: #fff; min-width: 0; }
-  .cv-tailor-field input:focus, .cv-tailor-reset select:focus { outline: 3px solid #99f6e4; border-color: #0d9488; }
-  .cv-tailor-field small { font-size: 11.5px; color: #526574; overflow-wrap: anywhere; }
-  .cv-tailor-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 8px 14px; border: 1px solid #c9d5da; border-radius: 8px; background: #fff; color: #122b35; font: 600 13px/1 inherit; font-family: inherit; }
-  .cv-tailor-btn:hover:not(:disabled) { background: #f1f5f6; }
-  .cv-tailor-btn:disabled { opacity: .6; }
-  .cv-tailor-btn--primary { width: 100%; background: #122b35; border-color: #122b35; color: #fff; }
-  .cv-tailor-btn--primary:hover:not(:disabled) { background: #1d3d4a; }
-  .cv-tailor-btn--danger { background: #b42318; border-color: #b42318; color: #fff; }
-  .cv-tailor-btn--danger:hover:not(:disabled) { background: #912018; }
-  .cv-tailor button:focus-visible, .cv-tailor a:focus-visible { outline: 3px solid #0d9488; outline-offset: 2px; }
-  .cv-tailor-download .cv-print-help { max-width: none; margin-top: 8px; }
-  .cv-tailor-outline h2, .cv-tailor-reset h2 { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: #526574; }
-  .cv-tailor-outline h2 small { text-transform: none; letter-spacing: 0; font-weight: 500; }
-  .cv-tailor-outline ul { list-style: none; margin: 0; padding: 0; }
-  .cv-tailor-outline ul ul { padding-left: 18px; margin: 2px 0 6px; }
-  .cv-tailor-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 6px; border: 0; border-radius: 6px; background: none; text-align: left; font: 13px/1.35 inherit; font-family: inherit; color: inherit; }
-  .cv-tailor-toggle:hover:not(:disabled) { background: #f1f5f6; }
-  .cv-tailor-toggle svg { flex-shrink: 0; color: #0f766e; }
-  .cv-tailor-toggle span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .cv-tailor-toggle__strong { font-weight: 600; }
-  .cv-tailor-outline .is-hidden > .cv-tailor-toggle { color: #8a9aa5; }
-  .cv-tailor-outline .is-hidden > .cv-tailor-toggle span { text-decoration: line-through; }
-  .cv-tailor-outline .is-hidden > .cv-tailor-toggle svg { color: #8a9aa5; }
-  .cv-tailor-toggle:disabled { opacity: .55; }
-  .cv-tailor-reset { margin-top: auto; padding-top: 16px; border-top: 1px solid #e3eaed; }
-  .cv-tailor-reset p { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: #3d5160; }
-  .cv-tailor-reset__row { display: flex; flex-wrap: wrap; gap: 8px; }
-  .cv-tailor-reset__row select { flex: 1 1 140px; }
-  .cv-tailor-canvas { padding: 32px 24px 64px 56px; min-width: 0; }
-  .cv-tailor-empty { padding: 48px; text-align: center; color: #526574; }
-
-  /* Inline editing affordances, screen only (the PDF uses the ATS layout). */
+  /* Inline editing affordances, screen only (the PDF uses the ATS layout). Colours live in cv-proof.css. */
   .cv-tailor .cv-editable { outline: none; border-radius: 2px; transition: background-color .12s, box-shadow .12s; }
-  .cv-tailor .cv-editable:hover { background: rgba(13, 148, 136, .08); box-shadow: 0 0 0 2px rgba(13, 148, 136, .08); }
-  .cv-tailor .cv-editable:focus { background: rgba(13, 148, 136, .12); box-shadow: 0 0 0 2px rgba(13, 148, 136, .55); }
-  .cv-tailor .cv-editable:empty::before { content: attr(data-placeholder); color: #9aa7b0; font-style: italic; }
+  .cv-tailor .cv-editable:empty::before { content: attr(data-placeholder); color: #75797f; font-style: italic; }
   .cv-tailor .regional-cv li .cv-editable:empty { display: inline-block; min-width: 8em; }
   .cv-tailor .region-entry, .cv-tailor .region-section { position: relative; }
-  .cv-edit-controls { position: absolute; z-index: 2; display: flex; gap: 2px; padding: 2px; border: 1px solid #c9d5da; border-radius: 7px; background: #fff; box-shadow: 0 4px 12px rgba(18, 43, 53, .12); opacity: 0; pointer-events: none; transition: opacity .12s; font-family: Arial, sans-serif; }
-  .cv-edit-controls button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 5px; background: none; color: #122b35; }
-  .cv-edit-controls button:hover:not(:disabled) { background: #e6f4f2; color: #0f766e; }
+  .cv-edit-controls { position: absolute; z-index: 2; display: flex; gap: 2px; padding: 2px; border: 1px solid #8f9297; border-radius: 3px; background: #fff; opacity: 0; pointer-events: none; transition: opacity .12s; font-family: Arial, sans-serif; }
+  .cv-edit-controls button { display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 2px; background: none; }
   .cv-edit-controls button:disabled { opacity: .3; }
   .cv-edit-controls--entry { flex-direction: column; top: 0; right: calc(100% + 6px); }
   .cv-edit-controls--section { top: -4px; right: 0; }
   .region-entry:hover > .cv-edit-controls--entry, .region-entry:focus-within > .cv-edit-controls--entry,
   .region-section > h2:hover + .cv-edit-controls--section, .cv-edit-controls--section:hover, .region-section > h2:focus-within + .cv-edit-controls--section, .cv-edit-controls:focus-within { opacity: 1; pointer-events: auto; }
   @media (hover: none) { .cv-edit-controls { opacity: .85; pointer-events: auto; } }
-
-  @media (max-width: 900px) {
-    .cv-tailor { grid-template-columns: 1fr; }
-    .cv-tailor-panel { position: static; height: auto; border-right: 0; border-bottom: 1px solid #d8e1e5; padding: 16px; }
-    .cv-tailor-reset { margin-top: 0; }
-    .cv-tailor-canvas { padding: 16px 8px 48px 36px; }
-  }
 
   @media print {
     body { background: #fff; }

@@ -6,10 +6,13 @@ export function CvScaleToFit({
   children,
   maxScale = 1,
   page = "A4",
+  proof = false,
 }: {
   children: ReactNode
   maxScale?: number
   page?: "A4" | "Letter"
+  /** Frame the page as a proof: board padding and crop marks (screen only). */
+  proof?: boolean
 }) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(maxScale)
@@ -19,7 +22,8 @@ export function CvScaleToFit({
     if (!viewport) return
 
     const updateScale = () => {
-      const availableWidth = viewport.clientWidth
+      const style = getComputedStyle(viewport)
+      const availableWidth = viewport.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
       if (availableWidth <= 0) return
       setScale(Math.min(maxScale, availableWidth / ((page === "Letter" ? 215.9 : 210) / 25.4 * 96)))
     }
@@ -30,8 +34,18 @@ export function CvScaleToFit({
     return () => observer.disconnect()
   }, [maxScale, page])
 
+  const documentNode = (
+    <div
+      className="cv-fit-document"
+      data-cv-scale={scale.toFixed(4)}
+      style={{ zoom: scale, width: page === "Letter" ? "215.9mm" : "210mm" } as React.CSSProperties}
+    >
+      {children}
+    </div>
+  )
+
   return (
-    <div ref={viewportRef} className="cv-fit-viewport">
+    <div ref={viewportRef} className={`cv-fit-viewport ${proof ? "proof-board" : ""}`}>
       <style>{`
         .cv-fit-viewport {
           width: 100%;
@@ -62,13 +76,15 @@ export function CvScaleToFit({
           }
         }
       `}</style>
-      <div
-        className="cv-fit-document"
-        data-cv-scale={scale.toFixed(4)}
-        style={{ zoom: scale, width: page === "Letter" ? "215.9mm" : "210mm" } as React.CSSProperties}
-      >
-        {children}
-      </div>
+      {proof ? (
+        <div className="proof-sheet">
+          {documentNode}
+          <i className="proof-crop proof-crop--tl" aria-hidden="true" />
+          <i className="proof-crop proof-crop--tr" aria-hidden="true" />
+          <i className="proof-crop proof-crop--bl" aria-hidden="true" />
+          <i className="proof-crop proof-crop--br" aria-hidden="true" />
+        </div>
+      ) : documentNode}
     </div>
   )
 }

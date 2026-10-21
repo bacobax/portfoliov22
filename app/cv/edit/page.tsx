@@ -128,6 +128,8 @@ export default function CvEditorPage() {
     })
   }
   const [activeEditorSection, setActiveEditorSection] = useState("settings")
+  const [proofMark, setProofMark] = useState<{ top: number; left: number; height: number } | null>(null)
+  const proofScalerRef = useRef<HTMLDivElement>(null)
   const [pendingEntity, setPendingEntity] = useState<{
     sectionId: "experience" | "education" | "projects"
     entry: CvLogEntry
@@ -579,13 +581,57 @@ export default function CvEditorPage() {
     setActiveEditorSection(sectionId)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        document.getElementById(`cv-editor-${sectionId}`)?.scrollIntoView({
-          behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
-          block: "start",
-        })
+        const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth"
+        document.getElementById(`cv-editor-${sectionId}`)?.scrollIntoView({ behavior, block: "start" })
+        // Bring the matching passage of the proof into view beside it.
+        const pane = document.querySelector<HTMLElement>(".cv-editor-split__preview")
+        const target = proofScalerRef.current && findProofTarget(proofScalerRef.current, sectionId)
+        if (pane && target) {
+          const top = target.getBoundingClientRect().top - pane.getBoundingClientRect().top + pane.scrollTop - 96
+          pane.scrollTo({ top: Math.max(0, top), behavior })
+        }
       })
     })
   }, [])
+
+  /* The proof mark follows the section being edited onto its place on the page. */
+  const placeProofMark = useCallback(() => {
+    const scaler = proofScalerRef.current
+    const target = scaler && findProofTarget(scaler, activeEditorSection)
+    const page = scaler?.querySelector<HTMLElement>(".cv-document--visual")
+    if (!scaler || !target || !page) {
+      setProofMark((current) => current && null)
+      return
+    }
+    const origin = scaler.getBoundingClientRect()
+    const box = target.getBoundingClientRect()
+    const next = {
+      top: Math.round(box.top - origin.top),
+      left: Math.round(page.getBoundingClientRect().left - origin.left - 16),
+      height: Math.max(12, Math.round(box.height)),
+    }
+    setProofMark((current) => current && current.top === next.top && current.left === next.left && current.height === next.height ? current : next)
+  }, [activeEditorSection])
+
+  useEffect(() => {
+    const scaler = proofScalerRef.current
+    if (!scaler) return
+    let frame = 0
+    const schedule = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(placeProofMark)
+    }
+    schedule()
+    const resize = new ResizeObserver(schedule)
+    resize.observe(scaler)
+    const mutations = new MutationObserver(schedule)
+    mutations.observe(scaler, { childList: true, subtree: true, characterData: true })
+    return () => {
+      cancelAnimationFrame(frame)
+      resize.disconnect()
+      mutations.disconnect()
+    }
+  }, [placeProofMark, activePresetId, previewZoom, mobileView, loading, isAuthenticated, editorView])
 
   useEffect(() => {
     if (!editorDestinationKey || mobileView === "preview") return
@@ -594,7 +640,8 @@ export default function CvEditorPage() {
     if (anchors.length === 0) return
 
     const updateActiveSection = () => {
-      const referenceTop = (editorPane?.getBoundingClientRect().top ?? 0) + 32
+      // below the sticky Content / Design / Source tabs
+      const referenceTop = (editorPane?.getBoundingClientRect().top ?? 0) + 96
       let next = anchors[0]?.dataset.cvEditorAnchor ?? "settings"
       for (const anchor of anchors) {
         if (anchor.getBoundingClientRect().top <= referenceTop) {
@@ -623,8 +670,7 @@ export default function CvEditorPage() {
   }
 
   return (
-    <div className="cv-editor-page min-h-screen bg-slate-100">
-      <style>{editorStyles}</style>
+    <div className="cv-editor-page cv-proof">
       <ContentHubDrawer
         open={showContentHub}
         onClose={() => {
@@ -859,7 +905,7 @@ export default function CvEditorPage() {
           <button onClick={() => router.push("/cv")} className="cv-editor-bar__back" type="button">
             <ArrowLeft className="w-4 h-4" /> CVs
           </button>
-          <h1 className="cv-editor-bar__title">CV Editor</h1>
+          <h1 className="cv-editor-bar__title">CV editor</h1>
         </div>
         <div className="cv-editor-bar__right">
           <span className="cv-editor-bar__status" aria-live="polite">
@@ -868,15 +914,15 @@ export default function CvEditorPage() {
             {!saving && !refreshing && !error && !conflict && <><Check className="w-3 h-3" /> {saved ? "All changes saved" : "Changes save automatically"}</>}
           </span>
           {error && <span className="cv-editor-bar__status cv-editor-bar__status--err">{error}</span>}
+          <button onClick={() => setShowContentHub(true)} className="cv-editor-bar__btn" type="button">
+            <Database className="w-4 h-4" /> Content hub
+          </button>
+          <button onClick={() => router.push("/")} className="cv-editor-bar__btn" type="button">
+            Portfolio
+          </button>
           {activePresetId && <button onClick={() => void publishActive()} disabled={saving || publishing} className="cv-editor-bar__btn cv-editor-publish" type="button">
             {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} {publishing ? "Publishing…" : publishedPresetIds.includes(activePresetId) ? "Publish update" : "Publish CV"}
           </button>}
-          <button onClick={() => setShowContentHub(true)} className="cv-editor-bar__btn" type="button">
-            <Database className="w-4 h-4" /> Content Hub
-          </button>
-          <button onClick={() => router.push("/")} className="cv-editor-bar__btn" type="button">
-            <ArrowLeft className="w-4 h-4" /> Home
-          </button>
         </div>
       </header>
 
@@ -943,7 +989,7 @@ export default function CvEditorPage() {
       {activePreset && cv && (
         <nav className="cv-section-nav" aria-label="CV sections">
           <div className="cv-section-nav__heading">
-            <span><Rows3 className="w-4 h-4" /> Jump to section</span>
+            <span><Rows3 className="w-4 h-4" /> Sections</span>
             <span>{activeEditorIndex + 1} / {editorDestinations.length}</span>
           </div>
           <div className="cv-section-nav__controls">
@@ -1163,7 +1209,7 @@ export default function CvEditorPage() {
           <aside className="cv-editor-split__preview">
             <CvQualityReview preset={activePreset} />
             <div className="cv-editor-preview-header">
-              <span className="cv-editor-preview-header__title">Live Preview</span>
+              <span className="cv-editor-preview-header__title">Proof</span>
               <div className="cv-editor-preview-header__controls">
                 <CvPrintButton className="cv-btn cv-btn--sm" />
                 <button type="button" className="cv-editor-preview-zoom-btn" aria-label="Zoom out"
@@ -1174,12 +1220,16 @@ export default function CvEditorPage() {
                 <span className="cv-editor-preview-header__layout">{CV_TEMPLATE_BY_ID[activePreset.layout].shortLabel} · {CV_TEMPLATE_BY_ID[activePreset.layout].pageGuidance}</span>
               </div>
             </div>
-            <div className="cv-editor-preview-scaler">
+            <div className="cv-editor-preview-scaler" ref={proofScalerRef}>
               {previewData && (
-                <CvScaleToFit maxScale={previewZoom} page={activePreset.design.page}>
+                <CvScaleToFit maxScale={previewZoom} page={activePreset.design.page} proof>
                   <CvDocumentOutput layout={activePreset.layout} data={previewData} profilePicture={profilePicture} />
                 </CvScaleToFit>
               )}
+              <div className="cv-proof-mark" aria-hidden="true" hidden={!proofMark}
+                style={proofMark ? { top: proofMark.top, left: proofMark.left, height: proofMark.height } : undefined}>
+                <span>{editorDestinations[activeEditorIndex]?.label}</span>
+              </div>
             </div>
           </aside>
         </div>
@@ -1200,6 +1250,23 @@ export default function CvEditorPage() {
 /* ════════════════════════════════════════════════════
    Sub-components
    ════════════════════════════════════════════════════ */
+
+/* ── Proof mark target: the passage of the live page an editor section writes ── */
+function findProofTarget(scaler: HTMLElement, sectionKey: string): HTMLElement | null {
+  const page = scaler.querySelector<HTMLElement>(".cv-document--visual")
+  if (!page) return null
+  if (sectionKey === "profile") return page.querySelector<HTMLElement>(".region-header")
+  if (!sectionKey.startsWith("section-")) return null
+  const id = CSS.escape(sectionKey.slice("section-".length))
+  const byClass = page.querySelector<HTMLElement>(`.region-section--${id}`)
+  if (byClass) return byClass
+  const heading = page.querySelector<HTMLElement>(`#cv-${id}`)
+  if (heading) return heading.closest<HTMLElement>(".region-section") ?? heading
+  const title = document.querySelector<HTMLInputElement>(`#cv-editor-${CSS.escape(sectionKey)} .cv-editor-card__title-input`)?.value.trim()
+  if (!title) return null
+  const match = Array.from(page.querySelectorAll<HTMLElement>(".region-section > h2")).find((h2) => h2.textContent?.trim() === title)
+  return match?.closest<HTMLElement>(".region-section") ?? null
+}
 
 /* ── EditorCard ── */
 function EditorCard({
@@ -1957,1076 +2024,4 @@ function InlineTagsEditor({
 /* ════════════════════════════════════════════════════
    Styles
    ════════════════════════════════════════════════════ */
-const editorStyles = `
-  .cv-create-layer {
-    position: fixed;
-    inset: 0;
-    z-index: 11000;
-    display: grid;
-    place-items: center;
-    padding: 20px;
-    background: rgba(15, 23, 42, .76);
-    backdrop-filter: blur(7px);
-  }
-  .cv-create-dialog {
-    width: min(620px, 100%);
-    max-height: calc(100vh - 40px);
-    overflow: auto;
-    padding: 22px;
-    background: #fff;
-    border: 1px solid #94a3b8;
-    box-shadow: 0 28px 80px rgba(0,0,0,.35);
-  }
-  .cv-create-dialog__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
-  .cv-create-dialog__head span { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .12em; color: #64748b; }
-  .cv-create-dialog__head h2 { margin: 3px 0 0; font-size: 26px; text-transform: capitalize; }
-  .cv-create-dialog__head button { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid #cbd5e1; background: #fff; }
-  .cv-create-targets { display: flex; flex-wrap: wrap; gap: 10px 18px; margin: 14px 0; padding: 14px; border: 1px solid #cbd5e1; }
-  .cv-create-targets legend { padding: 0 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
-  .cv-create-targets label { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; font-size: 12px; }
-  .cv-create-targets input { width: 18px; height: 18px; }
-  .cv-create-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
-  .cv-template-dialog { width: min(880px, 100%); }
-  .cv-template-confirm { width: min(560px, 100%); }
-  .cv-template-confirm > p { color: #475569; font-size: 13px; line-height: 1.6; }
-  .cv-wizard-step h3 { margin: 0; font-size: 18px; color: #0f172a; }
-  .cv-wizard-step > p { margin: 5px 0 18px; color: #64748b; font-size: 12px; }
-  .cv-recommendation { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 15px; padding: 13px 15px; border-left: 4px solid #2563eb; background: #eff6ff; }
-  .cv-recommendation span { color: #64748b; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-  .cv-recommendation strong { font-size: 13px; text-align: right; }
-  .cv-template-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
-  .cv-template-card { min-height: 112px; display: grid; grid-template-columns: 72px minmax(0,1fr); align-items: stretch; gap: 12px; padding: 10px; border: 1px solid #cbd5e1; background: #fff; text-align: left; cursor: pointer; }
-  .cv-template-card:hover { border-color: #64748b; }
-  .cv-template-card--selected { border: 2px solid #2563eb; padding: 9px; box-shadow: 0 8px 22px rgba(37,99,235,.12); }
-  .cv-template-card__preview { display: flex; flex-direction: column; gap: 5px; padding: 10px 8px; border-left: 7px solid var(--card-accent); background: #f8fafc; box-shadow: inset 0 0 0 1px #e2e8f0; }
-  .cv-template-card__preview i { display: block; height: 4px; background: #cbd5e1; } .cv-template-card__preview i:first-child { width: 65%; height: 8px; background: var(--card-accent); }
-  .cv-template-card__copy { display: flex; min-width: 0; flex-direction: column; justify-content: center; }
-  .cv-template-card__copy strong { font-size: 13px; color: #0f172a; }
-  .cv-template-card__copy small { margin-top: 4px; color: #64748b; font-size: 10px; }
-  .cv-template-card__copy em { width: fit-content; margin-top: 8px; padding: 2px 6px; background: #e2e8f0; color: #334155; font-size: 9px; font-style: normal; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
-  .cv-template-card--selected .cv-template-card__copy em { background: #dbeafe; color: #1d4ed8; }
-  .cv-wizard-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 22px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
-  .cv-option-row { min-height: 52px; display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid #cbd5e1; background: #fff; }
-  .cv-option-row input { width: 18px; height: 18px; }
-  .cv-option-row span { display: flex; flex-direction: column; } .cv-option-row strong { color: #0f172a; font-size: 12px; } .cv-option-row small { color: #64748b; font-size: 10px; }
-  .cv-regional-settings { display: grid; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
-  .cv-option-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
-  .cv-personal-fields { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 12px; border: 1px solid #cbd5e1; }
-  .cv-personal-fields legend { padding: 0 5px; color: #475569; font-size: 10px; font-weight: 800; text-transform: uppercase; }
-  .cv-personal-fields label { display: flex; align-items: center; gap: 6px; min-height: 32px; font-size: 11px; }
-  .cv-personal-fields input { width: 16px; height: 16px; }
-  .cv-field__hint { display: block; margin-top: 4px; color: #64748b; font-size: 10px; line-height: 1.4; }
-  .cv-page-guidance { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 11px 13px; background: #f1f5f9; }
-  .cv-page-guidance span { color: #64748b; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-  .cv-page-guidance strong { font-size: 11px; } .cv-page-guidance small { grid-column: 1 / -1; color: #64748b; font-size: 9px; }
-  .cv-editor-conflict {
-    min-height: 52px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 8px 18px;
-    background: #7f1d1d;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .cv-editor-conflict button {
-    min-height: 36px;
-    padding: 0 12px;
-    border: 1px solid #fff;
-    background: transparent;
-    color: #fff;
-    cursor: pointer;
-  }
-  .cv-editor-conflict button:first-of-type { background: #fff; color: #7f1d1d; }
-  /* ── Top bar ── */
-  .cv-editor-bar {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 20px;
-    background: #0f172a;
-    color: #f8fafc;
-    font-family: var(--font-open-sans), "Open Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  }
-  .cv-editor-bar__left,
-  .cv-editor-bar__right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .cv-editor-bar__back {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: none;
-    border: none;
-    color: #94a3b8;
-    font-size: 12px;
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .cv-editor-bar__back:hover { color: #f8fafc; }
-  .cv-editor-bar__title {
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-  }
-  .cv-editor-bar__status {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    color: #94a3b8;
-  }
-  .cv-editor-bar__status--ok { color: #4ade80; }
-  .cv-editor-bar__status--err { color: #f87171; }
-  .cv-editor-bar__btn {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: #1e293b;
-    border: 1px solid #334155;
-    color: #f8fafc;
-    padding: 6px 14px;
-    border-radius: 4px;
-    font-size: 12px;
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .cv-editor-bar__btn:hover { background: #334155; }
 
-  /* ── Preset tabs ── */
-  .cv-preset-bar {
-    position: sticky;
-    top: 44px;
-    z-index: 49;
-    background: #1e293b;
-    padding: 0 20px;
-    overflow-x: auto;
-    border-bottom: 1px solid #334155;
-  }
-  .cv-preset-bar__tabs {
-    display: flex;
-    gap: 0;
-  }
-  .cv-preset-tab {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    color: #94a3b8;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    font-size: 12px;
-    cursor: pointer;
-    white-space: nowrap;
-    font-family: inherit;
-    font-weight: 500;
-  }
-  .cv-preset-tab:hover { color: #e2e8f0; }
-  .cv-preset-tab--active {
-    color: #f8fafc;
-    border-bottom-color: #3b82f6;
-    font-weight: 600;
-  }
-  .cv-preset-tab--hidden { opacity: 0.5; }
-  .cv-preset-tab--add { color: #64748b; }
-  .cv-preset-tab--add:hover { color: #94a3b8; }
-  .cv-preset-tab__layout {
-    font-size: 9px;
-    background: #334155;
-    color: #94a3b8;
-    padding: 1px 6px;
-    border-radius: 3px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  /* ── Main editor area ── */
-  .cv-editor-main {
-    max-width: 860px;
-    width: 100%;
-    margin: 24px auto;
-    padding: 0 16px 48px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    font-family: var(--font-open-sans), "Open Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  }
-  .cv-editor-split__editor .cv-editor-main {
-    max-width: none;
-  }
-
-  /* ── Card ── */
-  .cv-editor-card {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  }
-  .cv-editor-card--muted { opacity: 0.5; }
-  .cv-editor-card__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
-    cursor: pointer;
-    user-select: none;
-  }
-  .cv-editor-card__title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #0f172a;
-  }
-  .cv-editor-card__title-input {
-    font-size: 13px;
-    font-weight: 600;
-    color: #0f172a;
-    border: 1px solid transparent;
-    background: transparent;
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-family: inherit;
-    min-width: 0;
-  }
-  .cv-editor-card__title-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    background: white;
-  }
-  .cv-editor-card__badge {
-    font-size: 9px;
-    background: #e0e7ff;
-    color: #4338ca;
-    padding: 1px 6px;
-    border-radius: 3px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-weight: 600;
-    flex-shrink: 0;
-  }
-  .cv-editor-card__body { padding: 16px; }
-
-  /* ── Fields ── */
-  .cv-field { display: flex; flex-direction: column; gap: 4px; }
-  .cv-field__label {
-    font-size: 11px;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .cv-field__input {
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
-    padding: 7px 10px;
-    font-size: 13px;
-    font-family: inherit;
-    color: #0f172a;
-    background: #ffffff;
-  }
-  .cv-field__input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
-  }
-  .cv-field__textarea { resize: vertical; min-height: 48px; }
-  .cv-field__label-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  /* ── AI assistant ── */
-  .ai-assist { position: relative; }
-  .ai-assist__trigger {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 7px;
-    border: 1px solid #c7d2fe;
-    border-radius: 4px;
-    background: linear-gradient(135deg, #eef2ff, #e0e7ff);
-    color: #4338ca;
-    font-size: 10px;
-    font-weight: 600;
-    font-family: inherit;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .ai-assist__trigger:hover { background: linear-gradient(135deg, #e0e7ff, #c7d2fe); }
-  .ai-assist__trigger--loading {
-    opacity: 0.7;
-    cursor: wait;
-  }
-  .ai-assist__menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    margin-top: 4px;
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-    z-index: 20;
-    overflow: hidden;
-    min-width: 160px;
-  }
-  .ai-assist__item {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 8px 14px;
-    font-size: 12px;
-    font-family: inherit;
-    border: none;
-    background: none;
-    cursor: pointer;
-    color: #334155;
-  }
-  .ai-assist__item:hover { background: #f1f5f9; }
-  .ai-assist__divider {
-    height: 1px;
-    background: #e2e8f0;
-    margin: 2px 0;
-  }
-  .ai-assist__custom {
-    display: flex;
-    gap: 4px;
-    padding: 6px 8px;
-  }
-  .ai-assist__custom-input {
-    flex: 1;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 11px;
-    font-family: inherit;
-    min-width: 0;
-  }
-  .ai-assist__custom-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-  }
-  .ai-assist__custom-go {
-    padding: 4px 10px;
-    border: none;
-    border-radius: 4px;
-    background: #4338ca;
-    color: white;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    font-family: inherit;
-  }
-  .ai-assist__custom-go:hover { background: #3730a3; }
-  .ai-assist__custom-go:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  /* ── Buttons ── */
-  .cv-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
-    font-size: 12px;
-    font-family: inherit;
-    cursor: pointer;
-    background: #f8fafc;
-    color: #334155;
-  }
-  .cv-btn:hover { background: #e2e8f0; }
-  .cv-btn--sm { padding: 4px 8px; font-size: 11px; }
-  .cv-btn--danger { color: #dc2626; border-color: #fecaca; }
-  .cv-btn--danger:hover { background: #fef2f2; }
-
-  /* ── Section organizer ── */
-  .section-organizer {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-  .section-zone {
-    border: 2px dashed #e2e8f0;
-    border-radius: 8px;
-    padding: 12px;
-    min-height: 80px;
-    transition: border-color 0.15s, background 0.15s;
-    position: relative;
-  }
-  .section-zone--drag-over {
-    border-color: #3b82f6;
-    background: #eff6ff;
-  }
-  .section-zone__label {
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #64748b;
-    margin-bottom: 8px;
-  }
-  .section-zone__chips {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .section-zone__empty {
-    font-size: 11px;
-    color: #94a3b8;
-    text-align: center;
-    padding: 16px 0;
-  }
-  .section-zone__add {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-top: 8px;
-    background: none;
-    border: 1px dashed #cbd5e1;
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 11px;
-    color: #64748b;
-    cursor: pointer;
-    font-family: inherit;
-    width: 100%;
-    justify-content: center;
-  }
-  .section-zone__add:hover { border-color: #3b82f6; color: #3b82f6; }
-  .section-zone__menu {
-    position: absolute;
-    bottom: -4px;
-    left: 12px;
-    transform: translateY(100%);
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    z-index: 10;
-    overflow: hidden;
-  }
-  .section-zone__menu-item {
-    display: block;
-    width: 100%;
-    text-align: left;
-    padding: 8px 16px;
-    font-size: 12px;
-    font-family: inherit;
-    border: none;
-    background: none;
-    cursor: pointer;
-    color: #334155;
-  }
-  .section-zone__menu-item:hover { background: #f1f5f9; }
-
-  /* ── Section chip ── */
-  .section-chip {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 8px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 5px;
-    font-size: 12px;
-    cursor: grab;
-    transition: opacity 0.15s, box-shadow 0.15s;
-  }
-  .section-chip:active { cursor: grabbing; }
-  .section-chip--dragging { opacity: 0.4; }
-  .section-chip--hidden { opacity: 0.45; }
-  .section-drop-indicator {
-    height: 2px;
-    background: #3b82f6;
-    border-radius: 1px;
-    margin: 2px 0;
-  }
-  .section-chip__title {
-    font-weight: 500;
-    color: #0f172a;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .section-chip__type {
-    font-size: 9px;
-    background: #e0e7ff;
-    color: #4338ca;
-    padding: 1px 5px;
-    border-radius: 3px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    flex-shrink: 0;
-  }
-  .section-chip__actions {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    flex-shrink: 0;
-  }
-  .section-chip__btn {
-    background: none;
-    border: none;
-    padding: 2px;
-    cursor: pointer;
-    color: #94a3b8;
-    display: flex;
-    border-radius: 3px;
-  }
-  .section-chip__btn:hover { color: #0f172a; background: #e2e8f0; }
-  .section-chip__btn--danger:hover { color: #dc2626; background: #fef2f2; }
-
-  /* ── Entry card (for log/tag editors) ── */
-  .cv-section-editor { display: flex; flex-direction: column; gap: 12px; }
-  .cv-entry-card {
-    border: 1px solid #f1f5f9;
-    background: #fafbfc;
-    border-radius: 6px;
-    padding: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .cv-entry-card__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .cv-entry-card__num {
-    font-size: 10px;
-    font-weight: 700;
-    color: #94a3b8;
-  }
-
-  /* ── Entry row (links, list items) ── */
-  .cv-entry-row {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-  .cv-entry-row .cv-field__input { flex: 1; }
-  .cv-list-items { display: flex; flex-direction: column; gap: 4px; }
-  .cv-list-item { display: flex; gap: 6px; align-items: center; }
-  .cv-list-item .cv-field__input { flex: 1; }
-
-  /* ── Tags inline ── */
-  .cv-tags-wrap {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
-    padding: 5px 8px;
-    background: #ffffff;
-    min-height: 36px;
-    align-items: center;
-  }
-  .cv-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: #e0e7ff;
-    color: #3730a3;
-    padding: 2px 3px 2px 7px;
-    border-radius: 3px;
-    font-size: 11px;
-    max-width: 100%;
-  }
-  .cv-tag__input {
-    max-width: 180px;
-    min-width: 48px;
-    border: 0;
-    outline: 0;
-    padding: 2px 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-  }
-  .cv-tag__remove {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    background: rgba(255,255,255,.45);
-    border: none;
-    border-radius: 3px;
-    color: #6366f1;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-  }
-  .cv-tag__remove:hover { color: #dc2626; }
-  .cv-tags-input {
-    border: none;
-    outline: none;
-    font-size: 12px;
-    min-width: 80px;
-    flex: 1;
-    font-family: inherit;
-    background: transparent;
-  }
-  .cv-tags-add {
-    min-height: 28px;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 3px 8px;
-    border: 1px solid #c7d2fe;
-    border-radius: 3px;
-    background: #eef2ff;
-    color: #4338ca;
-    font-size: 11px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .cv-tags-add:disabled { opacity: .45; cursor: not-allowed; }
-
-  /* ── Portfolio importer ── */
-  .portfolio-importer {
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    overflow: hidden;
-    background: #f8fafc;
-  }
-  .portfolio-importer__toggle {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    background: none;
-    border: none;
-    font-size: 12px;
-    font-family: inherit;
-    font-weight: 500;
-    color: #334155;
-    cursor: pointer;
-    text-align: left;
-  }
-  .portfolio-importer__toggle:hover { background: #f1f5f9; }
-  .portfolio-importer__toggle--open {
-    background: #f1f5f9;
-    border-bottom: 1px solid #e2e8f0;
-  }
-  .portfolio-importer__panel { padding: 0; }
-  .portfolio-importer__tabs {
-    display: flex;
-    border-bottom: 1px solid #e2e8f0;
-  }
-  .portfolio-importer__tab {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 7px 12px;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    font-size: 11px;
-    font-family: inherit;
-    font-weight: 500;
-    color: #64748b;
-    cursor: pointer;
-  }
-  .portfolio-importer__tab:hover { color: #334155; }
-  .portfolio-importer__tab--active {
-    color: #0f172a;
-    border-bottom-color: #3b82f6;
-    font-weight: 600;
-  }
-  .portfolio-importer__tab-count {
-    background: #e2e8f0;
-    color: #64748b;
-    font-size: 9px;
-    padding: 0 5px;
-    border-radius: 8px;
-    font-weight: 600;
-  }
-  .portfolio-importer__items {
-    max-height: 220px;
-    overflow-y: auto;
-    padding: 4px 0;
-  }
-  .portfolio-importer__item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 12px;
-    border-bottom: 1px solid #f1f5f9;
-  }
-  .portfolio-importer__item:last-child { border-bottom: none; }
-  .portfolio-importer__item:hover { background: #f8fafc; }
-  .portfolio-importer__item-info {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-  .portfolio-importer__item-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: #0f172a;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .portfolio-importer__item-sub {
-    font-size: 10px;
-    color: #64748b;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .portfolio-importer__add {
-    flex-shrink: 0;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #e0e7ff;
-    border: none;
-    border-radius: 4px;
-    color: #4338ca;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-  .portfolio-importer__add:hover { background: #c7d2fe; }
-  .portfolio-importer__add--done {
-    background: #dcfce7;
-    color: #16a34a;
-  }
-  .portfolio-importer__empty {
-    padding: 12px 16px;
-    font-size: 11px;
-    color: #94a3b8;
-    margin: 0;
-  }
-
-  /* ── Empty state ── */
-  .cv-editor-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
-    padding: 80px 0;
-    color: #64748b;
-    font-size: 14px;
-  }
-
-  /* ── Split layout ── */
-  .cv-editor-split {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    min-height: calc(100vh - 90px);
-  }
-  .cv-editor-split__editor {
-    overflow-y: auto;
-    height: calc(100vh - 90px);
-    min-height: 0;
-  }
-  .cv-editor-split__preview {
-    position: sticky;
-    top: 90px;
-    height: calc(100vh - 90px);
-    overflow-y: auto;
-    background: #d1d5db;
-    border-left: 1px solid #cbd5e1;
-    display: flex;
-    flex-direction: column;
-  }
-  .cv-editor-preview-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 14px;
-    background: #1e293b;
-    color: #f8fafc;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    font-family: var(--font-open-sans), "Open Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  }
-  .cv-editor-preview-header__title {
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-  }
-  .cv-editor-preview-header__controls {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .cv-editor-preview-header__layout {
-    font-size: 10px;
-    background: #334155;
-    color: #94a3b8;
-    padding: 1px 6px;
-    border-radius: 3px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-  .cv-editor-preview-zoom-btn {
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: #f8fafc;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 700;
-    line-height: 1;
-  }
-  .cv-editor-preview-zoom-btn:hover { background: rgba(255,255,255,0.25); }
-  .cv-editor-preview-zoom-label {
-    font-size: 10px;
-    color: #94a3b8;
-    min-width: 32px;
-    text-align: center;
-  }
-  .cv-editor-preview-scaler {
-    flex: 1;
-    overflow: auto;
-    padding: 16px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-  }
-
-  /* ── Mobile toggle ── */
-  .cv-editor-mobile-toggle { display: none; }
-
-  /* ── Responsive ── */
-  @media screen and (max-width: 1024px) {
-    .cv-editor-split {
-      grid-template-columns: 1fr;
-    }
-    .cv-editor-split__editor {
-      display: block;
-      height: auto;
-    }
-    .cv-editor-split__preview { display: none; }
-    .cv-editor-split--preview-mode .cv-editor-split__editor { display: none; }
-    .cv-editor-split--preview-mode .cv-editor-split__preview {
-      display: flex;
-      position: static;
-      height: auto;
-      min-height: calc(100vh - 130px);
-    }
-    .cv-editor-preview-scaler {
-      width: 100%;
-      overflow: visible;
-      padding: 12px;
-    }
-    .cv-editor-mobile-toggle {
-      display: flex;
-      justify-content: center;
-      gap: 0;
-      background: #1e293b;
-      border-bottom: 1px solid #334155;
-      padding: 0 20px;
-    }
-    .cv-editor-mobile-toggle__btn {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 8px 20px;
-      background: none;
-      border: none;
-      border-bottom: 2px solid transparent;
-      color: #64748b;
-      font-size: 12px;
-      font-family: inherit;
-      cursor: pointer;
-    }
-    .cv-editor-mobile-toggle__btn--active {
-      color: #f8fafc;
-      border-bottom-color: #3b82f6;
-      font-weight: 600;
-    }
-    .section-organizer { grid-template-columns: 1fr; }
-  }
-  @media screen and (max-width: 768px) {
-    .cv-editor-page { overflow-x: hidden; }
-    .cv-create-layer { padding: 0; align-items: stretch; }
-    .cv-create-dialog { max-height: 100svh; padding: 16px 12px; }
-    .cv-template-grid, .cv-option-grid { grid-template-columns: 1fr; }
-    .cv-editor-bar {
-      position: static;
-      flex-direction: column;
-      gap: 8px;
-      padding: 10px 12px;
-    }
-    .cv-editor-bar__left,
-    .cv-editor-bar__right {
-      width: 100%;
-      justify-content: space-between;
-      min-width: 0;
-    }
-    .cv-editor-bar__right { flex-wrap: wrap; gap: 6px; }
-    .cv-editor-bar__status { min-height: 22px; }
-    .cv-editor-bar__btn { min-height: 40px; padding: 7px 10px; }
-    .cv-preset-bar {
-      position: static;
-      padding: 0 8px;
-    }
-    .cv-editor-mobile-toggle {
-      position: sticky;
-      top: 0;
-      z-index: 48;
-      padding: 0;
-    }
-    .cv-editor-mobile-toggle__btn {
-      flex: 1;
-      justify-content: center;
-      min-height: 44px;
-      padding: 8px 12px;
-    }
-    .cv-editor-main {
-      margin: 12px 0;
-      padding: 0 8px 32px;
-      gap: 12px;
-    }
-    .cv-editor-card__header { padding: 11px 10px; }
-    .cv-editor-card__body { padding: 10px; }
-    .cv-editor-card__title-input { width: 100%; }
-    .cv-field, .cv-field__input { min-width: 0; width: 100%; }
-    .cv-entry-card { padding: 9px; }
-    .cv-entry-row, .cv-list-item { flex-wrap: wrap; align-items: stretch; }
-    .cv-entry-row .cv-field__input, .cv-list-item .cv-field__input { flex-basis: calc(100% - 46px); }
-    .cv-tags-wrap { padding: 6px; }
-    .cv-tag { flex: 1 1 135px; }
-    .cv-tag__input { flex: 1; width: auto; max-width: none; }
-    .cv-tag__remove { width: 36px; height: 36px; }
-    .cv-tags-input { flex: 1 1 120px; min-height: 36px; }
-    .cv-tags-add { min-height: 40px; padding: 6px 12px; }
-    .portfolio-importer__tabs { overflow-x: auto; }
-    .portfolio-importer__tab { min-height: 40px; white-space: nowrap; }
-    .cv-editor-preview-header {
-      align-items: flex-start;
-      gap: 8px;
-      padding: 10px 12px;
-    }
-    .cv-editor-preview-header__controls { flex-wrap: wrap; justify-content: flex-end; }
-    .cv-editor-preview-header__layout { width: 100%; text-align: right; }
-    .cv-editor-preview-zoom-btn, .cv-editor-preview-zoom-label { display: none; }
-    .cv-editor-split--preview-mode .cv-editor-split__preview { min-height: 0; }
-    .cv-editor-preview-scaler { padding: 8px; }
-    .cv-create-actions, .cv-wizard-actions {
-      position: sticky;
-      bottom: 0;
-      padding: 12px 0 max(12px, env(safe-area-inset-bottom));
-      background: #fff;
-    }
-  }
-  /* Workspace: persistent navigation around independently scrolling panes. */
-  .cv-editor-page { height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; color: #172b37; background: #eef2f3; font-family: var(--font-open-sans), Arial, sans-serif; }
-  .cv-editor-page button, .cv-editor-page select { cursor: pointer; }
-  .cv-editor-page button:disabled { opacity: .4; cursor: not-allowed; }
-  .cv-editor-page :is(button, select, input, textarea):focus-visible { outline: 3px solid #0d9488; outline-offset: 3px; }
-  .cv-editor-bar { position: static; flex-shrink: 0; padding: 12px 24px; background: #122b35; }
-  .cv-editor-bar__title { font-size: 18px; letter-spacing: -.03em; }
-  .cv-editor-bar__btn, .cv-editor-bar__back { min-height: 40px; }
-  .cv-editor-bar__status { color: #b3ddd4; font-size: 12px; }
-  .cv-preset-bar { position: static; flex-shrink: 0; padding: 0 20px; background: #fff; border-bottom: 1px solid #d8e1e5; }
-  .cv-preset-bar__tabs { gap: 6px; padding: 6px 0; }
-  .cv-preset-tab { min-height: 44px; border-radius: 8px; color: #475569; }
-  .cv-preset-tab--active { background: #e5f3ef; color: #115e59; border-color: transparent; }
-  .cv-preset-tab__layout { display: none; }
-  .cv-section-nav { flex-shrink: 0; background: #f8fafb; border-bottom: 1px solid #d8e1e5; padding: 10px 24px; }
-  .cv-section-nav__heading { display: none; align-items: center; justify-content: space-between; font-size: 11px; color: #526574; margin-bottom: 6px; }
-  .cv-section-nav__heading > span:first-child { display: flex; align-items: center; gap: 6px; }
-  .cv-section-nav__controls { display: none; gap: 8px; }
-  .cv-section-nav__controls button, .cv-section-nav__controls select { min-height: 44px; border: 1px solid #cbd5df; border-radius: 8px; background: white; color: #172b37; }
-  .cv-section-nav__controls button { width: 44px; flex-shrink: 0; display: grid; place-items: center; }
-  .cv-section-nav__controls select { flex: 1; min-width: 0; padding: 0 12px; font-size: 16px; font-weight: 600; }
-  .cv-section-nav__rail { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
-  .cv-section-nav__rail button { display: flex; align-items: center; gap: 7px; flex-shrink: 0; min-height: 40px; padding: 8px 14px; border: 1px solid transparent; border-radius: 8px; font-size: 13px; color: #526574; background: transparent; }
-  .cv-section-nav__rail button:hover { background: #e8eeef; }
-  .cv-section-nav__rail button[aria-current] { background: #122b35; color: #fff; }
-  .cv-editor-split { flex: 1; min-height: 0; overflow: hidden; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .cv-editor-split__editor, .cv-editor-split__preview { position: relative; top: auto; height: 100%; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
-  .cv-editor-split__preview { background: #dfe6e8; }
-  .cv-editor-main { margin: 24px auto; padding: 0 24px 48px; gap: 20px; }
-  .cv-editor-card { border-radius: 14px; border: 1px solid #d8e1e5; box-shadow: 0 3px 12px #122b3505; scroll-margin-top: 16px; flex-shrink: 0; }
-  .cv-editor-card--muted { opacity: 1; border-style: dashed; }
-  .cv-editor-card__header { padding: 12px 18px; background: #fff; gap: 8px; cursor: default; }
-  .cv-editor-card__identity { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
-  .cv-editor-card__title { font-size: 16px; letter-spacing: -.02em; margin: 0; }
-  .cv-editor-card__title-input { width: 100%; font-size: 16px; min-height: 44px; }
-  .cv-editor-card__body { padding: 20px; }
-  .cv-card-collapse { display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border: 1px solid #e2e8f0; border-radius: 9px; color: #526574; background: #f8fafb; }
-  .cv-field { gap: 6px; min-width: 0; }
-  .cv-field__label { font-size: 12px; color: #475569; text-transform: none; letter-spacing: 0; }
-  .cv-field__input { min-width: 0; min-height: 44px; border-color: #cbd5df; border-radius: 8px; font-size: 14px; line-height: 1.5; padding: 10px 12px; }
-  .cv-field__hint { font-size: 12px; line-height: 1.5; }
-  .cv-entry-card { padding: 16px; gap: 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafb; }
-  .cv-hidden-note { display: flex; align-items: center; gap: 8px; padding: 12px; margin: 0 0 16px; background: #f1f5f9; color: #475569; font-size: 12px; border-radius: 8px; }
-  .cv-btn, .section-zone__add { min-height: 44px; border-radius: 8px; font-size: 13px; }
-  .cv-btn--primary { background: #0f766e; border-color: #0f766e; color: #fff; }
-  .cv-btn--primary:hover { background: #115e59; }
-  .section-chip { flex-wrap: wrap; gap: 8px; padding: 10px; }
-  .section-chip__title { min-width: 80px; font-size: 13px; }
-  .section-chip__placement { min-height: 44px; padding: 6px; border: 1px solid #cbd5df; border-radius: 6px; background: #fff; color: #475569; font-size: 13px; }
-  .section-chip__actions { margin-left: auto; }
-  .section-chip__btn { min-width: 40px; min-height: 44px; justify-content: center; align-items: center; color: #526574; }
-  .cv-editor-preview-header { position: sticky; top: 0; z-index: 2; flex-shrink: 0; min-height: 58px; padding: 12px 16px; background: #eef3f4; color: #172b37; border-bottom: 1px solid #cbd5df; }
-  .cv-editor-preview-header__title { font-size: 12px; text-transform: none; letter-spacing: 0; white-space: nowrap; }
-  .cv-editor-preview-header__layout { display: none; }
-  .cv-editor-preview-zoom-btn { width: 36px; height: 36px; border-color: #cbd5df; background: white; color: #172b37; }
-  .cv-editor-preview-zoom-label { color: #526574; }
-  .cv-editor-preview-scaler { flex: 0 0 auto; overflow: visible; }
-  .cv-create-dialog { border-radius: 16px; }
-  .cv-editor-conflict { flex-shrink: 0; }
-  @media screen and (max-width: 1024px) {
-    .cv-editor-bar { padding: 8px 16px; }
-    .cv-editor-split { grid-template-columns: 1fr; }
-    .cv-editor-split__editor { height: 100%; }
-    .cv-editor-split--preview-mode .cv-editor-split__preview { position: relative; height: 100%; min-height: 0; }
-    .cv-section-nav { padding: 8px 16px; }
-    .cv-section-nav__heading, .cv-section-nav__controls { display: flex; }
-    .cv-section-nav__rail { display: none; }
-    .cv-editor-mobile-toggle { order: 5; position: static; flex-shrink: 0; z-index: 10; padding: 8px 16px max(8px, env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid #d8e1e5; border-bottom: 0; gap: 8px; }
-    .cv-editor-mobile-toggle__btn { flex: 1; justify-content: center; gap: 8px; min-height: 48px; border: 0; border-radius: 10px; font-size: 14px; font-weight: 600; color: #526574; }
-    .cv-editor-mobile-toggle__btn--active { background: #122b35; color: #fff; }
-    .cv-editor-main { max-width: 800px; }
-    .cv-editor-split__editor .cv-editor-main { max-width: 800px; }
-  }
-  @media screen and (max-width: 768px) {
-    .cv-editor-bar { gap: 2px; padding: 6px 12px; }
-    .cv-editor-bar__title { font-size: 16px; }
-    .cv-editor-bar__right { flex-wrap: nowrap; }
-    .cv-editor-bar__status { font-size: 10px; }
-    .cv-editor-bar__btn { font-size: 11px; padding: 4px 8px; }
-    .cv-preset-bar { padding: 0 12px; }
-    .cv-preset-tab { font-size: 12px; padding: 8px 12px; }
-    .cv-editor-main { margin: 12px auto; padding: 0 12px 28px; gap: 14px; }
-    .cv-editor-card__header { padding: 8px 12px; }
-    .cv-editor-card__body { padding: 16px 12px; }
-    .cv-editor-card__badge { display: none; }
-    .cv-field__input, .cv-tags-input, .cv-tag__input, .section-chip__placement { font-size: 16px; }
-    .cv-entry-card { padding: 12px; }
-    .cv-entry-row > .cv-field__input { flex-basis: 100%; }
-    .cv-editor-page :is(.cv-btn--icon, .cv-tag__remove, .ai-assist__trigger, .portfolio-importer__add) { min-width: 44px; min-height: 44px; }
-    .cv-editor-preview-header { align-items: center; min-height: 48px; }
-    .cv-create-dialog { border-radius: 0; }
-  }
-`

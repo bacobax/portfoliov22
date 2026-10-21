@@ -25,7 +25,7 @@ export function CvDesignPanel({ preset, onChange }: { preset: CvPreset; onChange
   const number = (label: string, key: keyof CvDesign, min: number, max: number, step = 1) => <NumericControl key={`${key}-${preset.id}`} label={label} value={Number(design[key])} min={min} max={max} step={step} onChange={(value) => update(key, value as CvDesign[typeof key])} />
   const toggle = (label: string, key: "showTaxId" | "showLocation" | "showProjectStatus") => <label className="cv-option-row"><input type="checkbox" checked={design[key]} onChange={(event) => update(key, event.target.checked)} /><span>{label}</span></label>
   return <section className="cv-design-panel" aria-label="Document design">
-    <div className="cv-design-intro"><span>APPLICATION LAYOUT</span><h2>Let the content lead.</h2><p>One flowing document, readable type, and restrained spacing. Page boundaries follow the content.</p>
+    <div className="cv-design-intro"><h2>Let the content lead.</h2><p>One flowing document, readable type, and restrained spacing. Page boundaries follow the content.</p>
       <button type="button" className="cv-btn cv-btn--primary" onClick={() => onChange(professionalCvDesign(design))}>Apply professional defaults</button>
       <small>Single column · 10.5 pt · 16 mm margins · automatic page flow. Wording and photo visibility stay as authored.</small>
     </div>

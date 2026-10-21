@@ -1,10 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import type { StaticImageData } from "next/image"
 import { ArrowLeft, PencilLine, Wand2 } from "lucide-react"
 import { CvPrintButton } from "./cv-print-button"
-import { useRouter } from "next/navigation"
 
 import type { CvData, CvLayoutId } from "./cv-types"
 import { CvDocumentOutput } from "./cv-document-output"
@@ -28,7 +28,6 @@ export function CvLayoutSwitcher({
   const [activeId, setActiveId] = useState<string>(presets[0]?.id ?? "")
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isSessionLoading, setIsSessionLoading] = useState(true)
-  const router = useRouter()
 
   useEffect(() => {
     ;(async () => {
@@ -47,62 +46,55 @@ export function CvLayoutSwitcher({
 
 
   if (!active) {
-    return <p style={{ textAlign: "center", color: "#64748b", padding: "48px 0" }}>No visible CV presets.</p>
+    return (
+      <div className="proof-empty">
+        <p>No CV has been published yet.</p>
+        <Link href="/" className="proof-btn"><ArrowLeft size={16} /> Back to the portfolio</Link>
+      </div>
+    )
   }
+
+  const page = active.data.design?.page ?? "A4"
 
   return (
     <>
-      <div className="toolbar">
-        <div className="toolbar__intro"><span>Curriculum vitae</span><strong>{active.name}</strong></div>
-        <div className="toolbar__layouts" role="group" aria-label="Choose CV version">
-          {presets.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              aria-pressed={active.id === preset.id}
-              onClick={() => setActiveId(preset.id)}
-              className={`toolbar__layout-btn ${active.id === preset.id ? "toolbar__layout-btn--active" : ""}`}
-            >
-              {preset.name}
-            </button>
-          ))}
+      <header className="toolbar proof-masthead">
+        <div className="proof-masthead__identity">
+          <Link href="/" className="proof-masthead__back"><ArrowLeft size={15} /> Portfolio</Link>
+          <h1 className="proof-masthead__name">{active.data.name || "Curriculum vitae"}</h1>
+          <p className="proof-masthead__meta">Curriculum vitae · {page}</p>
         </div>
-        <div className="toolbar__actions">
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            className="toolbar__button"
-            style={{ background: "transparent", color: "#0f172a", borderColor: "#0f172a" }}
-          >
-            <ArrowLeft size={16} /> Home
-          </button>
+
+        {presets.length > 1 && (
+          <div className="proof-versions" role="group" aria-label="Choose CV version">
+            {presets.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                aria-pressed={active.id === preset.id}
+                onClick={() => setActiveId(preset.id)}
+                className="proof-versions__tab"
+              >
+                {preset.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="proof-masthead__actions">
           {isSessionLoading ? (
-            <span className="toolbar__auth-skeleton app-skeleton-block" role="status" aria-label="Checking editor session" />
+            <span className="proof-masthead__auth-skeleton app-skeleton-block" role="status" aria-label="Checking editor session" />
           ) : isAuthenticated && (
             <>
-              <button
-                type="button"
-                onClick={() => router.push("/cv/tailor")}
-                className="toolbar__button"
-                style={{ background: "#0f766e", borderColor: "#0f766e" }}
-              >
-                <Wand2 size={16} /> Tailor CV
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push("/cv/edit")}
-                className="toolbar__button"
-                style={{ background: "#3b82f6", borderColor: "#3b82f6" }}
-              >
-                <PencilLine size={16} /> Edit CV
-              </button>
+              <Link href="/cv/tailor" className="proof-btn proof-btn--quiet"><Wand2 size={16} /> Tailor</Link>
+              <Link href="/cv/edit" className="proof-btn proof-btn--quiet"><PencilLine size={16} /> Edit</Link>
             </>
           )}
-          <CvPrintButton />
+          <CvPrintButton className="proof-btn proof-btn--primary" />
         </div>
-      </div>
+      </header>
 
-      <CvScaleToFit page={active.data.design?.page}>
+      <CvScaleToFit page={active.data.design?.page} proof>
         <CvDocumentOutput layout={active.layout} data={active.data} profilePicture={profilePicture} />
       </CvScaleToFit>
     </>
