@@ -159,6 +159,14 @@ export default function CvEditorPage() {
   const activePresetIdRef = useRef("")
   const pendingPresetsRef = useRef<{ presets: CvPreset[]; activePresetId: string } | null>(null)
   const saveChainRef = useRef<Promise<void>>(Promise.resolve())
+  /* Local edits are the source of truth while editing. These refs let async
+     saves and refreshes tell whether the user changed anything since they
+     started, so a late server response never rolls the text back. */
+  const presetsRef = useRef<CvPreset[]>([])
+  const editSeqRef = useRef(0)
+  const savesInFlightRef = useRef(0)
+  const conflictRef = useRef(false)
+  const hasUnsavedWork = () => pendingPresetsRef.current !== null || savesInFlightRef.current > 0 || conflictRef.current
   const regionalDialogOpen = newPreset !== null || pendingTemplate !== null || pendingEntity !== null
 
   /* ── show default cursor on CV editor ── */
@@ -222,11 +230,15 @@ export default function CvEditorPage() {
 
   const refreshFromHub = useCallback(async () => {
     setRefreshing(true)
+    const editSeqAtStart = editSeqRef.current
     try {
       const response = await fetch("/api/editor/content", { cache: "no-store" })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || "Failed to load data")
+      // Edited while the request was out: this snapshot is already stale.
+      if (editSeqRef.current !== editSeqAtStart || hasUnsavedWork()) return
       const loaded: CvPreset[] = data.presets ?? []
+      presetsRef.current = loaded
       setPresets(loaded)
       setPublishedPresetIds(data.publishedPresetIds ?? [])
       if (data.canonicalCvSeed) setCanonicalCvSeed(data.canonicalCvSeed as CvContent)
@@ -263,7 +275,7 @@ export default function CvEditorPage() {
   useEffect(() => {
     if (!isAuthenticated) return
     const refreshIfSafe = () => {
-      if (!saving && !conflict && !pendingPresetsRef.current) void refreshFromHub()
+      if (!hasUnsavedWork()) void refreshFromHub()
     }
     const channel = new BroadcastChannel(CONTENT_HUB_CHANNEL)
     channel.onmessage = (event) => {
@@ -277,7 +289,7 @@ export default function CvEditorPage() {
       channel.close()
       window.removeEventListener("focus", refreshIfSafe)
     }
-  }, [conflict, isAuthenticated, refreshFromHub, saving])
+  }, [isAuthenticated, refreshFromHub])
 
   /* ── debounced persist ── */
   const persist = useCallback((data: CvPreset[]) => {
@@ -291,13 +303,16 @@ export default function CvEditorPage() {
       pendingPresetsRef.current = null
       if (!pending) return
       const draft = pending.presets
+      const draftEditSeq = editSeqRef.current
+      savesInFlightRef.current += 1
       saveChainRef.current = saveChainRef.current.then(async () => {
         const baseRevision = revisionRef.current
         if (baseRevision === null) {
           setError("Content hub revision is unavailable")
-          setSaving(false)
           return
         }
+        // A conflict is waiting for the user; don't stack more writes on it.
+        if (conflictRef.current) return
         try {
           const res = await fetch("/api/editor/content", {
             method: "PATCH",
@@ -318,8 +333,8 @@ export default function CvEditorPage() {
             error?: string
           } | null
           if (res.status === 409 && typeof payload?.revision === "number" && payload.presets) {
+            conflictRef.current = true
             setConflict({ draft, latest: payload.presets, revision: payload.revision })
-            setSaving(false)
             return
           }
           if (!res.ok || typeof payload?.revision !== "number") {
@@ -327,8 +342,12 @@ export default function CvEditorPage() {
           }
           revisionRef.current = payload.revision
           setRevision(payload.revision)
-          if (!pendingPresetsRef.current && payload.presets) setPresets(payload.presets)
-          setConflict(null)
+          // Only adopt the server's copy when nothing was typed since this draft.
+          if (editSeqRef.current === draftEditSeq && !pendingPresetsRef.current && payload.presets
+            && JSON.stringify(payload.presets) !== JSON.stringify(presetsRef.current)) {
+            presetsRef.current = payload.presets
+            setPresets(payload.presets)
+          }
           setSaved(true)
           const channel = new BroadcastChannel(CONTENT_HUB_CHANNEL)
           channel.postMessage({ revision: payload.revision })
@@ -338,7 +357,8 @@ export default function CvEditorPage() {
           console.error(e)
           setError(e instanceof Error ? e.message : "Failed to save")
         } finally {
-          setSaving(false)
+          savesInFlightRef.current -= 1
+          if (savesInFlightRef.current === 0 && !pendingPresetsRef.current) setSaving(false)
         }
       })
     }, 600)
@@ -346,7 +366,13 @@ export default function CvEditorPage() {
 
   const updatePresets = useCallback(
     (updater: (prev: CvPreset[]) => CvPreset[]) => {
-      setPresets((prev) => { const next = updater(prev); void persist(next); return next })
+      // Apply to the ref first so rapid edits chain on the latest text, not on a render snapshot.
+      const next = updater(presetsRef.current)
+      if (next === presetsRef.current) return
+      presetsRef.current = next
+      editSeqRef.current += 1
+      setPresets(next)
+      persist(next)
     },
     [persist],
   )
@@ -939,21 +965,28 @@ export default function CvEditorPage() {
         <div className="cv-editor-conflict" role="alert">
           <span>Another editor saved first. Your local changes are preserved.</span>
           <button type="button" onClick={() => {
+            // Keep everything typed so far, including edits made after the failed save.
+            const local = presetsRef.current
             revisionRef.current = conflict.revision
             setRevision(conflict.revision)
-            setPresets(conflict.draft)
-            const local = conflict.draft.find((preset) => preset.id === activePresetId)
-            if (local) setSourceText(JSON.stringify({ schemaVersion: CV_DOCUMENT_SCHEMA_VERSION, baseRevision: conflict.revision, cv: local }, null, 2))
+            const active = local.find((preset) => preset.id === activePresetId)
+            if (active) setSourceText(JSON.stringify({ schemaVersion: CV_DOCUMENT_SCHEMA_VERSION, baseRevision: conflict.revision, cv: active }, null, 2))
             setEditorView("source")
+            conflictRef.current = false
             setConflict(null)
-            setSaving(false)
+            if (pendingPresetsRef.current === null && savesInFlightRef.current === 0) setSaving(false)
           }}>Review local JSON</button>
           <button type="button" onClick={() => {
+            if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+            pendingPresetsRef.current = null
             revisionRef.current = conflict.revision
             setRevision(conflict.revision)
+            presetsRef.current = conflict.latest
+            editSeqRef.current += 1
             setPresets(conflict.latest)
+            conflictRef.current = false
             setConflict(null)
-            setSaving(false)
+            if (savesInFlightRef.current === 0) setSaving(false)
           }}>Use Atlas version</button>
         </div>
       )}
