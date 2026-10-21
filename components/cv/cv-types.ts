@@ -18,7 +18,7 @@ export interface CvDisplayLogEntry {
 }
 
 export type CvDescriptionBlock =
-  | { type: "paragraph"; text: string }
+  | { type: "paragraph"; text: string; /** Bold lead-in printed inline before the text. */ title?: string }
   | { type: "bullets"; items: string[] }
 
 export interface CvDisplaySection {

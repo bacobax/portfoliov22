@@ -25,7 +25,7 @@ export interface TailoredCv {
 const text = z.string().max(20_000)
 
 const descriptionBlockSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("paragraph"), text }),
+  z.object({ type: z.literal("paragraph"), text, title: text.optional() }),
   z.object({ type: z.literal("bullets"), items: z.array(text) }),
 ])
 

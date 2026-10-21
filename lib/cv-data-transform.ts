@@ -4,6 +4,9 @@ import type { CvPreset } from "@/lib/cv-presets"
 import { selectContactLinks } from "@/lib/cv-contact-links"
 import { labelsForLocale, type CvLocale } from "@/lib/cv-templates"
 
+/** A line opening with `**Title**` starts a paragraph with a bold inline title. */
+const TITLED_LINE = /^\*\*(.+?)\*\*\s*(.*)$/
+
 // Plain text stays prose; only explicit list markers create bullet items.
 export function parseCvDescription(value: string): CvDescriptionBlock[] {
   const blocks: CvDescriptionBlock[] = []
@@ -12,15 +15,50 @@ export function parseCvDescription(value: string): CvDescriptionBlock[] {
     const text = line.trim()
     if (!text) { previous = undefined; continue }
     const bullet = text.match(/^[-*•]\s+(.+)$/)
+    const titled = bullet ? null : text.match(TITLED_LINE)
     if (bullet) {
       if (previous?.type === "bullets") previous.items.push(bullet[1])
       else { previous = { type: "bullets", items: [bullet[1]] }; blocks.push(previous) }
+    } else if (titled) {
+      previous = { type: "paragraph", title: titled[1].trim(), text: titled[2] }
+      blocks.push(previous)
     } else {
-      if (previous?.type === "paragraph") previous.text += `\n${text}`
+      if (previous?.type === "paragraph") previous.text = previous.text ? `${previous.text}\n${text}` : text
       else { previous = { type: "paragraph", text }; blocks.push(previous) }
     }
   }
   return blocks
+}
+
+/** One titled paragraph of an entry description, as edited in the CV editor. */
+export interface CvDescriptionPart {
+  title: string
+  text: string
+}
+
+export const hasDescriptionParts = (value: string): boolean =>
+  value.split(/\r?\n/).some((line) => TITLED_LINE.test(line.trim()))
+
+/** Split a description into parts: one per blank-line-separated chunk. */
+export function parseDescriptionParts(value: string): CvDescriptionPart[] {
+  return value.split(/\r?\n\s*\r?\n/).map((chunk) => chunk.trim()).filter(Boolean).map((chunk) => {
+    const [first, ...rest] = chunk.split(/\r?\n/)
+    const titled = first.trim().match(TITLED_LINE)
+    if (!titled) return { title: "", text: chunk }
+    return { title: titled[1].trim(), text: [titled[2], ...rest].filter((line, index) => index > 0 || line).join("\n") }
+  })
+}
+
+/** Inverse of parseDescriptionParts; empty parts are dropped. */
+export function serializeDescriptionParts(parts: readonly CvDescriptionPart[]): string {
+  return parts.flatMap(({ title, text }) => {
+    const cleanTitle = title.replace(/\*\*/g, "").replace(/\s+/g, " ").trim()
+    // A blank line would split the part in two, so keep each part one block.
+    const body = text.replace(/\n\s*\n/g, "\n").trim()
+    if (!cleanTitle && !body) return []
+    if (!cleanTitle) return [body]
+    return [/^[-*•]\s/.test(body) || !body ? `**${cleanTitle}**\n${body}`.trim() : `**${cleanTitle}** ${body}`]
+  }).join("\n\n")
 }
 
 export const descriptionBulletCount = (value: string): number => parseCvDescription(value)

@@ -55,7 +55,7 @@ function LogEntry({ entry, path, sectionIndex, entryIndex, prevIndex, nextIndex,
   isProject: boolean
   locale: CvLocale
 }) {
-  const descriptionText = entry.description.map((block) => block.type === "paragraph" ? block.text : block.items.join(" ")).join(" ")
+  const descriptionText = entry.description.map((block) => block.type === "paragraph" ? `${block.title ?? ""} ${block.text}` : block.items.join(" ")).join(" ")
   const bulletCount = entry.description.reduce((count, block) => count + (block.type === "bullets" ? block.items.length : 0), 0)
   const short = descriptionText.split(/\s+/).length <= 85 && bulletCount <= 3
   const href = entry.url ? cvLinkHref(entry.url) : undefined
@@ -73,7 +73,10 @@ function LogEntry({ entry, path, sectionIndex, entryIndex, prevIndex, nextIndex,
           {entry.dates && <span className="region-entry__date"><Editable path={[...path, "dates"]} value={entry.dates} placeholder="Dates" /></span>}
         </div>
         {entry.description.map((block, index) => block.type === "paragraph"
-          ? <p className="region-entry__description" key={index}><Editable path={[...path, "description", index, "text"]} value={block.text} mode="multiline" placeholder="Description" /></p>
+          ? <p className="region-entry__description" key={index}>
+              {block.title !== undefined && <><strong className="region-entry__part-title"><Editable path={[...path, "description", index, "title"]} value={block.title} placeholder="Part title" /></strong>{" "}</>}
+              <Editable path={[...path, "description", index, "text"]} value={block.text} mode="multiline" placeholder="Description" />
+            </p>
           : <ul className="region-entry__bullets" key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}><Editable path={[...path, "description", index, "items", itemIndex]} value={item} mode="bullet" placeholder="Bullet point" /></li>)}</ul>)}
         {entry.tags.length > 0 && (
           <p className="region-technologies" aria-label={`${entry.title} skills`}><Editable path={[...path, "tags"]} value={entry.tags.join(", ")} mode="list" placeholder="Comma-separated skills" /></p>

@@ -51,7 +51,13 @@ import { CvDocumentOutput } from "@/components/cv/cv-document-output"
 import { CvScaleToFit } from "@/components/cv/cv-scale-to-fit"
 import { CvDesignPanel, CvQualityReview } from "@/components/cv/cv-design-panel"
 import { CvPrintButton } from "@/components/cv/cv-print-button"
-import { descriptionBulletCount } from "@/lib/cv-data-transform"
+import {
+  descriptionBulletCount,
+  hasDescriptionParts,
+  parseDescriptionParts,
+  serializeDescriptionParts,
+  type CvDescriptionPart,
+} from "@/lib/cv-data-transform"
 import {
   COUNTRY_LOCALES,
   CV_COUNTRIES,
@@ -1854,14 +1860,108 @@ function LogSectionEditor({
             <FieldWithHint label="End Date" value={entry.dateEnd} onChange={(v) => update(i, { dateEnd: v })} placeholder="YYYY-MM or Present" />
             <FieldWithHint label="URL" value={entry.url || ""} onChange={(v) => update(i, { url: v || undefined })} placeholder="Optional link" />
           </div>
-          <TextAreaWithHint label="Description" value={entry.description} onChange={(v) => update(i, { description: v })} rows={4} ai />
-          <p className="cv-writing-hint">{entry.description.trim() ? entry.description.trim().split(/\s+/).length : 0} words · {descriptionBulletCount(entry.description)} bullets. Plain text stays a paragraph. Start a line with “- ” for a bullet; use a blank line between paragraphs.</p>
+          <EntryDescriptionEditor value={entry.description} onChange={(description) => update(i, { description })} />
           <InlineTagsEditor label="Technologies — printed as comma-separated text" items={entry.tags} onChange={(tags) => update(i, { tags })} />
         </div>
       ))}
       <button type="button" className="cv-btn cv-btn--sm" onClick={onRequestAdd ?? add}>
         <Plus className="w-3 h-3" /> Add Entry
       </button>
+    </div>
+  )
+}
+
+/* ── Entry description: one text, or titled parts ── */
+function EntryDescriptionEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [mode, setMode] = useState<"text" | "parts">(() => hasDescriptionParts(value) ? "parts" : "text")
+  const [parts, setParts] = useState<CvDescriptionPart[]>(() => parseDescriptionParts(value))
+  // The serialized form drops empty parts and trailing newlines, so keep the
+  // local parts while they still produce the current value.
+  const lastWritten = useRef(value)
+  useEffect(() => {
+    if (value === lastWritten.current) return
+    lastWritten.current = value
+    setParts(parseDescriptionParts(value))
+  }, [value])
+
+  const writeParts = (next: CvDescriptionPart[]) => {
+    setParts(next)
+    const serialized = serializeDescriptionParts(next)
+    lastWritten.current = serialized
+    if (serialized !== value) onChange(serialized)
+  }
+  const updatePart = (index: number, patch: Partial<CvDescriptionPart>) =>
+    writeParts(parts.map((part, i) => (i === index ? { ...part, ...patch } : part)))
+
+  const switchMode = (next: "text" | "parts") => {
+    if (next === mode) return
+    if (next === "parts") {
+      const current = parseDescriptionParts(value)
+      setParts(current.length > 0 ? current : [{ title: "", text: "" }])
+    }
+    setMode(next)
+  }
+
+  const words = value.replace(/\*\*/g, "").trim() ? value.replace(/\*\*/g, "").trim().split(/\s+/).length : 0
+
+  return (
+    <div className="cv-description">
+      <div className="cv-field__label-row">
+        <span className="cv-field__label">Description</span>
+        <div className="cv-description__modes" role="group" aria-label="Description format">
+          <button type="button" aria-pressed={mode === "text"} onClick={() => switchMode("text")}>Text</button>
+          <button type="button" aria-pressed={mode === "parts"} onClick={() => switchMode("parts")}>Titled parts</button>
+        </div>
+      </div>
+      {mode === "text" ? (
+        <TextAreaWithHint label="Description text" value={value} onChange={onChange} rows={4} ai />
+      ) : (
+        <ol className="cv-description__parts">
+          {parts.map((part, index) => (
+            <li key={index} className="cv-description__part">
+              <div className="cv-description__part-head">
+                <input
+                  className="cv-field__input cv-description__part-title"
+                  value={part.title}
+                  onChange={(event) => updatePart(index, { title: event.target.value })}
+                  placeholder="Bold lead-in, e.g. Research:"
+                  aria-label={`Part ${index + 1} title`}
+                />
+                <span className="cv-entry-card__actions">
+                  <button type="button" className="cv-btn cv-btn--sm" title="Move part up" aria-label={`Move part ${index + 1} up`} disabled={index === 0} onClick={() => writeParts(arrayMove(parts, index, index - 1))}>
+                    <ChevronUp className="w-3 h-3" />
+                  </button>
+                  <button type="button" className="cv-btn cv-btn--sm" title="Move part down" aria-label={`Move part ${index + 1} down`} disabled={index === parts.length - 1} onClick={() => writeParts(arrayMove(parts, index, index + 1))}>
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                  <button type="button" className="cv-btn cv-btn--sm cv-btn--danger" title="Remove part" aria-label={`Remove part ${index + 1}`} onClick={() => writeParts(parts.filter((_, i) => i !== index))}>
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </span>
+              </div>
+              <textarea
+                className="cv-field__input cv-field__textarea"
+                value={part.text}
+                onChange={(event) => updatePart(index, { text: event.target.value })}
+                rows={3}
+                placeholder="What you did and the result"
+                aria-label={`Part ${index + 1} text`}
+              />
+            </li>
+          ))}
+          <li>
+            <button type="button" className="cv-btn cv-btn--sm" onClick={() => setParts([...parts, { title: "", text: "" }])}>
+              <Plus className="w-3 h-3" /> Add part
+            </button>
+          </li>
+        </ol>
+      )}
+      <p className="cv-writing-hint">
+        {words} words · {descriptionBulletCount(value)} bullets.{" "}
+        {mode === "text"
+          ? <>Plain text stays a paragraph. Start a line with “- ” for a bullet; use a blank line between paragraphs. Start a paragraph with **Title** for a bold lead-in.</>
+          : <>Each part prints as one paragraph with its title in bold. Leave the title empty for a plain paragraph; lines starting with “- ” become bullets.</>}
+      </p>
     </div>
   )
 }

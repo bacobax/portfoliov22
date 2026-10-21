@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest"
 import { renderToStaticMarkup } from "react-dom/server"
 import { RegionalCvLayout } from "@/components/cv/regional-layout"
 import { AtsPrintCvLayout } from "@/components/cv/ats-print-layout"
-import { createCvData, formatLabel, parseCvDescription, descriptionBulletCount } from "@/lib/cv-data-transform"
+import {
+  createCvData,
+  descriptionBulletCount,
+  formatLabel,
+  parseCvDescription,
+  parseDescriptionParts,
+  serializeDescriptionParts,
+} from "@/lib/cv-data-transform"
 import { cvDesignSchema, professionalCvDesign } from "@/lib/cv-document"
 import { cvLinkHref, cvQualityNotes } from "@/lib/cv-quality"
 import { professionalCvFixture } from "./fixtures/professional-cv"
@@ -30,6 +37,36 @@ describe("professional CV layout", () => {
       { type: "paragraph", text: "First line.\nSecond line." },
       { type: "paragraph", text: "Third paragraph." },
     ])
+  })
+  it("prints titled parts as paragraphs with a bold inline title", () => {
+    const description = serializeDescriptionParts([
+      { title: "Research", text: "Synthetic data for IR." },
+      { title: "", text: "Plain paragraph." },
+      { title: "Results:", text: "- Faster training\n- Better mAP" },
+      { title: "", text: "" },
+    ])
+    expect(description).toBe("**Research** Synthetic data for IR.\n\nPlain paragraph.\n\n**Results:**\n- Faster training\n- Better mAP")
+    expect(parseDescriptionParts(description)).toEqual([
+      { title: "Research", text: "Synthetic data for IR." },
+      { title: "", text: "Plain paragraph." },
+      { title: "Results:", text: "- Faster training\n- Better mAP" },
+    ])
+    expect(parseCvDescription(description)).toEqual([
+      { type: "paragraph", title: "Research", text: "Synthetic data for IR." },
+      { type: "paragraph", text: "Plain paragraph." },
+      { type: "paragraph", title: "Results:", text: "" },
+      { type: "bullets", items: ["Faster training", "Better mAP"] },
+    ])
+    expect(serializeDescriptionParts([{ title: "A", text: "one\n\n\ntwo" }])).toBe("**A** one\ntwo")
+
+    const preset = professionalCvFixture()
+    const section = preset.content.sections.find((s) => s.id === "experience")!
+    if (section.data.type !== "log") throw new Error("fixture")
+    section.data.entries[0].description = description
+    const data = createCvData(preset.content, preset)
+    const html = renderToStaticMarkup(<RegionalCvLayout layout={preset.layout} data={data} profilePicture={{ src: "/photo.png", width: 100, height: 100 }} />)
+    expect(html).toContain('<p class="region-entry__description"><strong class="region-entry__part-title">Research</strong> Synthetic data for IR.</p>')
+    expect(renderToStaticMarkup(<AtsPrintCvLayout data={data} />)).toContain("<p><strong>Research</strong> Synthetic data for IR.</p>")
   })
   it("renders single-column content in authored order with separated skills and safe links", () => {
     const preset = professionalCvFixture()

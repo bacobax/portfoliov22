@@ -45,7 +45,7 @@ function AtsLogEntry({ entry, locale }: { entry: CvDisplayLogEntry; locale: CvLo
       {entry.subtitle && <p className="ats-entry__subtitle">{entry.subtitle}</p>}
       {entry.dates && <p className="ats-entry__date">{printableDate(entry.dates)}</p>}
       {entry.description.map((block, index) => block.type === "paragraph"
-        ? <p key={index}>{block.text}</p>
+        ? <p key={index}>{block.title && <><strong>{block.title}</strong>{" "}</>}{block.text}</p>
         : <ul key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}</ul>)}
       {entry.tags.length > 0 && <p className="ats-entry__skills"><strong>{locale === "it" ? "Competenze" : "Skills"}:</strong> {entry.tags.join(", ")}</p>}
       {entry.url && (
