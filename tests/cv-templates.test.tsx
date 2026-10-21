@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { createInitialHub, materializeCvPresets, validateHubReferences } from "@/lib/content-hub"
+import { createInitialHub, materializeCvPresets, reconcileResolvedPresets, validateHubReferences } from "@/lib/content-hub"
 import { migrateContentHubV2ToV3 } from "@/lib/content-hub-v3-migration"
 import { createCvData } from "@/lib/cv-data-transform"
 import { changePresetLanguage, changePresetTemplate, createRegionalPreset, cvPresetSchema } from "@/lib/cv-presets"
@@ -58,6 +58,23 @@ describe("regional CV catalog", () => {
     const changed = changePresetLanguage(custom, "en")
     expect(changed.content.sections.find((section) => section.id === "projects")?.title).toBe("Selected work")
     expect(changed.content.sections.find((section) => section.id === "experience")?.title).toBe("Professional Experience")
+  })
+
+  it("keeps an optional Hobbies paragraph through saving and localizes its heading", () => {
+    const hub = createInitialHub(cloneDefaultContent())
+    const preset = materializeCvPresets(hub)[0]
+    preset.content.sections.push({
+      id: "hobbies", title: "Hobbies", titleMode: "template", type: "text", placement: "main", visible: true,
+      data: { type: "text", content: "Climbing and analogue photography." },
+    })
+    const saved = materializeCvPresets(reconcileResolvedPresets(hub, [preset], preset.id))[0]
+    const hobbies = saved.content.sections.find((section) => section.id === "hobbies")
+    expect(hobbies?.data).toEqual({ type: "text", content: "Climbing and analogue photography." })
+    expect(createCvData(saved.content, saved).sections.find((section) => section.id === "hobbies")?.content)
+      .toEqual({ type: "text", text: "Climbing and analogue photography." })
+    const italian = changePresetLanguage(saved, "it")
+    expect(italian.content.sections.find((section) => section.id === "hobbies")?.title).toBe("Hobby e interessi")
+    expect(labelsForLocale("en").hobbies).toBe("Hobbies")
   })
 
   it("changes template structure without losing content or custom headings", () => {

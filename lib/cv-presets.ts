@@ -79,7 +79,7 @@ const uid = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T
 
 const knownSection = (id: string): id is TemplateSectionKey =>
-  ["profile", "skills", "languages", "certs", "links", "experience", "projects", "education", "awards", "publications"].includes(id)
+  ["profile", "skills", "languages", "certs", "links", "experience", "projects", "education", "awards", "publications", "hobbies"].includes(id)
 
 export function applyTemplateStructure(
   content: CvContent,

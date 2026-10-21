@@ -64,6 +64,7 @@ import {
   CV_TEMPLATES,
   CV_TEMPLATE_BY_ID,
   isCvCountry,
+  labelsForLocale,
   templateForCountry,
   type CvCountry,
   type CvLocale,
@@ -85,6 +86,8 @@ const SECTION_TYPE_LABELS: Record<CvSectionType, string> = {
   links: "Links",
   "simple-list": "List",
 }
+
+const HOBBIES_SECTION_ID = "hobbies"
 
 function emptySectionData(type: CvSectionType): CvSectionData {
   switch (type) {
@@ -509,6 +512,18 @@ export default function CvEditorPage() {
       ])
     },
     [updateSections],
+  )
+
+  /** Hobbies is an optional short paragraph with a fixed id, so templates title and place it. */
+  const addHobbies = useCallback(
+    (placement: "sidebar" | "main") => {
+      const locale = presets.find((preset) => preset.id === activePresetId)?.documentLanguage ?? "en"
+      updateSections((ss) => ss.some((s) => s.id === HOBBIES_SECTION_ID) ? ss : [
+        ...ss,
+        { id: HOBBIES_SECTION_ID, title: labelsForLocale(locale).hobbies, titleMode: "template", type: "text", placement, visible: true, data: { type: "text", content: "" } },
+      ])
+    },
+    [activePresetId, presets, updateSections],
   )
 
   const deleteSection = useCallback(
@@ -1205,6 +1220,7 @@ export default function CvEditorPage() {
                   onToggleVisibility={toggleSectionVisibility}
                   onDelete={deleteSection}
                   onAdd={addSection}
+                  onAddHobbies={cv.sections.some((section) => section.id === HOBBIES_SECTION_ID) ? undefined : addHobbies}
                 />
               </EditorCard>
 
@@ -1508,6 +1524,7 @@ function SectionLayoutOrganizer({
   onToggleVisibility,
   onDelete,
   onAdd,
+  onAddHobbies,
 }: {
   sections: CvSection[]
   onMove: (id: string, placement: "sidebar" | "main", zoneIndex: number) => void
@@ -1515,6 +1532,8 @@ function SectionLayoutOrganizer({
   onToggleVisibility: (id: string) => void
   onDelete: (id: string) => void
   onAdd: (type: CvSectionType, placement: "sidebar" | "main") => void
+  /** Present only while the CV has no Hobbies section yet. */
+  onAddHobbies?: (placement: "sidebar" | "main") => void
 }) {
   const [dragId, setDragId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<{ zone: "sidebar" | "main"; index: number } | null>(null)
@@ -1634,6 +1653,12 @@ function SectionLayoutOrganizer({
         </button>
         {addMenuPlacement === placement && (
           <div className="section-zone__menu">
+            {onAddHobbies && (
+              <button type="button" className="section-zone__menu-item"
+                onClick={() => { onAddHobbies(placement); setAddMenuPlacement(null) }}>
+                Hobbies
+              </button>
+            )}
             {(["log", "tags", "text", "links", "simple-list"] as CvSectionType[]).map((t) => (
               <button key={t} type="button" className="section-zone__menu-item"
                 onClick={() => { onAdd(t, placement); setAddMenuPlacement(null) }}>
@@ -1669,7 +1694,11 @@ function SectionDataEditor({ section, onChange, onRequestCanonicalAdd }: {
     case "tags":
       return <TagsSectionEditor groups={d.groups} onChange={(groups) => onChange({ type: "tags", groups })} />
     case "text":
-      return <TextSectionEditor content={d.content} onChange={(content) => onChange({ type: "text", content })} />
+      return <TextSectionEditor
+        content={d.content}
+        onChange={(content) => onChange({ type: "text", content })}
+        hint={section.id === HOBBIES_SECTION_ID ? "A short paragraph, usually 2–3 lines: what you do outside work and what it says about you." : undefined}
+      />
     case "links":
       return <LinksSectionEditor items={d.items} onChange={(items) => onChange({ type: "links", items })} />
     case "simple-list":
@@ -2033,8 +2062,13 @@ function TagsSectionEditor({
 }
 
 /* ── Text editor ── */
-function TextSectionEditor({ content, onChange }: { content: string; onChange: (v: string) => void }) {
-  return <TextAreaWithHint label="Content" value={content} onChange={onChange} rows={4} ai />
+function TextSectionEditor({ content, onChange, hint }: { content: string; onChange: (v: string) => void; hint?: string }) {
+  return (
+    <>
+      <TextAreaWithHint label="Content" value={content} onChange={onChange} rows={hint ? 3 : 4} ai />
+      {hint && <p className="cv-writing-hint">{hint}</p>}
+    </>
+  )
 }
 
 /* ── Links editor ── */
