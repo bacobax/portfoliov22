@@ -65,6 +65,7 @@ const cvDataSchema = z.object({
   email: text,
   phone: text,
   profileExtras: cvProfileExtrasSchema.optional(),
+  contactLinks: z.array(z.object({ label: text, url: text })).optional(),
   targetCountry: z.enum(CV_COUNTRIES).optional(),
   documentLanguage: z.enum(CV_LOCALES).optional(),
   regionalOptions: cvRegionalOptionsSchema.optional(),
@@ -88,8 +89,8 @@ export function parseTailoredCv(candidate: unknown): TailoredCv | null {
 }
 
 /** Start a tailored draft from a preset, baking overrides into editable fields. */
-export function createTailoredCv(preset: CvPreset): TailoredCv {
-  const data = createCvData(preset.content, preset)
+export function createTailoredCv(preset: CvPreset, fallbackLinks: readonly { url: string }[] = []): TailoredCv {
+  const data = createCvData(preset.content, preset, fallbackLinks)
   const summary = data.summaryOverride?.trim()
   return {
     sourcePresetId: preset.id,

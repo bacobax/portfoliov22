@@ -1,6 +1,7 @@
 import type { CvContent, CvSection, CvSectionData } from "@/lib/cv-content"
 import type { CvData, CvDisplaySection, CvDisplayContent, CvDescriptionBlock } from "@/components/cv/cv-types"
 import type { CvPreset } from "@/lib/cv-presets"
+import { selectContactLinks } from "@/lib/cv-contact-links"
 import { labelsForLocale, type CvLocale } from "@/lib/cv-templates"
 
 // Plain text stays prose; only explicit list markers create bullet items.
@@ -89,8 +90,10 @@ function transformSection(section: CvSection, locale: CvLocale, hideStatus: bool
 /** Build CvData purely from CV content — no server dependencies */
 export function createCvData(cv: CvContent, preset?: Pick<CvPreset,
   "targetCountry" | "documentLanguage" | "regionalOptions" | "targetRoleOverride" | "summaryOverride" | "design"
->): CvData {
+>, fallbackLinks: readonly { url: string }[] = []): CvData {
   const locale = preset?.documentLanguage ?? "en"
+  // The CV's own Links section wins; the portfolio's contact links fill in when it has none.
+  const cvLinks = cv.sections.flatMap((section) => section.data.type === "links" ? section.data.items : [])
   return {
     name: formatLabel(cv.name || ""),
     title: formatLabel(cv.title || ""),
@@ -99,6 +102,7 @@ export function createCvData(cv: CvContent, preset?: Pick<CvPreset,
     email: cv.email || "",
     phone: cv.phone || "",
     profileExtras: cv.profileExtras,
+    contactLinks: selectContactLinks(cvLinks.length ? cvLinks : fallbackLinks),
     targetCountry: preset?.targetCountry,
     documentLanguage: locale,
     regionalOptions: preset?.regionalOptions,

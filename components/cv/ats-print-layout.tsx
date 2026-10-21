@@ -147,6 +147,7 @@ export function AtsPrintCvLayout({ data }: { data: CvData }) {
         <address className="ats-contact">
           {design.showLocation && (design.locationLabel || data.location) && <p>{design.locationLabel || data.location}</p>}
           {data.email && <p><a href={`mailto:${data.email}`}>{data.email}</a></p>}
+          {data.contactLinks?.map((link) => <p key={link.url}><a href={link.url}>{link.label}</a></p>)}
           {data.phone && <p><a href={`tel:${data.phone.replace(/\s/g, "")}`}>{data.phone}</a></p>}
           {design.showTaxId && data.piva && <p>{data.piva}</p>}
         </address>

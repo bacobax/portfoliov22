@@ -246,6 +246,7 @@ export function RegionalCvLayout({
           <address className="region-contact">
             {design.showLocation && (design.locationLabel || data.location) && <span><Editable path={design.locationLabel ? ["design", "locationLabel"] : ["location"]} value={design.locationLabel || data.location} placeholder="Location" />{" "}</span>}
             {data.email && <a href={`mailto:${data.email}`}><Editable path={["email"]} value={data.email} placeholder="Email" /></a>}
+            {data.contactLinks?.map((link) => <a key={link.url} href={link.url} target="_blank" rel="noreferrer">{link.label}</a>)}
             {data.phone && <a href={`tel:${data.phone.replace(/\s/g, "")}`}><Editable path={["phone"]} value={data.phone} placeholder="Phone" /></a>}
             {design.showTaxId && data.piva && <span>{data.piva}</span>}
           </address>

@@ -100,6 +100,7 @@ export default function CvEditorPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [presets, setPresets] = useState<CvPreset[]>([])
   const [canonicalCvSeed, setCanonicalCvSeed] = useState<CvContent | null>(null)
+  const [contactLinks, setContactLinks] = useState<{ url: string }[]>([])
   const [activePresetId, setActivePresetId] = useState("")
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
@@ -223,6 +224,7 @@ export default function CvEditorPage() {
       setPresets(loaded)
       setPublishedPresetIds(data.publishedPresetIds ?? [])
       if (data.canonicalCvSeed) setCanonicalCvSeed(data.canonicalCvSeed as CvContent)
+      setContactLinks((data.content as PortfolioContent | undefined)?.contactData?.links ?? [])
       if (typeof data.revision === "number") {
         revisionRef.current = data.revision
         setRevision(data.revision)
@@ -559,7 +561,7 @@ export default function CvEditorPage() {
   /* ── derived ── */
   const activePreset = presets.find((p) => p.id === activePresetId)
   const cv = activePreset?.content
-  const previewData = activePreset ? createCvData(activePreset.content, activePreset) : null
+  const previewData = activePreset ? createCvData(activePreset.content, activePreset, contactLinks) : null
   const editorDestinations = cv
     ? [
         { id: "settings", label: "CV setup", detail: "Format & visibility", icon: <Settings2 className="w-4 h-4" /> },

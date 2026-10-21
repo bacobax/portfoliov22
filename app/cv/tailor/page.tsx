@@ -26,19 +26,26 @@ export default async function CvTailorPage() {
 
   // Owner view: every CV draft, not only the published ones.
   const hub = await loadContentHub()
+  const portfolio = hub?.portfolio ?? await loadPortfolioContent()
   const presets = hub
     ? materializeCvPresets(hub)
-    : (await loadCvPresetsWithFallback(await loadPortfolioContent())).presets
-  const sources: TailorSource[] = presets.map((preset) => ({ id: preset.id, name: preset.name, seed: createTailoredCv(preset) }))
+    : (await loadCvPresetsWithFallback(portfolio)).presets
+  const sources: TailorSource[] = presets.map((preset) => ({ id: preset.id, name: preset.name, seed: createTailoredCv(preset, portfolio.contactData.links) }))
   const draft = await loadTailoredCv().catch((error) => {
     console.error("Failed to load tailored CV", error)
     return null
   })
 
+  // Drafts saved before header links existed pick them up from the CV they were based on.
+  const seed = sources.find((source) => source.id === draft?.sourcePresetId) ?? sources[0]
+  const initialDraft = draft && !draft.data.contactLinks && seed
+    ? { ...draft, data: { ...draft.data, contactLinks: seed.seed.data.contactLinks } }
+    : draft
+
   return (
     <>
       <CvCursorVisibility />
-      <CvTailorBuilder initialDraft={draft} sources={sources} profilePicture={profilePicture} />
+      <CvTailorBuilder initialDraft={initialDraft} sources={sources} profilePicture={profilePicture} />
     </>
   )
 }

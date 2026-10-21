@@ -39,6 +39,8 @@ export type CvData = {
   email: string
   phone: string
   profileExtras?: CvProfileExtras
+  /** LinkedIn / GitHub (or portfolio) printed under the email. */
+  contactLinks?: CvContactLink[]
   targetCountry?: CvCountry
   documentLanguage?: CvLocale
   regionalOptions?: CvRegionalOptions
@@ -66,6 +68,7 @@ export const CV_LAYOUTS: CvLayoutMeta[] = [
   { id: "post_soviet_local_resume", label: "Post-Soviet Local" },
 ]
 import type { CvProfileExtras } from "@/lib/cv-content"
+import type { CvContactLink } from "@/lib/cv-contact-links"
 import type { CvDesign } from "@/lib/cv-document"
 import type {
   CvCountry,
