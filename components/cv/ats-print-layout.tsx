@@ -92,7 +92,7 @@ function AtsSection({ section, locale }: { section: CvDisplaySection; locale: Cv
           })}
         </ul>
       )}
-      {content.type === "simple-list" && <ul>{content.items.map((item) => <li key={item}>{item}</li>)}</ul>}
+      {content.type === "simple-list" && <ul className={section.id === "languages" ? "ats-inline-list" : undefined}>{content.items.map((item) => <li key={item}>{item}</li>)}</ul>}
     </section>
   )
 }
@@ -196,6 +196,9 @@ const atsPrintStyles = `
     .ats-print-cv .ats-entry__date { margin-top:.5mm; break-after:avoid; page-break-after:avoid; }
     .ats-print-cv ul { margin:1mm 0 0; padding-left:5mm; list-style:disc outside; }
     .ats-print-cv li { margin:0 0 .8mm; orphans:2; widows:2; }
+    .ats-print-cv .ats-inline-list { display:flex; flex-wrap:wrap; padding-left:0; list-style:none; }
+    .ats-print-cv .ats-inline-list li { margin:0; }
+    .ats-print-cv .ats-inline-list li + li::before { content:"·"; margin:0 1.5mm; }
     .ats-print-cv a { color:#000 !important; text-decoration:underline; overflow-wrap:anywhere; }
     .ats-print-cv .ats-footer { margin-top:5mm; padding-top:2mm; border-top:.2mm solid #000; break-inside:avoid; }
   }

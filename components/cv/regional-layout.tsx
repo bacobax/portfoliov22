@@ -125,7 +125,7 @@ function RenderSection({ sectionRef, summaryOverride, locale }: { sectionRef: Se
   }
   if (content.items.length === 0) return null
   return (
-    <section className="region-section region-list">
+    <section className={`region-section region-list${sectionRef.section.id === "languages" ? " region-list--inline" : ""}`}>
       <SectionHeading sectionRef={sectionRef} />
       <ul>{content.items.map((item, index) => <li key={index}><Editable path={[...base, "items", index]} value={item} placeholder="List item" /></li>)}</ul>
     </section>
@@ -325,6 +325,9 @@ const regionalStyles = `
   .region-tags--entry { margin-top: 6px; }
   .region-links ul, .region-list ul { margin: 0; padding: 0; list-style: none; }
   .region-links li, .region-list li { margin-bottom: 4px; }
+  .region-list--inline ul { display: flex; flex-wrap: wrap; column-gap: 0; }
+  .region-list--inline li { margin-bottom: 0; }
+  .region-list--inline li + li::before { content: "·"; margin: 0 .5em; }
   .region-links a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--cv-accent), transparent 55%); }
   .region-footer { margin-top: 18px; padding-top: 9px; border-top: 1px solid #d9dee2; color: var(--cv-muted); font-size: 7.5pt; }
   .region-footer > p { margin: 0; }
