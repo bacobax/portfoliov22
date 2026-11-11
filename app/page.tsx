@@ -485,6 +485,48 @@ export default function TechDashboardPortfolio() {
     }
   };
 
+  const commitPendingAddition = (addition: PendingAddition) => {
+    const target: VisibilityTarget = {
+      entityType: addition.kind,
+      entityId: addition.value.id || "",
+      showcase: addition.showcase,
+      presetIds: addition.presetIds,
+    };
+    applyContentUpdate((previous) => {
+      if (addition.kind === "experience") {
+        return {
+          ...previous,
+          experienceLog: [...previous.experienceLog, { ...addition.value, showcaseVisible: addition.showcase }],
+        };
+      }
+      if (addition.kind === "education") {
+        return {
+          ...previous,
+          educationLog: [...previous.educationLog, { ...addition.value, showcaseVisible: addition.showcase }],
+        };
+      }
+      return {
+        ...previous,
+        projectCategories: previous.projectCategories.map((category, index) =>
+          index === addition.categoryIndex
+            ? {
+                ...category,
+                projects: [
+                  ...category.projects,
+                  {
+                    ...addition.value,
+                    showcaseVisible: addition.showcase,
+                    showInCv: addition.presetIds.length > 0,
+                  },
+                ],
+              }
+            : category,
+        ),
+      };
+    }, true, [target]);
+    setPendingAddition(null);
+  };
+
   const prepareAddition = async (addition: PendingAddition) => {
     setPendingAddition(addition);
     setPresetTargets([]);
@@ -927,54 +969,14 @@ export default function TechDashboardPortfolio() {
               ))}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
-              <button type="button" onClick={() => setPendingAddition(null)} style={{ minHeight: 44, padding: "0 16px", border: "1px solid #64748b", background: "transparent" }}>
-                Cancel
+              {/* The form has already closed, so dismissing here must not discard the new item. */}
+              <button type="button" onClick={() => commitPendingAddition({ ...pendingAddition, presetIds: [] })} style={{ minHeight: 44, padding: "0 16px", border: "1px solid #64748b", background: "transparent" }}>
+                Don&apos;t add to a CV
               </button>
               <button
                 type="button"
                 disabled={arePresetTargetsLoading || (!pendingAddition.showcase && pendingAddition.presetIds.length === 0)}
-                onClick={() => {
-                  const entityId = pendingAddition.value.id || "";
-                  const target: VisibilityTarget = {
-                    entityType: pendingAddition.kind === "project" ? "project" : pendingAddition.kind,
-                    entityId,
-                    showcase: pendingAddition.showcase,
-                    presetIds: pendingAddition.presetIds,
-                  };
-                  applyContentUpdate((previous) => {
-                    if (pendingAddition.kind === "experience") {
-                      return {
-                        ...previous,
-                        experienceLog: [...previous.experienceLog, { ...pendingAddition.value, showcaseVisible: pendingAddition.showcase }],
-                      };
-                    }
-                    if (pendingAddition.kind === "education") {
-                      return {
-                        ...previous,
-                        educationLog: [...previous.educationLog, { ...pendingAddition.value, showcaseVisible: pendingAddition.showcase }],
-                      };
-                    }
-                    return {
-                      ...previous,
-                      projectCategories: previous.projectCategories.map((category, index) =>
-                        index === pendingAddition.categoryIndex
-                          ? {
-                              ...category,
-                              projects: [
-                                ...category.projects,
-                                {
-                                  ...pendingAddition.value,
-                                  showcaseVisible: pendingAddition.showcase,
-                                  showInCv: pendingAddition.presetIds.length > 0,
-                                },
-                              ],
-                            }
-                          : category,
-                      ),
-                    };
-                  }, true, [target]);
-                  setPendingAddition(null);
-                }}
+                onClick={() => commitPendingAddition(pendingAddition)}
                 style={{ minHeight: 44, padding: "0 16px", border: 0, background: "#111827", color: "white", opacity: arePresetTargetsLoading || (!pendingAddition.showcase && pendingAddition.presetIds.length === 0) ? .45 : 1 }}
               >
                 {arePresetTargetsLoading ? "Loading destinations…" : "Create canonical item"}
