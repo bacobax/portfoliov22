@@ -31,3 +31,31 @@ describe("inline marks", () => {
     expect(domToMarks(el("SPAN", text("x "), el("STRONG", text("y")), text(" "), el("EM", text("z"))))).toBe(s)
   })
 })
+
+import { parseCvDescription, serializeCvDescription, createCvData, serializeDescriptionParts } from "@/lib/cv-data-transform"
+
+describe("description round-trip", () => {
+  const samples = ["Plain prose\nsecond line", "**Role** did things\n- a\n- b", "- x\n\n- y", "**Lead** text\n\nOther para", "Led **10** people", "Intro\n- a\nAfter list"]
+  it.each(samples)("parse∘serialize is stable for %j", (s) => {
+    const blocks = parseCvDescription(s)
+    expect(parseCvDescription(serializeCvDescription(blocks))).toEqual(blocks)
+  })
+  const exact = [
+    serializeDescriptionParts([{ title: "Role", text: "did things" }, { title: "Stack", text: "- a\n- b" }]),
+    serializeDescriptionParts([{ title: "", text: "Plain prose" }, { title: "Impact", text: "Led **10** people" }]),
+    "**Role** did things\n- a\n- b",
+  ]
+  it.each(exact)("serialize∘parse preserves editor parts for %j", (s) => {
+    expect(serializeCvDescription(parseCvDescription(s))).toBe(s)
+  })
+  it("bold at paragraph start becomes a part title", () => {
+    expect(parseCvDescription(serializeCvDescription([{ type: "paragraph", text: "**Led** team" }]))[0]).toMatchObject({ title: "Led" })
+  })
+  it("drops empty blocks and items", () => {
+    expect(serializeCvDescription([{ type: "paragraph", text: "" }, { type: "bullets", items: ["a", "", " "] }])).toBe("- a")
+  })
+  it("exposes raw dates", () => {
+    const data = createCvData({ sections: [{ id: "e", title: "E", type: "log", placement: "main", visible: true, data: { type: "log", entries: [{ id: "1", title: "T", subtitle: "", dateStart: "2020", dateEnd: "Present", description: "", tags: [] }] } }] } as never)
+    expect(data.sections[0].content).toMatchObject({ entries: [{ dateStart: "2020", dateEnd: "Present" }] })
+  })
+})

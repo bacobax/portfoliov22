@@ -30,6 +30,34 @@ export function parseCvDescription(value: string): CvDescriptionBlock[] {
   return blocks
 }
 
+/**
+ * Inverse of `parseCvDescription`, used when a block is edited on the page.
+ * Separators keep the editor's parts intact: a blank line only where a new part
+ * (or a split the parser needs) begins.
+ */
+export function serializeCvDescription(blocks: readonly CvDescriptionBlock[]): string {
+  const kept = blocks.flatMap((block): CvDescriptionBlock[] => {
+    if (block.type === "bullets") {
+      const items = block.items.map((item) => item.trim()).filter(Boolean)
+      return items.length ? [{ type: "bullets", items }] : []
+    }
+    const title = block.title?.trim()
+    const text = block.text.trim()
+    return title || text ? [{ type: "paragraph", text, ...(title ? { title } : {}) }] : []
+  })
+  return kept.map((block, index) => {
+    const body = block.type === "bullets"
+      ? block.items.map((item) => `- ${item}`).join("\n")
+      : block.title ? `**${block.title}**${block.text ? ` ${block.text}` : ""}` : block.text
+    if (index === 0) return body
+    const previous = kept[index - 1]
+    const sameLine = block.type === "bullets"
+      ? previous.type !== "bullets"
+      : !block.title && previous.type === "bullets"
+    return `${sameLine ? "\n" : "\n\n"}${body}`
+  }).join("")
+}
+
 /** One titled paragraph of an entry description, as edited in the CV editor. */
 export interface CvDescriptionPart {
   title: string
@@ -89,6 +117,8 @@ function transformSectionData(data: CvSectionData, locale: CvLocale, hideStatus 
           title: formatLabel(e.title),
           subtitle: formatLabel(e.subtitle),
           dates: [e.dateStart, e.dateEnd].filter((date) => date && !(hideStatus && /^(production|beta|development|ongoing|terminated|completed)$/i.test(date.trim()))).map((date) => localizeDate(date, locale)).join("–"),
+          dateStart: e.dateStart,
+          dateEnd: e.dateEnd,
           description: parseCvDescription(e.description),
           tags: e.tags.map(formatLabel),
           url: e.url || undefined,
