@@ -56,8 +56,8 @@ function AtsLogEntry({ entry, locale, path, editable }: { entry: CvDisplayLogEnt
   return (
     <article className="ats-entry">
       <h3><Field editable={editable} path={[...path, "title"]} value={entry.title} placeholder="Title" /></h3>
-      {(entry.subtitle || editable) && <p className="ats-entry__subtitle"><Field editable={editable} path={[...path, "subtitle"]} value={entry.subtitle} placeholder="Subtitle" /></p>}
-      {editable
+      {entry.subtitle && <p className="ats-entry__subtitle"><Field editable={editable} path={[...path, "subtitle"]} value={entry.subtitle} placeholder="Subtitle" /></p>}
+      {editable && entry.dates
         ? <p className="ats-entry__date"><Editable path={[...path, "dateStart"]} value={entry.dateStart ?? ""} placeholder="Start" />{" - "}<Editable path={[...path, "dateEnd"]} value={entry.dateEnd ?? ""} placeholder="End" /></p>
         : entry.dates && <p className="ats-entry__date">{printableDate(entry.dates)}</p>}
       {entry.description.map((block, index) => block.type === "paragraph"
@@ -168,7 +168,7 @@ export function AtsPrintCvLayout({ data, screen = false }: { data: CvData; scree
       <style>{atsPrintStyles}</style>
       <header className="ats-header">
         <h1><Field editable={editable} path={["name"]} value={data.name} placeholder="Your name" /></h1>
-        {(role || editable) && <p className="ats-header__role"><Field editable={editable} path={["title"]} value={role} placeholder="Target role" /></p>}
+        {role && <p className="ats-header__role"><Field editable={editable} path={["title"]} value={role} placeholder="Target role" /></p>}
         <address className="ats-contact">
           {design.showLocation && (design.locationLabel || data.location) && <p>{design.locationLabel || data.location}</p>}
           {data.email && <p><a href={`mailto:${data.email}`}>{data.email}</a></p>}
