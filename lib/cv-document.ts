@@ -26,6 +26,8 @@ export const cvDesignSchema = z.object({
   locationLabel: z.string().max(160).default(""),
   showProjectStatus: z.boolean().default(false),
   pageBreakBefore: z.array(z.string()).default([]),
+  /** Page budget for the editor's fit indicator; unset means no target. */
+  targetPages: z.number().int().min(1).max(6).optional(),
 })
 
 export type CvDesign = z.infer<typeof cvDesignSchema>

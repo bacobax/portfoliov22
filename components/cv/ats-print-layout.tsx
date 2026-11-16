@@ -2,6 +2,7 @@ import type { CvData, CvDisplayLogEntry, CvDisplaySection } from "./cv-types"
 import { cvDesignSchema } from "@/lib/cv-document"
 import { cvLinkHref, cvLinkLabel } from "@/lib/cv-quality"
 import type { CvLocale } from "@/lib/cv-templates"
+import { parseMarks } from "@/lib/cv-inline-marks"
 
 const englishPersonalDetailLabels: Record<string, string> = {
   dateOfBirth: "Date of birth",
@@ -45,8 +46,8 @@ function AtsLogEntry({ entry, locale }: { entry: CvDisplayLogEntry; locale: CvLo
       {entry.subtitle && <p className="ats-entry__subtitle">{entry.subtitle}</p>}
       {entry.dates && <p className="ats-entry__date">{printableDate(entry.dates)}</p>}
       {entry.description.map((block, index) => block.type === "paragraph"
-        ? <p key={index}>{block.title && <><strong>{block.title}</strong>{" "}</>}{block.text}</p>
-        : <ul key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{item}</li>)}</ul>)}
+        ? <p key={index}>{block.title && <><strong>{block.title}</strong>{" "}</>}{parseMarks(block.text)}</p>
+        : <ul key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{parseMarks(item)}</li>)}</ul>)}
       {entry.tags.length > 0 && <p className="ats-entry__skills"><strong>{locale === "it" ? "Competenze" : "Skills"}:</strong> {entry.tags.join(", ")}</p>}
       {entry.url && (
         <p className="ats-entry__link">
@@ -72,7 +73,7 @@ function AtsSection({ section, locale }: { section: CvDisplaySection; locale: Cv
       {content.type === "log" && content.entries.map((entry, index) => (
         <AtsLogEntry key={`${entry.title}-${entry.dates}-${index}`} entry={entry} locale={locale} />
       ))}
-      {content.type === "text" && <p>{content.text}</p>}
+      {content.type === "text" && <p>{parseMarks(content.text)}</p>}
       {content.type === "tags" && content.groups.map((group, index) => (
         <p key={`${group.category}-${index}`}>
           {group.category && <><strong>{group.category}:</strong>{" "}</>}
@@ -125,18 +126,23 @@ function AtsPersonalDetails({ data }: { data: CvData }) {
   )
 }
 
-export function AtsPrintCvLayout({ data }: { data: CvData }) {
+/**
+ * The standardized single-column CV that "Save ATS PDF" prints. With `screen`
+ * it is also shown on screen (the editor's paged print view); that copy is never
+ * printed, so screen-only decoration cannot reach the PDF.
+ */
+export function AtsPrintCvLayout({ data, screen = false }: { data: CvData; screen?: boolean }) {
   const design = cvDesignSchema.parse(data.design ?? {})
   const role = data.targetRoleOverride?.trim() || data.title
-  const fontSize = Math.max(10.5, design.baseFontPt)
+  const fontSize = Math.min(13, Math.max(9, design.baseFontPt))
   const footer = data.regionalOptions
   const hasFooter = Boolean(footer?.customFooter || footer?.showSignature)
   const locale = data.documentLanguage ?? "en"
 
   return (
     <article
-      className="cv-document ats-print-cv"
-      data-cv-output="ats-print"
+      className={`cv-document ats-print-cv${screen ? " ats-print-cv--screen" : ""}`}
+      data-cv-output={screen ? "ats-screen" : "ats-print"}
       lang={data.documentLanguage ?? "en"}
       style={{ "--ats-font-size": `${fontSize}pt` } as React.CSSProperties}
     >
@@ -168,39 +174,50 @@ export function AtsPrintCvLayout({ data }: { data: CvData }) {
   )
 }
 
-const atsPrintStyles = `
-  .ats-print-cv { display:none; }
-  @media print {
-    .cv-document--visual { display:none !important; }
-    .ats-print-cv {
+/** Shared ATS rules, scoped to `root`: emitted once for print and once for the screen copy. */
+const atsRules = (root: string) => `
+    ${root} {
       display:block !important; width:auto !important; max-width:none !important; min-height:0 !important;
       margin:0 !important; padding:0 !important; border:0 !important; box-shadow:none !important;
       background:#fff !important; color:#000 !important; font-family:Arial, Helvetica, sans-serif !important;
       font-size:var(--ats-font-size, 10.5pt) !important; line-height:1.42 !important;
       overflow:visible !important; overflow-wrap:break-word; print-color-adjust:economy; -webkit-print-color-adjust:economy;
     }
-    .ats-print-cv * { box-sizing:border-box; color:#000 !important; background:transparent !important; }
-    .ats-print-cv .ats-header { margin:0 0 5mm; padding:0 0 3mm; border-bottom:.3mm solid #000; break-inside:avoid; }
-    .ats-print-cv h1 { margin:0; font-size:20pt; line-height:1.15; font-weight:700; }
-    .ats-print-cv .ats-header__role { margin:1mm 0 2mm; font-size:12pt; font-weight:700; }
-    .ats-print-cv .ats-contact { margin:0; font-style:normal; }
-    .ats-print-cv .ats-contact p, .ats-print-cv .ats-personal p { margin:.5mm 0; }
-    .ats-print-cv .ats-personal { margin-top:2mm; }
-    .ats-print-cv main { display:block; }
-    .ats-print-cv .ats-section { display:block; margin:0 0 4mm; padding:0; }
-    .ats-print-cv .ats-section:last-child { margin-bottom:0; }
-    .ats-print-cv h2 { margin:0 0 2mm; padding:0 0 1mm; border-bottom:.2mm solid #000; font-size:13pt; line-height:1.2; break-after:avoid; page-break-after:avoid; }
-    .ats-print-cv .ats-entry { display:block; margin:0 0 3mm; break-inside:auto; page-break-inside:auto; }
-    .ats-print-cv h3 { margin:0; font-size:11pt; line-height:1.3; break-after:avoid; page-break-after:avoid; }
-    .ats-print-cv p { margin:1mm 0 0; orphans:2; widows:2; }
-    .ats-print-cv .ats-entry__subtitle { margin-top:.5mm; font-weight:700; break-after:avoid; page-break-after:avoid; }
-    .ats-print-cv .ats-entry__date { margin-top:.5mm; break-after:avoid; page-break-after:avoid; }
-    .ats-print-cv ul { margin:1mm 0 0; padding-left:5mm; list-style:disc outside; }
-    .ats-print-cv li { margin:0 0 .8mm; orphans:2; widows:2; }
-    .ats-print-cv .ats-inline-list { display:flex; flex-wrap:wrap; padding-left:0; list-style:none; }
-    .ats-print-cv .ats-inline-list li { margin:0; }
-    .ats-print-cv .ats-inline-list li + li::before { content:"·"; margin:0 1.5mm; }
-    .ats-print-cv a { color:#000 !important; text-decoration:underline; overflow-wrap:anywhere; }
-    .ats-print-cv .ats-footer { margin-top:5mm; padding-top:2mm; border-top:.2mm solid #000; break-inside:avoid; }
+    ${root} * { box-sizing:border-box; color:#000 !important; background:transparent !important; }
+    ${root} .ats-header { margin:0 0 5mm; padding:0 0 3mm; border-bottom:.3mm solid #000; break-inside:avoid; }
+    ${root} h1 { margin:0; font-size:1.9048em; line-height:1.15; font-weight:700; }
+    ${root} .ats-header__role { margin:1mm 0 2mm; font-size:1.1429em; font-weight:700; }
+    ${root} .ats-contact { margin:0; font-style:normal; }
+    ${root} .ats-contact p, ${root} .ats-personal p { margin:.5mm 0; }
+    ${root} .ats-personal { margin-top:2mm; }
+    ${root} main { display:block; }
+    ${root} .ats-section { display:block; margin:0 0 4mm; padding:0; }
+    ${root} .ats-section:last-child { margin-bottom:0; }
+    ${root} h2 { margin:0 0 2mm; padding:0 0 1mm; border-bottom:.2mm solid #000; font-size:1.2381em; line-height:1.2; break-after:avoid; page-break-after:avoid; }
+    ${root} .ats-entry { display:block; margin:0 0 3mm; break-inside:auto; page-break-inside:auto; }
+    ${root} h3 { margin:0; font-size:1.0476em; line-height:1.3; break-after:avoid; page-break-after:avoid; }
+    ${root} p { margin:1mm 0 0; }
+    ${root} p, ${root} li { break-inside:avoid; page-break-inside:avoid; }
+    ${root} .ats-entry__subtitle { margin-top:.5mm; font-weight:700; break-after:avoid; page-break-after:avoid; }
+    ${root} .ats-entry__date { margin-top:.5mm; break-after:avoid; page-break-after:avoid; }
+    ${root} ul { margin:1mm 0 0; padding-left:5mm; list-style:disc outside; }
+    ${root} li { margin:0 0 .8mm; }
+    ${root} .ats-inline-list { display:flex; flex-wrap:wrap; padding-left:0; list-style:none; }
+    ${root} .ats-inline-list li { margin:0; }
+    ${root} .ats-inline-list li + li::before { content:"·"; margin:0 1.5mm; }
+    ${root} a { color:#000 !important; text-decoration:underline; overflow-wrap:anywhere; }
+    ${root} .ats-footer { margin-top:5mm; padding-top:2mm; border-top:.2mm solid #000; break-inside:avoid; }
+`
+
+const atsPrintStyles = `
+  .ats-print-cv { display:none; }
+  @media print {
+    .cv-document--visual { display:none !important; }
+    .ats-print-cv--screen { display:none !important; }
+${atsRules(".ats-print-cv:not(.ats-print-cv--screen)")}
+  }
+  @media screen {
+${atsRules(".ats-print-cv--screen")}
+    .ats-print-cv--screen [data-cv-page-start] { padding-top:var(--cv-spacer, 0px); }
   }
 `

@@ -90,7 +90,7 @@ export function domToMarks(root: MarkNode): string {
 
   return runs.map(({ text, bold, italic }) => {
     if (!bold && !italic) return text
-    const match = text.match(/^(\s*)(.*?)(\s*)$/s)
+    const match = text.match(/^(\s*)([\s\S]*?)(\s*)$/)
     const [, lead, core, trail] = match ?? ["", "", text, ""]
     if (!core) return lead + trail
     const marker = bold && italic ? "***" : bold ? "**" : "*"
