@@ -85,6 +85,9 @@ function EditableField({ api, path, value, mode, placeholder }: {
   // Children are fixed at mount (so SSR/hydration show real text); afterwards the
   // DOM is synced imperatively, so React never fights the user's caret.
   const [initialValue] = useState(value)
+  // React 19 re-applies `dangerouslySetInnerHTML` whenever the object identity changes,
+  // which would wipe the user's typing on every render. Create it exactly once.
+  const [initialHtml] = useState(() => ({ __html: marksToHtml(value) }))
 
   const rich = isRich(mode)
   // The DOM owns the text while focused; otherwise mirror the committed value.
@@ -178,7 +181,7 @@ function EditableField({ api, path, value, mode, placeholder }: {
         event.preventDefault()
         document.execCommand("insertText", false, event.clipboardData.getData("text/plain"))
       } : undefined}
-      dangerouslySetInnerHTML={rich ? { __html: marksToHtml(initialValue) } : undefined}
+      dangerouslySetInnerHTML={rich ? initialHtml : undefined}
     >
       {rich ? undefined : initialValue}
     </span>

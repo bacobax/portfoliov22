@@ -16,6 +16,8 @@ export interface CvPaginationState {
   /** One body line in the same (on-screen) pixels as `overflowPx`. */
   linePx: number
   oversized: number
+  /** Body size these numbers were measured at, so callers can wait for a fresh result. */
+  fontPt: number
 }
 
 const PAPER_MM = { A4: { width: 210, height: 297 }, Letter: { width: 215.9, height: 279.4 } } as const
@@ -56,7 +58,7 @@ export function CvPagedProof({ data, onPagination }: { data: CvData; onPaginatio
   const [pageCount, setPageCount] = useState(1)
   const blocksRef = useRef<HTMLElement[]>([])
   const paginationRef = useRef<Pagination | null>(null)
-  const metricsRef = useRef({ overflowPx: 0, linePx: 0, oversized: 0 })
+  const metricsRef = useRef({ overflowPx: 0, linePx: 0, oversized: 0, fontPt })
   const caretRef = useRef<number | null>(null)
   const onPaginationRef = useRef(onPagination)
   onPaginationRef.current = onPagination
@@ -79,7 +81,7 @@ export function CvPagedProof({ data, onPagination }: { data: CvData; onPaginatio
     const visualPxPerMm = pxPerMm(articleRect.width, paper.width - 2 * marginMm)
     if (!visualPxPerMm) {
       paginationRef.current = null
-      metricsRef.current = { overflowPx: 0, linePx: 0, oversized: 0 }
+      metricsRef.current = { overflowPx: 0, linePx: 0, oversized: 0, fontPt }
       report(0)
       return
     }
@@ -112,7 +114,7 @@ export function CvPagedProof({ data, onPagination }: { data: CvData; onPaginatio
 
     blocksRef.current = elements
     paginationRef.current = pagination
-    metricsRef.current = { overflowPx: pagination.overflowPx, linePx: fontPt * 1.42 * (96 / 72) * zoom, oversized: pagination.oversized.length }
+    metricsRef.current = { overflowPx: pagination.overflowPx, linePx: fontPt * 1.42 * (96 / 72) * zoom, oversized: pagination.oversized.length, fontPt }
     setPageCount(pagination.pageCount)
     report(pagination.pageCount)
   }, [paper.width, paper.height, marginMm, fontPt, design.targetPages, report])
@@ -167,8 +169,8 @@ export function CvPagedProof({ data, onPagination }: { data: CvData; onPaginatio
         .cv-paged-proof .ats-print-cv--screen { background: transparent !important; }
         .cv-paged-proof [data-cv-oversized] { outline: 1px dashed #b8321b; outline-offset: 2px; }
         .cv-paged-proof .cv-editable { border-radius: 2px; outline: none; }
-        .cv-paged-proof .cv-editable:hover { background: rgba(15, 108, 114, .06); }
-        .cv-paged-proof .cv-editable:focus { background: rgba(15, 108, 114, .08); box-shadow: 0 0 0 2px rgba(15, 108, 114, .35); }
+        .cv-paged-proof .cv-editable:hover { background: rgba(184, 50, 27, .06); }
+        .cv-paged-proof .cv-editable:focus { background: rgba(184, 50, 27, .08); box-shadow: 0 0 0 2px rgba(184, 50, 27, .55); }
         .cv-paged-proof .cv-editable:empty::before { content: attr(data-placeholder); color: #8a9199; }
         @media print { .cv-paged-proof__sheet { display: none; } }
       `}</style>
