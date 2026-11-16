@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState
 import { ArrowDown, ArrowUp, EyeOff, GripVertical, ListPlus } from "lucide-react"
 
 import { splitList, type CvPath } from "@/lib/cv-tailor"
+import { domToMarks, marksToHtml, parseMarks } from "@/lib/cv-inline-marks"
 
 /**
  * Optional inline-editing hooks for the CV layouts. Without a provider every
@@ -33,7 +34,28 @@ export function CvEditProvider({ api, children }: { api: CvEditApi; children: Re
 
 export const pathKey = (path: CvPath) => path.join(".")
 
-type EditableMode = "line" | "multiline" | "list" | "bullet"
+/** `rich` and `rich-bullet` keep `**bold**` / `*italic*` marks; the rest are plain text. */
+type EditableMode = "line" | "multiline" | "list" | "bullet" | "rich" | "rich-bullet"
+
+const isRich = (mode: EditableMode) => mode === "rich" || mode === "rich-bullet"
+
+/** True inside a `CvEditProvider`, for layouts that render differently while editing. */
+export function useCvEditing(): boolean {
+  return useContext(CvEditContext) !== null
+}
+
+/**
+ * Toggle bold or italic on the current selection, when it sits inside a rich
+ * editable field. Used by toolbar buttons (which must not steal focus).
+ */
+export function applyMark(kind: "bold" | "italic"): boolean {
+  const anchor = window.getSelection()?.anchorNode
+  const element = anchor && (anchor.nodeType === 1 ? anchor as Element : anchor.parentElement)?.closest<HTMLElement>(".cv-editable[data-rich]")
+  if (!element) return false
+  document.execCommand(kind)
+  element.dispatchEvent(new Event("input", { bubbles: true }))
+  return true
+}
 
 export function Editable({
   path,
@@ -47,7 +69,7 @@ export function Editable({
   placeholder?: string
 }) {
   const api = useContext(CvEditContext)
-  if (!api) return <>{value}</>
+  if (!api) return <>{isRich(mode) ? parseMarks(value) : value}</>
   return <EditableField api={api} path={path} value={value} mode={mode} placeholder={placeholder} />
 }
 
@@ -63,12 +85,18 @@ function EditableField({ api, path, value, mode, placeholder }: {
   // Children are fixed at mount (so SSR/hydration show real text); afterwards the
   // DOM is synced imperatively, so React never fights the user's caret.
   const [initialValue] = useState(value)
+  // React 19 re-applies `dangerouslySetInnerHTML` whenever the object identity changes,
+  // which would wipe the user's typing on every render. Create it exactly once.
+  const [initialHtml] = useState(() => ({ __html: marksToHtml(value) }))
 
+  const rich = isRich(mode)
   // The DOM owns the text while focused; otherwise mirror the committed value.
   useLayoutEffect(() => {
     const element = ref.current
-    if (element && document.activeElement !== element && element.textContent !== value) element.textContent = value
-  }, [value])
+    if (!element || document.activeElement === element) return
+    if (rich) { if (domToMarks(element) !== value) element.innerHTML = marksToHtml(value) }
+    else if (element.textContent !== value) element.textContent = value
+  }, [value, rich])
 
   useEffect(() => {
     const element = ref.current
@@ -83,8 +111,8 @@ function EditableField({ api, path, value, mode, placeholder }: {
   }, [api, key])
 
   const read = () => {
-    const raw = ref.current?.innerText ?? ""
-    return mode === "multiline" ? raw.replace(/\n{3,}/g, "\n\n").trim() : raw.replace(/\s*\n\s*/g, " ").trim()
+    const raw = rich ? (ref.current ? domToMarks(ref.current) : "") : ref.current?.innerText ?? ""
+    return mode === "multiline" || mode === "rich" ? raw.replace(/\n{3,}/g, "\n\n").trim() : raw.replace(/\s*\n\s*/g, " ").trim()
   }
 
   const commit = () => {
@@ -98,24 +126,31 @@ function EditableField({ api, path, value, mode, placeholder }: {
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLSpanElement>) => {
+    if (rich && (event.metaKey || event.ctrlKey) && !event.altKey && (event.key === "b" || event.key === "i")) {
+      event.preventDefault()
+      document.execCommand(event.key === "b" ? "bold" : "italic")
+      commit()
+      return
+    }
     if (event.key === "Escape") {
       event.preventDefault()
-      if (ref.current) ref.current.textContent = value
+      if (ref.current) { if (rich) ref.current.innerHTML = marksToHtml(value); else ref.current.textContent = value }
       ref.current?.blur()
       return
     }
-    if (mode === "bullet" && event.key === "Enter" && !event.shiftKey) {
+    const bullet = mode === "bullet" || mode === "rich-bullet"
+    if (bullet && event.key === "Enter" && !event.shiftKey) {
       event.preventDefault()
       commit()
       api.insertBullet(path.slice(0, -1), (path[path.length - 1] as number) + 1)
       return
     }
-    if (mode === "bullet" && event.key === "Backspace" && read() === "") {
+    if (bullet && event.key === "Backspace" && read() === "") {
       event.preventDefault()
       api.removeBullet(path.slice(0, -1), path[path.length - 1] as number)
       return
     }
-    if (mode !== "multiline" && event.key === "Enter") {
+    if (mode !== "multiline" && mode !== "rich" && event.key === "Enter") {
       event.preventDefault()
       ref.current?.blur()
     }
@@ -125,10 +160,11 @@ function EditableField({ api, path, value, mode, placeholder }: {
     <span
       ref={ref}
       className="cv-editable"
-      contentEditable="plaintext-only"
+      contentEditable={rich ? "true" : "plaintext-only"}
       suppressContentEditableWarning
+      data-rich={rich ? "true" : undefined}
       role="textbox"
-      aria-multiline={mode === "multiline"}
+      aria-multiline={mode === "multiline" || mode === "rich"}
       aria-label={placeholder ?? "Edit text"}
       data-placeholder={placeholder ?? "Type here"}
       data-cv-path={key}
@@ -140,8 +176,14 @@ function EditableField({ api, path, value, mode, placeholder }: {
         if (element && mode === "list") element.textContent = splitList(read()).join(", ")
       }}
       onKeyDown={onKeyDown}
+      onPaste={rich ? (event) => {
+        // Formatting from other apps never reaches the CV: paste as plain text.
+        event.preventDefault()
+        document.execCommand("insertText", false, event.clipboardData.getData("text/plain"))
+      } : undefined}
+      dangerouslySetInnerHTML={rich ? initialHtml : undefined}
     >
-      {initialValue}
+      {rich ? undefined : initialValue}
     </span>
   )
 }

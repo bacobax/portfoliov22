@@ -407,3 +407,13 @@ On a mismatch, throw `Error("page mismatch at <pt>pt: proof <n> vs pdf <m>")`.
 | B, I and the shortcuts; no raw asterisks anywhere | 1, 4, 5, 8 |
 | 10.5 pt PDF unchanged | 4, 9 |
 | Links, contact and personal details not inline-editable | 5 |
+
+## Amendments (pre-execution review, 2026-11-16) — these override the tasks above
+
+1. **Task 4 / 8 — never print the editable copy.** Screen rules live under `@media screen` only; `@media print { .ats-print-cv--screen { display:none !important } }`. Print view still renders the plain hidden `<AtsPrintCvLayout data />` for printing. Drop the `body:has(...)` rule and the `--cv-spacer` print reset.
+2. **Task 7 — spacer is `padding-top: var(--cv-spacer)`, not margin** (margins collapse with parent `.ats-section`/`.ats-entry` and previous sibling). After applying, re-measure the first break block; in dev `console.warn` if it is more than 1 px off `sheetTop + marginPx`.
+3. **Task 7 — no resize feedback loop.** ResizeObserver callback re-measures only when the column *width* changed; clear → measure → apply runs inside one rAF callback.
+4. **Task 8 — zoom check first.** Verify 50% vs 100% page count early. If `zoom` changes wrapping, switch the print view to `transform: scale()` and measure with `offsetTop`/`offsetHeight` (layout px).
+5. **Task 2 — separators preserve part structure.** `serializeCvDescription` joins: bullets after any block → `\n`; untitled paragraph after bullets → `\n`; titled paragraph, paragraph after paragraph, or bullets after bullets → `\n\n`. Add exact round-trip tests `serializeCvDescription(parseCvDescription(s)) === s` for strings shaped like `serializeDescriptionParts` output, e.g. `"**Role** did things\n\n**Stack**\n- a\n- b"`.
+6. **Task 7 — block collection skips descendants of atomic blocks** (`.ats-header`, `.ats-footer`, `ul.ats-inline-list`).
+7. Work on branch `cv-docs-editor`; stage explicit paths only (never `.impeccable/`).

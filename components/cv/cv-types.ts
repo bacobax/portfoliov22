@@ -10,6 +10,9 @@ export interface CvDisplayLogEntry {
   title: string
   subtitle: string
   dates: string
+  /** Raw source dates, so the private editor can edit start and end separately. */
+  dateStart?: string
+  dateEnd?: string
   description: CvDescriptionBlock[]
   tags: string[]
   url?: string

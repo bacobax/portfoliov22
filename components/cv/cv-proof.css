@@ -485,6 +485,36 @@ body:has(.cv-page.cv-proof) { background: var(--pf-board, #d6d6d4); }
 .cv-proof .cv-editor-preview-header .cv-print-control details.cv-print-help { order: -1; }
 .cv-proof .cv-editor-preview-scaler { position: relative; flex: 0 0 auto; display: flex; justify-content: center; align-items: flex-start; overflow: visible; padding: 0; }
 .cv-proof .cv-editor-preview-scaler > .cv-fit-viewport.proof-board { padding: 36px 48px 64px; }
+.cv-proof .cv-editor-preview-scaler > .cv-fit-viewport:not(.proof-board) { padding: 28px 40px 64px; }
+
+/* ── Print view: view switch + Docs-style toolbar ── */
+.cv-proof .cv-editor-proof-views { display: inline-flex; border: 1px solid var(--pf-rule-strong); border-radius: 3px; overflow: hidden; }
+.cv-proof .cv-editor-proof-views button { padding: 7px 11px; border: 0; background: var(--pf-slip); color: var(--pf-ink-2); font: 600 13px/1 var(--pf-sans); cursor: pointer; }
+.cv-proof .cv-editor-proof-views button + button { border-left: 1px solid var(--pf-rule-strong); }
+.cv-proof .cv-editor-proof-views button:hover { background: var(--pf-wash); }
+.cv-proof .cv-editor-proof-views button[aria-pressed="true"] { background: var(--pf-ink); color: #fff; }
+.cv-proof .cv-docs-toolbar { position: sticky; top: 64px; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 16px; border-bottom: 1px solid var(--pf-rule-strong); background: var(--pf-margin); font-size: 14px; color: var(--pf-ink-2); }
+.cv-proof .cv-docs-toolbar__group { display: inline-flex; align-items: center; gap: 4px; }
+.cv-proof .cv-docs-toolbar__group + .cv-docs-toolbar__group,
+.cv-proof .cv-docs-toolbar__pages { padding-left: 14px; border-left: 1px solid var(--pf-rule); }
+.cv-proof .cv-docs-toolbar__btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 32px; height: 32px; padding: 0 8px; border: 1px solid var(--pf-rule-strong); border-radius: 3px; background: var(--pf-slip); color: var(--pf-ink); font: 600 14px/1 var(--pf-sans); cursor: pointer; }
+.cv-proof .cv-docs-toolbar__btn:hover:not(:disabled) { background: var(--pf-wash); border-color: var(--pf-ink-2); }
+.cv-proof .cv-docs-toolbar__btn:disabled { opacity: .45; cursor: default; }
+.cv-proof .cv-docs-toolbar__value { min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; color: var(--pf-ink); }
+.cv-proof .cv-docs-toolbar__pages { font-variant-numeric: tabular-nums; color: var(--pf-ink); font-weight: 600; white-space: nowrap; }
+.cv-proof .cv-docs-toolbar__fit { gap: 6px; }
+.cv-proof .cv-docs-toolbar__input { width: 48px; height: 32px; padding: 0 6px; border: 1px solid var(--pf-rule-strong); border-radius: 3px; background: var(--pf-slip); color: var(--pf-ink); font: 600 14px/1 var(--pf-sans); text-align: center; }
+.cv-proof .cv-docs-toolbar__status { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; white-space: nowrap; }
+.cv-proof .cv-docs-toolbar__status--ok { color: var(--pf-ok); }
+.cv-proof .cv-docs-toolbar__status--over { color: var(--pf-red); }
+.cv-proof .cv-docs-toolbar__note { flex-basis: 100%; margin: 0; color: var(--pf-muted); font-size: 13px; }
+@media (max-width: 720px) {
+  /* The proof header wraps to a variable height here, so the toolbar scrolls with the page. */
+  .cv-proof .cv-docs-toolbar { position: static; padding: 8px 12px; gap: 8px 10px; }
+  .cv-proof .cv-docs-toolbar__group + .cv-docs-toolbar__group,
+  .cv-proof .cv-docs-toolbar__pages { padding-left: 0; border-left: 0; }
+  .cv-proof .cv-editor-preview-scaler > .cv-fit-viewport:not(.proof-board) { padding: 20px 16px 40px; }
+}
 
 /* Signature: the proof mark tracks the section being edited onto the page */
 .cv-proof .cv-proof-mark {

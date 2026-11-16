@@ -14,11 +14,13 @@ export function parseCvDescription(value: string): CvDescriptionBlock[] {
   for (const line of value.split(/\r?\n/)) {
     const text = line.trim()
     if (!text) { previous = undefined; continue }
-    const bullet = text.match(/^[-*•]\s+(.+)$/)
+    // A lone marker is an empty bullet still being written in the editor.
+    const bullet = text.match(/^[-*•](?:\s+(.*))?$/)
     const titled = bullet ? null : text.match(TITLED_LINE)
     if (bullet) {
-      if (previous?.type === "bullets") previous.items.push(bullet[1])
-      else { previous = { type: "bullets", items: [bullet[1]] }; blocks.push(previous) }
+      const item = bullet[1] ?? ""
+      if (previous?.type === "bullets") previous.items.push(item)
+      else { previous = { type: "bullets", items: [item] }; blocks.push(previous) }
     } else if (titled) {
       previous = { type: "paragraph", title: titled[1].trim(), text: titled[2] }
       blocks.push(previous)
@@ -28,6 +30,35 @@ export function parseCvDescription(value: string): CvDescriptionBlock[] {
     }
   }
   return blocks
+}
+
+/**
+ * Inverse of `parseCvDescription`, used when a block is edited on the page.
+ * Separators keep the editor's parts intact: a blank line only where a new part
+ * (or a split the parser needs) begins.
+ */
+export function serializeCvDescription(blocks: readonly CvDescriptionBlock[]): string {
+  const kept = blocks.flatMap((block): CvDescriptionBlock[] => {
+    if (block.type === "bullets") {
+      // Empty items are kept: they are bullets the user just inserted.
+      const items = block.items.map((item) => item.trim())
+      return items.length ? [{ type: "bullets", items }] : []
+    }
+    const title = block.title?.trim()
+    const text = block.text.trim()
+    return title || text ? [{ type: "paragraph", text, ...(title ? { title } : {}) }] : []
+  })
+  return kept.map((block, index) => {
+    const body = block.type === "bullets"
+      ? block.items.map((item) => item ? `- ${item}` : "-").join("\n")
+      : block.title ? `**${block.title}**${block.text ? ` ${block.text}` : ""}` : block.text
+    if (index === 0) return body
+    const previous = kept[index - 1]
+    const sameLine = block.type === "bullets"
+      ? previous.type !== "bullets"
+      : !block.title && previous.type === "bullets"
+    return `${sameLine ? "\n" : "\n\n"}${body}`
+  }).join("")
 }
 
 /** One titled paragraph of an entry description, as edited in the CV editor. */
@@ -89,6 +120,8 @@ function transformSectionData(data: CvSectionData, locale: CvLocale, hideStatus 
           title: formatLabel(e.title),
           subtitle: formatLabel(e.subtitle),
           dates: [e.dateStart, e.dateEnd].filter((date) => date && !(hideStatus && /^(production|beta|development|ongoing|terminated|completed)$/i.test(date.trim()))).map((date) => localizeDate(date, locale)).join("–"),
+          dateStart: e.dateStart,
+          dateEnd: e.dateEnd,
           description: parseCvDescription(e.description),
           tags: e.tags.map(formatLabel),
           url: e.url || undefined,

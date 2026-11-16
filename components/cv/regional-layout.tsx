@@ -75,9 +75,9 @@ function LogEntry({ entry, path, sectionIndex, entryIndex, prevIndex, nextIndex,
         {entry.description.map((block, index) => block.type === "paragraph"
           ? <p className="region-entry__description" key={index}>
               {block.title !== undefined && <><strong className="region-entry__part-title"><Editable path={[...path, "description", index, "title"]} value={block.title} placeholder="Part title" /></strong>{" "}</>}
-              <Editable path={[...path, "description", index, "text"]} value={block.text} mode="multiline" placeholder="Description" />
+              <Editable path={[...path, "description", index, "text"]} value={block.text} mode="rich" placeholder="Description" />
             </p>
-          : <ul className="region-entry__bullets" key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}><Editable path={[...path, "description", index, "items", itemIndex]} value={item} mode="bullet" placeholder="Bullet point" /></li>)}</ul>)}
+          : <ul className="region-entry__bullets" key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}><Editable path={[...path, "description", index, "items", itemIndex]} value={item} mode="rich-bullet" placeholder="Bullet point" /></li>)}</ul>)}
         {entry.tags.length > 0 && (
           <p className="region-technologies" aria-label={`${entry.title} skills`}><Editable path={[...path, "tags"]} value={entry.tags.join(", ")} mode="list" placeholder="Comma-separated skills" /></p>
         )}
@@ -99,7 +99,7 @@ function RenderSection({ sectionRef, summaryOverride, locale }: { sectionRef: Se
     const useOverride = section.id === "profile" && Boolean(summaryOverride)
     const text = useOverride ? summaryOverride! : content.text
     if (!text) return null
-    return <section className="region-section region-text"><SectionHeading sectionRef={sectionRef} /><p><Editable path={useOverride ? ["summaryOverride"] : [...base, "text"]} value={text} mode="multiline" placeholder="Summary" /></p></section>
+    return <section className="region-section region-text"><SectionHeading sectionRef={sectionRef} /><p><Editable path={useOverride ? ["summaryOverride"] : [...base, "text"]} value={text} mode="rich" placeholder="Summary" /></p></section>
   }
   if (content.type === "tags") {
     if (content.groups.length === 0) return null
