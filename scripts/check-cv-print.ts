@@ -54,6 +54,22 @@ async function assertAtsPdf(path: string): Promise<void> {
   if (text.includes("HIDDEN-TAX-ID")) throw new Error(`${path}: hidden tax ID leaked into the PDF`)
 }
 
+const squash = (value: string) => value.replace(/\s+/g, "")
+
+/**
+ * The editor's print view must show the same pages as the PDF: same count, and
+ * each page from the second on starting with the block the proof put there.
+ */
+async function assertPageParity(path: string, label: string, proof: { pageCount: number; starts: string[] }): Promise<void> {
+  const { pages } = await extractPdfText(path)
+  if (pages.length !== proof.pageCount) throw new Error(`page mismatch at ${label}: proof ${proof.pageCount} vs pdf ${pages.length}`)
+  proof.starts.forEach((start, index) => {
+    const pdfStart = squash(pages[index + 1] ?? "").slice(0, 16)
+    const expected = squash(start).slice(0, 16)
+    if (!pdfStart.startsWith(expected)) throw new Error(`page ${index + 2} start mismatch at ${label}: proof "${expected}" vs pdf "${pdfStart}"`)
+  })
+}
+
 async function main() {
   const require = createRequire(import.meta.url)
   const { chromium } = require(process.env.CV_PLAYWRIGHT_MODULE || "playwright")
@@ -75,6 +91,24 @@ async function main() {
     const errors: string[] = []
     page.on("pageerror", (error: Error) => errors.push(error.message))
     await page.goto(process.env.CV_CHECK_URL || "http://localhost:3001/cv/edit")
+    // Print view (the default) must page exactly like the PDF at small, default and large type.
+    for (const pt of [9, 10.5, 12]) {
+      const draft = materializeCvPresets(hub)[0]
+      draft.design.baseFontPt = pt
+      hub = applyEditorOperations(hub, [{ type: "replace-presets", presets: [draft], activePresetId: draft.id }])
+      await page.reload()
+      await page.waitForFunction(() => Number(document.querySelector("[data-cv-page-count]")?.getAttribute("data-cv-page-count")) > 0)
+      await page.waitForTimeout(600)
+      const proof = await page.evaluate(() => ({
+        pageCount: Number(document.querySelector("[data-cv-page-count]")!.getAttribute("data-cv-page-count")),
+        starts: Array.from(document.querySelectorAll<HTMLElement>(".ats-print-cv--screen [data-cv-page-start]")).map((element) => element.textContent ?? ""),
+      }))
+      const path = join(output, `parity-${pt}pt.pdf`)
+      await page.pdf({ path, preferCSSPageSize: true, displayHeaderFooter: false, printBackground: true })
+      await assertPageParity(path, `${pt}pt`, proof)
+      console.log(`page parity ok at ${pt}pt: ${proof.pageCount} pages`)
+    }
+    await page.getByRole("button", { name: "Design view" }).click()
     await page.locator(".cv-document--visual").waitFor()
     await page.locator('[data-cv-output="ats-print"]').waitFor({ state: "attached" })
     await page.getByRole("tab", { name: "Design", exact: true }).click()
@@ -122,6 +156,7 @@ async function main() {
     }
     hub = applyEditorOperations(hub, [{ type: "replace-presets", presets: [draft], activePresetId: draft.id }])
     await page.reload()
+    await page.getByRole("button", { name: "Design view" }).click()
     await page.locator(".cv-document--visual").waitFor()
     await page.locator('[data-cv-output="ats-print"]').waitFor({ state: "attached" })
     await page.locator(".cv-document--visual img").evaluate((image: HTMLImageElement) => image.decode())

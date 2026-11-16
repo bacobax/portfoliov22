@@ -172,7 +172,8 @@ export function CvPagedProof({ data, onPagination }: { data: CvData; onPaginatio
         .cv-paged-proof .cv-editable:hover { background: rgba(184, 50, 27, .06); }
         .cv-paged-proof .cv-editable:focus { background: rgba(184, 50, 27, .08); box-shadow: 0 0 0 2px rgba(184, 50, 27, .55); }
         .cv-paged-proof .cv-editable:empty::before { content: attr(data-placeholder); color: #8a9199; }
-        @media print { .cv-paged-proof__sheet { display: none; } }
+        /* The editable copy never prints (the plain ATS copy does), and neither may its sheet space. */
+        @media print { .cv-paged-proof { display: none !important; } }
       `}</style>
       {Array.from({ length: sheets }, (_, index) => (
         <div key={index} className="cv-paged-proof__sheet" aria-hidden="true"

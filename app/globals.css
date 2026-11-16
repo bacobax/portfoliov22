@@ -41,7 +41,7 @@
 
 @media print {
   html, body { height:auto !important; overflow:visible !important; background:white !important; }
-  .cv-print-control, .cv-quality-review, .cv-editor-preview-header { display:none !important; }
+  .cv-print-control, .cv-quality-review, .cv-editor-preview-header, .cv-docs-toolbar { display:none !important; }
   .cv-editor-page { height:auto !important; min-height:0 !important; overflow:visible !important; display:block !important; background:white !important; }
   .cv-editor-page > :not(.cv-editor-split) { display:none !important; }
   .cv-editor-split { display:block !important; height:auto !important; overflow:visible !important; }
