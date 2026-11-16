@@ -1,6 +1,6 @@
 # CV Docs-style editor design
 
-Date: 2026-11-16. Status: draft, awaiting the user's approval.
+Date: 2026-11-16. Status: approved by the user on 2026-11-16.
 
 ## Intent
 
