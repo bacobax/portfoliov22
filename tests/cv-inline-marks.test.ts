@@ -51,8 +51,9 @@ describe("description round-trip", () => {
   it("bold at paragraph start becomes a part title", () => {
     expect(parseCvDescription(serializeCvDescription([{ type: "paragraph", text: "**Led** team" }]))[0]).toMatchObject({ title: "Led" })
   })
-  it("drops empty blocks and items", () => {
-    expect(serializeCvDescription([{ type: "paragraph", text: "" }, { type: "bullets", items: ["a", "", " "] }])).toBe("- a")
+  it("drops empty paragraphs but keeps empty bullets being written", () => {
+    expect(serializeCvDescription([{ type: "paragraph", text: "" }, { type: "bullets", items: ["a", " "] }])).toBe("- a\n-")
+    expect(parseCvDescription("- a\n-")).toEqual([{ type: "bullets", items: ["a", ""] }])
   })
   it("exposes raw dates", () => {
     const data = createCvData({ sections: [{ id: "e", title: "E", type: "log", placement: "main", visible: true, data: { type: "log", entries: [{ id: "1", title: "T", subtitle: "", dateStart: "2020", dateEnd: "Present", description: "", tags: [] }] } }] } as never)
