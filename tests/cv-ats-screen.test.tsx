@@ -5,6 +5,13 @@ import { AtsPrintCvLayout } from "@/components/cv/ats-print-layout"
 import { createCvData } from "@/lib/cv-data-transform"
 import { cvDesignSchema } from "@/lib/cv-document"
 import { professionalCvFixture } from "./fixtures/professional-cv"
+import { RegionalCvLayout } from "@/components/cv/regional-layout"
+import { CvEditProvider, type CvEditApi } from "@/components/cv/cv-edit-context"
+
+const noop = () => {}
+const api: CvEditApi = { set: noop, swap: noop, move: noop, insertBullet: noop, removeBullet: noop, hideEntry: noop, hideSection: noop, addBullet: noop, focusKey: null, clearFocus: noop }
+const photo = { src: "/photo.png", width: 100, height: 100 }
+const editing = (node: React.ReactNode) => renderToStaticMarkup(<CvEditProvider api={api}>{node}</CvEditProvider>)
 
 function dataWith(design: Partial<ReturnType<typeof cvDesignSchema.parse>> = {}, description?: string) {
   const preset = professionalCvFixture()
@@ -46,5 +53,28 @@ describe("design schema", () => {
     expect(cvDesignSchema.parse({}).targetPages).toBeUndefined()
     expect(cvDesignSchema.safeParse({ targetPages: 0 }).success).toBe(false)
     expect(cvDesignSchema.safeParse({ targetPages: 7 }).success).toBe(false)
+  })
+})
+
+describe("inline editing with marks", () => {
+  const marked = () => dataWith({}, "Led **10** people\n- shipped *v2*")
+  it("renders marks in the regional layout without a provider", () => {
+    const html = renderToStaticMarkup(<RegionalCvLayout layout="germanic_tabular" data={marked()} profilePicture={photo} />)
+    expect(html).toContain("<strong>10</strong>")
+    expect(html).not.toContain("**10**")
+  })
+  it("makes prose fields rich and short fields plain in the ATS screen view", () => {
+    const html = editing(<AtsPrintCvLayout data={marked()} screen />)
+    expect(html).toMatch(/contentEditable="true"[^>]*data-rich="true"[^>]*data-cv-path="sections\.1\.content\.entries\.0\.description\.0\.text"|data-cv-path="sections\.1\.content\.entries\.0\.description\.0\.text"[^>]*data-rich/i)
+    expect(html).toMatch(/contenteditable="plaintext-only"[^>]*data-cv-path="sections\.1\.content\.entries\.0\.title"/i)
+    expect(html).toContain('data-cv-path="sections.1.content.entries.0.dateStart"')
+    expect(html).toContain('data-cv-path="sections.1.content.entries.0.dateEnd"')
+    expect(html).toContain("<strong>10</strong>")
+  })
+  it("leaves contact links and the plain print copy uneditable", () => {
+    const html = editing(<AtsPrintCvLayout data={marked()} screen />)
+    const contact = html.slice(html.indexOf('class="ats-contact"'), html.indexOf("</address>"))
+    expect(contact).not.toMatch(/contenteditable/i)
+    expect(editing(<AtsPrintCvLayout data={marked()} />)).not.toMatch(/contenteditable/i)
   })
 })

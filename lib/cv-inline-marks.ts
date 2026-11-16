@@ -36,14 +36,18 @@ export function stripMarks(value: string): string {
 const escapeHtml = (value: string) =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 
-/** Marked text as safe HTML for a rich `contentEditable` field. */
+/**
+ * Marked text as safe HTML for a rich `contentEditable` field. Newlines stay
+ * literal so the layout's own `white-space` rule decides how they render, exactly
+ * as it does for the printed copy.
+ */
 export function marksToHtml(value: string): string {
   return tokenize(value).map((token) => {
     let html = escapeHtml(token.text)
     if (token.italic) html = `<em>${html}</em>`
     if (token.bold) html = `<strong>${html}</strong>`
     return html
-  }).join("").replace(/\n/g, "<br>")
+  }).join("")
 }
 
 /** The subset of a DOM node that `domToMarks` reads, so it can run without a browser. */

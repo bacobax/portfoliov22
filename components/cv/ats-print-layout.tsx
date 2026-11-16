@@ -3,6 +3,9 @@ import { cvDesignSchema } from "@/lib/cv-document"
 import { cvLinkHref, cvLinkLabel } from "@/lib/cv-quality"
 import type { CvLocale } from "@/lib/cv-templates"
 import { parseMarks } from "@/lib/cv-inline-marks"
+import { Editable, useCvEditing } from "./cv-edit-context"
+import type { CvPath } from "@/lib/cv-tailor"
+import type { ComponentProps, ReactNode } from "react"
 
 const englishPersonalDetailLabels: Record<string, string> = {
   dateOfBirth: "Date of birth",
@@ -38,17 +41,29 @@ function printableDate(value: string): string {
   return value.replace(/[\u2011\u2012\u2013\u2014]/g, " - ").replace(/\s+-\s+/g, " - ")
 }
 
-function AtsLogEntry({ entry, locale }: { entry: CvDisplayLogEntry; locale: CvLocale }) {
+/**
+ * Text that is inline-editable only in the editor's screen copy; everywhere else
+ * (the printed copy included) it renders as plain text or marks.
+ */
+function Field({ editable, display, ...props }: ComponentProps<typeof Editable> & { editable: boolean; display?: ReactNode }) {
+  if (editable) return <Editable {...props} />
+  if (display !== undefined) return <>{display}</>
+  return <>{props.mode === "rich" || props.mode === "rich-bullet" ? parseMarks(props.value) : props.value}</>
+}
+
+function AtsLogEntry({ entry, locale, path, editable }: { entry: CvDisplayLogEntry; locale: CvLocale; path: CvPath; editable: boolean }) {
   const href = entry.url ? cvLinkHref(entry.url) : undefined
   return (
     <article className="ats-entry">
-      <h3>{entry.title}</h3>
-      {entry.subtitle && <p className="ats-entry__subtitle">{entry.subtitle}</p>}
-      {entry.dates && <p className="ats-entry__date">{printableDate(entry.dates)}</p>}
+      <h3><Field editable={editable} path={[...path, "title"]} value={entry.title} placeholder="Title" /></h3>
+      {(entry.subtitle || editable) && <p className="ats-entry__subtitle"><Field editable={editable} path={[...path, "subtitle"]} value={entry.subtitle} placeholder="Subtitle" /></p>}
+      {editable
+        ? <p className="ats-entry__date"><Editable path={[...path, "dateStart"]} value={entry.dateStart ?? ""} placeholder="Start" />{" - "}<Editable path={[...path, "dateEnd"]} value={entry.dateEnd ?? ""} placeholder="End" /></p>
+        : entry.dates && <p className="ats-entry__date">{printableDate(entry.dates)}</p>}
       {entry.description.map((block, index) => block.type === "paragraph"
-        ? <p key={index}>{block.title && <><strong>{block.title}</strong>{" "}</>}{parseMarks(block.text)}</p>
-        : <ul key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}>{parseMarks(item)}</li>)}</ul>)}
-      {entry.tags.length > 0 && <p className="ats-entry__skills"><strong>{locale === "it" ? "Competenze" : "Skills"}:</strong> {entry.tags.join(", ")}</p>}
+        ? <p key={index}>{block.title && <><strong><Field editable={editable} path={[...path, "description", index, "title"]} value={block.title} placeholder="Part title" /></strong>{" "}</>}<Field editable={editable} path={[...path, "description", index, "text"]} value={block.text} mode="rich" placeholder="Description" /></p>
+        : <ul key={index}>{block.items.map((item, itemIndex) => <li key={itemIndex}><Field editable={editable} path={[...path, "description", index, "items", itemIndex]} value={item} mode="rich-bullet" placeholder="Bullet point" /></li>)}</ul>)}
+      {entry.tags.length > 0 && <p className="ats-entry__skills"><strong>{locale === "it" ? "Competenze" : "Skills"}:</strong> <Field editable={editable} path={[...path, "tags"]} value={entry.tags.join(", ")} mode="list" placeholder="Comma-separated skills" /></p>}
       {entry.url && (
         <p className="ats-entry__link">
           <strong>{cvLinkLabel(entry.url)}:</strong>{" "}
@@ -59,8 +74,9 @@ function AtsLogEntry({ entry, locale }: { entry: CvDisplayLogEntry; locale: CvLo
   )
 }
 
-function AtsSection({ section, locale }: { section: CvDisplaySection; locale: CvLocale }) {
+function AtsSection({ section, locale, index: sectionIndex, editable }: { section: CvDisplaySection; locale: CvLocale; index: number; editable: boolean }) {
   const content = section.content
+  const base: CvPath = ["sections", sectionIndex, "content"]
   if (content.type === "log" && content.entries.length === 0) return null
   if (content.type === "text" && !content.text) return null
   if (content.type === "tags" && content.groups.length === 0) return null
@@ -69,15 +85,16 @@ function AtsSection({ section, locale }: { section: CvDisplaySection; locale: Cv
 
   return (
     <section className="ats-section" aria-labelledby={`ats-cv-${section.id}`}>
-      <h2 id={`ats-cv-${section.id}`}>{section.title}</h2>
+      <h2 id={`ats-cv-${section.id}`}><Field editable={editable} path={["sections", sectionIndex, "title"]} value={section.title} placeholder="Section title" /></h2>
       {content.type === "log" && content.entries.map((entry, index) => (
-        <AtsLogEntry key={`${entry.title}-${entry.dates}-${index}`} entry={entry} locale={locale} />
+        // Index keys while editing: a key built from the text would remount the field on every keystroke.
+        <AtsLogEntry key={editable ? index : `${entry.title}-${entry.dates}-${index}`} entry={entry} locale={locale} path={[...base, "entries", index]} editable={editable} />
       ))}
-      {content.type === "text" && <p>{parseMarks(content.text)}</p>}
+      {content.type === "text" && <p><Field editable={editable} path={[...base, "text"]} value={content.text} mode="rich" placeholder="Summary" /></p>}
       {content.type === "tags" && content.groups.map((group, index) => (
-        <p key={`${group.category}-${index}`}>
-          {group.category && <><strong>{group.category}:</strong>{" "}</>}
-          {group.items.join(", ")}
+        <p key={editable ? index : `${group.category}-${index}`}>
+          {group.category && <><strong><Field editable={editable} path={[...base, "groups", index, "category"]} value={group.category} placeholder="Category" />:</strong>{" "}</>}
+          <Field editable={editable} path={[...base, "groups", index, "items"]} value={group.items.join(", ")} mode="list" placeholder="Comma-separated skills" />
         </p>
       ))}
       {content.type === "links" && (
@@ -93,7 +110,7 @@ function AtsSection({ section, locale }: { section: CvDisplaySection; locale: Cv
           })}
         </ul>
       )}
-      {content.type === "simple-list" && <ul className={section.id === "languages" ? "ats-inline-list" : undefined}>{content.items.map((item) => <li key={item}>{item}</li>)}</ul>}
+      {content.type === "simple-list" && <ul className={section.id === "languages" ? "ats-inline-list" : undefined}>{content.items.map((item, index) => <li key={editable ? index : item}><Field editable={editable} path={[...base, "items", index]} value={item} placeholder="List item" /></li>)}</ul>}
     </section>
   )
 }
@@ -138,6 +155,8 @@ export function AtsPrintCvLayout({ data, screen = false }: { data: CvData; scree
   const footer = data.regionalOptions
   const hasFooter = Boolean(footer?.customFooter || footer?.showSignature)
   const locale = data.documentLanguage ?? "en"
+  const inEditor = useCvEditing()
+  const editable = screen && inEditor
 
   return (
     <article
@@ -148,8 +167,8 @@ export function AtsPrintCvLayout({ data, screen = false }: { data: CvData; scree
     >
       <style>{atsPrintStyles}</style>
       <header className="ats-header">
-        <h1>{data.name}</h1>
-        {role && <p className="ats-header__role">{role}</p>}
+        <h1><Field editable={editable} path={["name"]} value={data.name} placeholder="Your name" /></h1>
+        {(role || editable) && <p className="ats-header__role"><Field editable={editable} path={["title"]} value={role} placeholder="Target role" /></p>}
         <address className="ats-contact">
           {design.showLocation && (design.locationLabel || data.location) && <p>{design.locationLabel || data.location}</p>}
           {data.email && <p><a href={`mailto:${data.email}`}>{data.email}</a></p>}
@@ -161,7 +180,7 @@ export function AtsPrintCvLayout({ data, screen = false }: { data: CvData; scree
       </header>
 
       <main>
-        {data.sections.map((section) => <AtsSection key={section.id} section={section} locale={locale} />)}
+        {data.sections.map((section, index) => <AtsSection key={section.id} section={section} locale={locale} index={index} editable={editable} />)}
       </main>
 
       {hasFooter && (

@@ -14,7 +14,7 @@ describe("inline marks", () => {
   it("keeps unbalanced markers literal", () => { expect(html("a ** b")).toBe("a ** b") })
   it("does not treat a bullet marker as italic", () => { expect(html("* a and b*")).toBe("* a and b*") })
   it("escapes HTML", () => { expect(marksToHtml("<b>x</b> **y**")).toBe("&lt;b&gt;x&lt;/b&gt; <strong>y</strong>") })
-  it("keeps line breaks in HTML", () => { expect(marksToHtml("a\nb")).toBe("a<br>b") })
+  it("keeps newlines literal in HTML", () => { expect(marksToHtml("a\nb")).toBe("a\nb") })
   it("strips marks", () => { expect(stripMarks("**a** and *b*")).toBe("a and b") })
   it("serialises DOM to marks, dropping unknown tags", () => {
     expect(domToMarks(el("SPAN", text("Led "), el("B", text("10")), text(" "), el("FONT", el("I", text("x")))))).toBe("Led **10** *x*")
