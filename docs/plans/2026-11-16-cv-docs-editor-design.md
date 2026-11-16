@@ -71,7 +71,11 @@ Rejected:
   - the header and footer are never split
   - paragraphs and list items split between lines, with orphans and widows of 2
 - `usePagination(ref)` measures with `getBoundingClientRect` and `Range.getClientRects` for line boxes. It re-runs on a `ResizeObserver`, a `MutationObserver` and `document.fonts.ready`, debounced to one animation frame.
-- **Display:** a continuous white sheet with a page-gap band drawn over it at each break ("Page 2"). A band only ever sits between line boxes, so no text is hidden. Page sheets end at the printable height, with the margin drawn above and below. *Agent's call: true separate sheets would need extra spacing inserted inside React-owned paragraphs, so the bands are the safe Docs-like look.*
+- **Display: separate sheets with a gap, as in Word and Google Docs** (the user's decision).
+  - **Print rule change:** paragraphs and list items get `break-inside: avoid` (keep lines together). Every page break then falls between blocks, and screen and PDF use the same rule. The trade-off is that a page may end a few lines short.
+  - **On screen:** the first block of each new page gets a spacer margin, set imperatively on the element and never as React children, so the caret is never disturbed. The spacer is (space left on the previous page) + bottom margin + 12 px gap + top margin. Grey sheet backgrounds with a shadow are drawn behind each page.
+  - **Measurement must not feed back on itself:** spacers are removed (or subtracted) before measuring, then re-applied.
+  - **A single block taller than the printable height:** it still splits in print. On screen it gets a page-boundary band and a "longer than a page" warning in place of a gap.
 - **"Page X of N":** the page holding the caret, read from `selectionchange`. Without a caret, it is the page at the centre of the viewport.
 
 ### 3. Toolbar (sticky, above the proof)
@@ -165,7 +169,8 @@ The target page count is saved in `design.targetPages`, an optional integer from
 | Case | Expected behaviour |
 |---|---|
 | Empty CV or empty section | 1 page, empty fields show their placeholder |
-| Paragraph longer than a page | splits across pages between lines |
+| Paragraph or bullet crossing a page end | moves whole to the next page (screen and PDF) |
+| Paragraph longer than a whole page | splits in the PDF; on screen a band and a "longer than a page" warning |
 | Heading as the last line of a page | moves to the next page with its content |
 | Hidden section before the edited one | the edit lands in the correct section (ID-based) |
 | Same field focused inline while the form changes it | the inline DOM keeps the user's text and the commit wins |
@@ -198,7 +203,7 @@ The target page count is saved in `design.targetPages`, an optional integer from
 - **User:** keep the form next to an editable page (option 2).
 - **User:** the reference pages are the printed PDF layout (A).
 - **Agent's call:** a 9 pt minimum with a warning, removing the 10.5 pt floor.
-- **Agent's call:** page-gap bands on one sheet, not separate sheet elements.
+- **User:** separate pages with a real gap, as in Word and Google Docs. This means paragraphs and bullets are kept whole across page breaks, in print as well.
 - **Agent's call:** the design view stays read-only.
 - **Agent's call:** marks only in prose fields.
 - **Agent's call:** links and personal fields stay form-only.
