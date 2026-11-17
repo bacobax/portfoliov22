@@ -7,15 +7,34 @@ export function CvScaleToFit({
   maxScale = 1,
   page = "A4",
   proof = false,
+  exact = false,
 }: {
   children: ReactNode
   maxScale?: number
   page?: "A4" | "Letter"
   /** Frame the page as a proof: board padding and crop marks (screen only). */
   proof?: boolean
+  /**
+   * Scale with a transform instead of `zoom`. `zoom` lays text out again at the
+   * scaled size, which drifts from print by a pixel or so per page; a transform
+   * keeps the exact print layout, so page breaks measured on it hold in print.
+   */
+  exact?: boolean
 }) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(maxScale)
+  const documentRef = useRef<HTMLDivElement>(null)
+  const [documentHeight, setDocumentHeight] = useState(0)
+
+  useEffect(() => {
+    const element = documentRef.current
+    if (!exact || !element) return
+    const update = () => setDocumentHeight(element.offsetHeight)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [exact])
 
   useEffect(() => {
     const viewport = viewportRef.current
@@ -34,11 +53,23 @@ export function CvScaleToFit({
     return () => observer.disconnect()
   }, [maxScale, page])
 
-  const documentNode = (
+  const pageWidth = page === "Letter" ? "215.9mm" : "210mm"
+  const documentNode = exact ? (
+    <div className="cv-fit-frame" style={{ width: `calc(${pageWidth} * ${scale})`, height: documentHeight * scale }}>
+      <div
+        ref={documentRef}
+        className="cv-fit-document cv-fit-document--exact"
+        data-cv-scale={scale.toFixed(4)}
+        style={{ transform: `scale(${scale})`, width: pageWidth }}
+      >
+        {children}
+      </div>
+    </div>
+  ) : (
     <div
       className="cv-fit-document"
       data-cv-scale={scale.toFixed(4)}
-      style={{ zoom: scale, width: page === "Letter" ? "215.9mm" : "210mm" } as React.CSSProperties}
+      style={{ zoom: scale, width: pageWidth } as React.CSSProperties}
     >
       {children}
     </div>
@@ -60,6 +91,8 @@ export function CvScaleToFit({
           flex: 0 0 auto;
           transform-origin: top center;
         }
+        .cv-fit-frame { flex: 0 0 auto; }
+        .cv-fit-document--exact { transform-origin: top left; }
         .cv-fit-document > .regional-cv {
           width: 210mm;
           max-width: none;
@@ -74,6 +107,8 @@ export function CvScaleToFit({
             width: auto;
             zoom: 1 !important;
           }
+          .cv-fit-frame { width: auto !important; height: auto !important; }
+          .cv-fit-document--exact { transform: none !important; }
         }
       `}</style>
       {proof ? (

@@ -47,16 +47,14 @@ import { cvAgentDocumentSchema } from "@/lib/cv-agent-document"
 import { CV_DOCUMENT_SCHEMA_VERSION } from "@/lib/cv-document"
 import { changePresetLanguage, changePresetTemplate, createRegionalPreset } from "@/lib/cv-presets"
 import { createCvData } from "@/lib/cv-data-transform"
-import { CvDocumentOutput } from "@/components/cv/cv-document-output"
 import { CvScaleToFit } from "@/components/cv/cv-scale-to-fit"
 import { CvDesignPanel, CvQualityReview } from "@/components/cv/cv-design-panel"
 import { CvPrintButton } from "@/components/cv/cv-print-button"
-import { CvPagedProof, type CvPaginationState } from "@/components/cv/cv-paged-proof"
+import { CvPagedProof, CvPrintCopy, type CvPaginationState } from "@/components/cv/cv-paged-proof"
 import { CvDocsToolbar } from "@/components/cv/cv-docs-toolbar"
-import { AtsPrintCvLayout } from "@/components/cv/ats-print-layout"
 import { CvDocumentTitle } from "@/components/cv/cv-document-title"
 import { CvEditProvider, applyMark, type CvEditApi } from "@/components/cv/cv-edit-context"
-import { applyDisplayEdit, insertDisplayBullet, removeDisplayBullet } from "@/lib/cv-display-edit"
+import { applyDisplayEdit, insertDisplayBullet, isDisplayPathEditable, removeDisplayBullet } from "@/lib/cv-display-edit"
 import { pathKey } from "@/components/cv/cv-edit-context"
 import type { CvData } from "@/components/cv/cv-types"
 import {
@@ -136,8 +134,6 @@ export default function CvEditorPage() {
   } | null>(null)
   const [mobileView, setMobileView] = useState<"editor" | "preview">("editor")
   const [previewZoom, setPreviewZoom] = useState(1)
-  /** Print view: the exact PDF layout, paged and editable. Design view: the styled preview. */
-  const [proofView, setProofView] = useState<"print" | "design">("print")
   const [pagination, setPagination] = useState<CvPaginationState>({ pageCount: 0, caretPage: null, overflowPx: 0, linePx: 0, oversized: 0, fontPt: 0 })
   const [inlineFocusKey, setInlineFocusKey] = useState<string | null>(null)
   const panePositions = useRef({ editor: 0, preview: 0 })
@@ -608,7 +604,7 @@ export default function CvEditorPage() {
     updatePresets((prev) => prev.map((preset) => preset.id === id ? updater(preset) : preset))
   }
 
-  /* ── inline editing on the print view ── */
+  /* ── inline editing on the proof ── */
   const editDisplay = useCallback((update: (preset: CvPreset, data: CvData) => CvPreset) => {
     const data = previewDataRef.current
     if (!data || !activePresetId) return
@@ -629,6 +625,7 @@ export default function CvEditorPage() {
     swap: () => {}, move: () => {}, hideEntry: () => {}, hideSection: () => {}, addBullet: () => {},
     focusKey: inlineFocusKey,
     clearFocus: () => setInlineFocusKey(null),
+    canEdit: isDisplayPathEditable,
   }), [editDisplay, inlineFocusKey])
 
   const togglePersonalField = (id: string, field: CvPersonalField) => {
@@ -686,7 +683,7 @@ export default function CvEditorPage() {
   const placeProofMark = useCallback(() => {
     const scaler = proofScalerRef.current
     const target = scaler && findProofTarget(scaler, activeEditorSection)
-    const page = scaler?.querySelector<HTMLElement>(".cv-document--visual")
+    const page = scaler?.querySelector<HTMLElement>(".cv-paged-proof .cv-document--visual")
     if (!scaler || !target || !page) {
       setProofMark((current) => current && null)
       return
@@ -1305,15 +1302,9 @@ export default function CvEditorPage() {
           <aside className="cv-editor-split__preview">
             <CvQualityReview preset={activePreset} />
             <div className="cv-editor-preview-header">
-              <span className="cv-editor-preview-header__title">Proof</span>
-              <div className="cv-editor-proof-views" role="group" aria-label="Proof view">
-                <button type="button" aria-pressed={proofView === "print"} onClick={() => setProofView("print")}
-                  title="The exact PDF layout, split into pages. Click any text to edit it.">Print view</button>
-                <button type="button" aria-pressed={proofView === "design"} onClick={() => setProofView("design")}
-                  title="The styled on-screen layout (read-only)">Design view</button>
-              </div>
+              <span className="cv-editor-preview-header__title" title="The PDF exactly as it prints, page by page. Click any text to edit it.">Proof</span>
               <div className="cv-editor-preview-header__controls">
-                <CvPrintButton className="cv-btn cv-btn--sm" />
+                <CvPrintButton className="cv-btn cv-btn--sm" variant="design" />
                 <button type="button" className="cv-editor-preview-zoom-btn" aria-label="Zoom out"
                   onClick={() => setPreviewZoom((z) => Math.max(0.2, z - 0.1))}>−</button>
                 <span className="cv-editor-preview-zoom-label">{Math.round(previewZoom * 100)}%</span>
@@ -1322,35 +1313,27 @@ export default function CvEditorPage() {
                 <span className="cv-editor-preview-header__layout">{CV_TEMPLATE_BY_ID[activePreset.layout].shortLabel} · {CV_TEMPLATE_BY_ID[activePreset.layout].pageGuidance}</span>
               </div>
             </div>
-            {proofView === "print" && (
-              <CvDocsToolbar
-                design={activePreset.design}
-                pagination={pagination}
-                onDesign={(design) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design }))}
-                onMark={(kind) => { applyMark(kind) }}
-              />
-            )}
+            <CvDocsToolbar
+              design={activePreset.design}
+              pagination={pagination}
+              onDesign={(design) => updatePresetMetadata(activePreset.id, (preset) => ({ ...preset, design }))}
+              onMark={(kind) => { applyMark(kind) }}
+            />
             <div className="cv-editor-preview-scaler" ref={proofScalerRef}
-              onClickCapture={proofView === "print" ? (event) => {
-                // Links in the print view are editable text, not navigation.
-                if ((event.target as HTMLElement).closest(".ats-print-cv--screen a")) event.preventDefault()
-              } : undefined}>
-              {previewData && proofView === "design" && (
-                <CvScaleToFit maxScale={previewZoom} page={activePreset.design.page} proof>
-                  <CvDocumentOutput layout={activePreset.layout} data={previewData} profilePicture={profilePicture} />
-                </CvScaleToFit>
-              )}
-              {previewData && proofView === "print" && (
+              onClickCapture={(event) => {
+                // Links on the proof are editable text, not navigation.
+                if ((event.target as HTMLElement).closest(".cv-paged-proof a")) event.preventDefault()
+              }}>
+              {previewData && (
                 <>
                   <CvDocumentTitle name={previewData.name} />
-                  <style>{`@page { size: ${activePreset.design.page}; margin: ${Math.max(12, activePreset.design.marginMm)}mm; }`}</style>
-                  <CvScaleToFit maxScale={previewZoom} page={activePreset.design.page}>
+                  <CvScaleToFit maxScale={previewZoom} page={activePreset.design.page} exact>
                     <CvEditProvider api={inlineEditApi}>
-                      <CvPagedProof data={previewData} onPagination={setPagination} />
+                      <CvPagedProof layout={activePreset.layout} data={previewData} profilePicture={profilePicture} onPagination={setPagination} />
                     </CvEditProvider>
                   </CvScaleToFit>
-                  {/* The copy that actually prints: same data and rules, no editor chrome. */}
-                  <AtsPrintCvLayout data={previewData} />
+                  {/* The copy that actually prints: same layout and data, no editor chrome. */}
+                  <CvPrintCopy layout={activePreset.layout} data={previewData} profilePicture={profilePicture} />
                 </>
               )}
               <div className="cv-proof-mark" aria-hidden="true" hidden={!proofMark}
@@ -1380,7 +1363,7 @@ export default function CvEditorPage() {
 
 /* ── Proof mark target: the passage of the live page an editor section writes ── */
 function findProofTarget(scaler: HTMLElement, sectionKey: string): HTMLElement | null {
-  const page = scaler.querySelector<HTMLElement>(".cv-document--visual")
+  const page = scaler.querySelector<HTMLElement>(".cv-paged-proof .cv-document--visual")
   if (!page) return null
   if (sectionKey === "profile") return page.querySelector<HTMLElement>(".region-header")
   if (!sectionKey.startsWith("section-")) return null

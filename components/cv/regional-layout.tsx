@@ -438,14 +438,19 @@ const regionalStyles = `
   .regional-cv .region-text p { color:var(--cv-ink); white-space:pre-line; }
   .regional-cv a { color:inherit; overflow-wrap:anywhere; text-decoration:underline; text-underline-offset:2px; }
   .regional-cv p { orphans:2; widows:2; }
+  /* Printed as designed: the margins are the document's padding, cloned onto every
+     page (the editor sets @page margin 0), so full-bleed decoration reaches the edge.
+     Break rules are the ones the editor's paged proof models. */
   @media print {
     .regional-cv .region-project-github { display:none !important; }
     .regional-cv .region-project-github-print { display:inline; }
-    .regional-cv { width:auto !important; max-width:none !important; min-height:0 !important; padding:0 !important; box-shadow:none; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
-    .regional-cv .region-section { break-inside:auto; page-break-inside:auto; }
-    .regional-cv .region-section > h2 { break-after:avoid; page-break-after:avoid; }
-    .regional-cv .region-header { break-inside:avoid; }
-    .regional-cv[data-appearance="regional"] .region-header { margin:0; }
-    .regional-cv .region-footer { break-inside:avoid; }
+    .regional-cv { max-width:none !important; min-height:calc(var(--cv-page-height, 297mm) - 1px) !important; box-shadow:none; box-decoration-break:clone; -webkit-box-decoration-break:clone; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+    .regional-cv .region-section, .regional-cv .region-entry--long { break-inside:auto; page-break-inside:auto; }
+    .regional-cv .region-section > h2, .regional-cv .region-entry__heading { break-after:avoid; page-break-after:avoid; }
+    .regional-cv .region-header, .regional-cv .region-personal, .regional-cv .region-footer, .regional-cv .region-entry--short,
+    .regional-cv .region-entry__heading, .regional-cv .region-skill-group, .regional-cv .region-tags, .regional-cv .region-list--inline > ul,
+    .regional-cv p, .regional-cv li { break-inside:avoid; page-break-inside:avoid; }
+    .regional-cv .region-technologies, .regional-cv .region-entry-link { break-before:avoid; page-break-before:avoid; }
+    .regional-cv .region-entry__bullets li:first-child, .regional-cv .region-entry__bullets li:last-child:not(:first-child) { break-before:auto; page-break-before:auto; }
   }
 `

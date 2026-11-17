@@ -8,7 +8,13 @@
  */
 
 /** Pixels, relative to the content column top, with no page spacers applied. */
-export interface MeasuredBlock { top: number; height: number; keepWithNext: boolean }
+export interface MeasuredBlock {
+  top: number
+  height: number
+  keepWithNext: boolean
+  /** `break-before: page`: always starts a new page unless it already starts one. */
+  forceBreak?: boolean
+}
 
 export interface PageLayout {
   /** Printable height of one page (paper height minus top and bottom margins). */
@@ -16,6 +22,10 @@ export interface PageLayout {
   marginPx: number
   /** Visible gap between two sheets on screen. */
   gapPx: number
+  /** Top of page 1's content area; defaults to the first block's top. */
+  originPx?: number
+  /** Break a little early, so sub-pixel rounding in print never pushes a block over. */
+  headroomPx?: number
 }
 
 export interface Pagination {
@@ -31,14 +41,14 @@ export interface Pagination {
 }
 
 export function paginate(blocks: readonly MeasuredBlock[], layout: PageLayout, targetPages?: number): Pagination {
-  const { pageContentPx, marginPx, gapPx } = layout
+  const { pageContentPx, marginPx, gapPx, headroomPx = 0 } = layout
   const breaks: Pagination["breaks"] = []
   const oversized: number[] = []
   const blockPages: number[] = []
   // Content extent of each page: start offset and bottom of its last block.
   const pages: { start: number; bottom: number }[] = []
   let page = 1
-  let pageStart = blocks[0]?.top ?? 0
+  let pageStart = layout.originPx ?? blocks[0]?.top ?? 0
   let pageFirst = 0
 
   const startPage = (index: number) => {
@@ -51,14 +61,20 @@ export function paginate(blocks: readonly MeasuredBlock[], layout: PageLayout, t
 
   for (let index = 0; index < blocks.length; index += 1) {
     const current = blocks[index]
-    if (current.top + current.height - pageStart > pageContentPx && index > pageFirst) {
-      // Pull back headings that must stay with this block, but never past the page's first block.
+    // A forced break already "happens" when the block opens the page's content.
+    if (current.forceBreak && current.top > pageStart + 0.5) {
+      pages[page - 1] = { start: pages[page - 1]?.start ?? pageStart, bottom: index > 0 ? blocks[index - 1].top + blocks[index - 1].height : pageStart }
+      startPage(index)
+    } else if (current.top + current.height - pageStart > pageContentPx - headroomPx && (index > pageFirst || current.top > pageStart + 0.5)) {
+      // Pull back headings that must stay with this block, but never past the
+      // block that opens the page (it would land on the next page just the same).
+      const opensPage = (at: number) => at === pageFirst && blocks[at].top <= pageStart + 0.5
       let breakAt = index
-      while (breakAt - 1 > pageFirst && blocks[breakAt - 1].keepWithNext) breakAt -= 1
+      while (breakAt - 1 >= pageFirst && !opensPage(breakAt - 1) && blocks[breakAt - 1].keepWithNext) breakAt -= 1
       for (let moved = breakAt; moved < index; moved += 1) blockPages[moved] = page + 1
       // The page being closed now ends at the block before the pulled-back headings.
       const last = blocks[breakAt - 1]
-      pages[page - 1] = { start: pageStart, bottom: last.top + last.height }
+      pages[page - 1] = { start: pageStart, bottom: last ? last.top + last.height : pageStart }
       startPage(breakAt)
     }
     blockPages[index] = page

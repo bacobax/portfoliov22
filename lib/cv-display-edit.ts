@@ -37,6 +37,11 @@ function updateDescription(preset: CvPreset, sectionId: string, entryIndex: numb
   })
 }
 
+/** Paths shown on the page that cannot be written back (a date range is two fields). */
+export function isDisplayPathEditable(path: CvPath): boolean {
+  return path[path.length - 1] !== "dates"
+}
+
 export function applyDisplayEdit(preset: CvPreset, data: CvData, path: CvPath, value: unknown): CvPreset {
   const [head, sectionIndex, ...rest] = path
   if (path.length === 1 && head === "name") return { ...preset, content: { ...preset.content, name: String(value) } }
@@ -44,6 +49,17 @@ export function applyDisplayEdit(preset: CvPreset, data: CvData, path: CvPath, v
     return preset.targetRoleOverride?.trim()
       ? { ...preset, targetRoleOverride: String(value) }
       : { ...preset, content: { ...preset.content, title: String(value) } }
+  }
+  if (path.length === 1 && head === "targetRoleOverride") return { ...preset, targetRoleOverride: String(value) }
+  if (path.length === 1 && head === "summaryOverride") return { ...preset, summaryOverride: String(value) }
+  if (path.length === 1 && (head === "location" || head === "email" || head === "phone")) {
+    return { ...preset, content: { ...preset.content, [head]: String(value) } }
+  }
+  if (path.length === 2 && head === "design" && sectionIndex === "locationLabel") {
+    return { ...preset, design: { ...preset.design, locationLabel: String(value) } }
+  }
+  if (path.length === 2 && head === "regionalOptions" && sectionIndex === "customFooter") {
+    return { ...preset, regionalOptions: { ...preset.regionalOptions, customFooter: String(value) } }
   }
   if (head !== "sections" || typeof sectionIndex !== "number") return preset
   const id = data.sections[sectionIndex]?.id
@@ -76,6 +92,14 @@ export function applyDisplayEdit(preset: CvPreset, data: CvData, path: CvPath, v
       const groups = [...section.data.groups]
       groups[index] = { ...groups[index], [field]: value }
       return { ...section, data: { ...section.data, groups } }
+    })
+  }
+  if (kind === "items" && typeof index === "number" && field === "label" && deeper.length === 0) {
+    return updateSection(preset, id, (section) => {
+      if (section.data.type !== "links" || !section.data.items[index]) return null
+      const items = [...section.data.items]
+      items[index] = { ...items[index], label: String(value) }
+      return { ...section, data: { ...section.data, items } }
     })
   }
   if (kind === "items" && typeof index === "number" && field === undefined) {

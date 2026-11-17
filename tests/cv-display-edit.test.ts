@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { applyDisplayEdit, insertDisplayBullet, removeDisplayBullet } from "@/lib/cv-display-edit"
+import { applyDisplayEdit, insertDisplayBullet, isDisplayPathEditable, removeDisplayBullet } from "@/lib/cv-display-edit"
 import { createCvData, parseCvDescription } from "@/lib/cv-data-transform"
 import type { CvPreset } from "@/lib/cv-presets"
 import type { CvSection } from "@/lib/cv-content"
@@ -74,8 +74,37 @@ describe("applyDisplayEdit", () => {
     const preset = fixture()
     const data = createCvData(preset.content, preset)
     expect(applyDisplayEdit(preset, data, ["sections", 99, "title"], "x")).toBe(preset)
-    expect(applyDisplayEdit(preset, data, ["email"], "x")).toBe(preset)
+    expect(applyDisplayEdit(preset, data, ["website"], "x")).toBe(preset)
     expect(applyDisplayEdit(preset, data, ["sections", 1, "content", "entries", 0, "url"], "x")).toBe(preset)
+  })
+})
+
+describe("design-layout fields", () => {
+  it("writes header, override and footer fields back to the preset", () => {
+    const preset = fixture()
+    const data = createCvData(preset.content, preset)
+    expect(applyDisplayEdit(preset, data, ["email"], "a@b.c").content.email).toBe("a@b.c")
+    expect(applyDisplayEdit(preset, data, ["phone"], "123").content.phone).toBe("123")
+    expect(applyDisplayEdit(preset, data, ["location"], "Turin").content.location).toBe("Turin")
+    expect(applyDisplayEdit(preset, data, ["targetRoleOverride"], "Lead").targetRoleOverride).toBe("Lead")
+    expect(applyDisplayEdit(preset, data, ["summaryOverride"], "Short").summaryOverride).toBe("Short")
+    expect(applyDisplayEdit(preset, data, ["design", "locationLabel"], "Remote").design.locationLabel).toBe("Remote")
+    expect(applyDisplayEdit(preset, data, ["regionalOptions", "customFooter"], "Consent").regionalOptions.customFooter).toBe("Consent")
+  })
+  it("relabels a link without touching its URL", () => {
+    const preset = fixture()
+    const data = createCvData(preset.content, preset)
+    const index = data.sections.findIndex((s) => s.content.type === "links")
+    expect(index).toBeGreaterThanOrEqual(0)
+    const next = applyDisplayEdit(preset, data, ["sections", index, "content", "items", 0, "label"], "Portfolio")
+    const links = next.content.sections.find((s) => s.data.type === "links")!.data
+    if (links.type !== "links") throw new Error("links")
+    expect(links.items[0].label).toBe("Portfolio")
+    expect(links.items[0].url).toBe((preset.content.sections.find((s) => s.data.type === "links")!.data as { items: { url: string }[] }).items[0].url)
+  })
+  it("keeps combined date ranges read-only", () => {
+    expect(isDisplayPathEditable(["sections", 1, "content", "entries", 0, "dates"])).toBe(false)
+    expect(isDisplayPathEditable(["sections", 1, "content", "entries", 0, "title"])).toBe(true)
   })
 })
 

@@ -60,3 +60,21 @@ describe("overflow with pulled-back headings", () => {
     expect(result.overflowPx).toBe(92 + 20 - 80)
   })
 })
+
+describe("columns that start below the page top", () => {
+  it("measures page 1 from the origin, so the first block can move", () => {
+    const result = paginate([block(60, 30), block(92, 30)], { ...layout, originPx: 10 })
+    // 92 + 30 - 10 = 112 > 100: the second block opens page 2.
+    expect(result.breaks).toEqual([{ blockIndex: 1, spacerPx: (10 + 100 - 92) + 20 + 12 }])
+  })
+  it("pulls a heading back even when it is the column's first block", () => {
+    const result = paginate([block(80, 10, true), block(92, 20)], { ...layout, originPx: 10 })
+    expect(result.breaks.map((b) => b.blockIndex)).toEqual([0])
+    expect(result.blockPages).toEqual([2, 2])
+  })
+  it("honours forced breaks and breaks early by the headroom", () => {
+    const forced = paginate([block(0, 10), { ...block(12, 10), forceBreak: true }], layout)
+    expect(forced.breaks.map((b) => b.blockIndex)).toEqual([1])
+    expect(paginate([block(0, 50), block(50, 49.5)], { ...layout, headroomPx: 1 }).pageCount).toBe(2)
+  })
+})

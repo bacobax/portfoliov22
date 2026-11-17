@@ -27,7 +27,7 @@ export function CvDocsToolbar({ design, pagination, onDesign, onMark }: {
   const targetId = useId()
   const font = clampFont(design.baseFontPt)
   /** What the proof renders (unrounded), to match against the measured size. */
-  const renderedFont = Math.min(FONT_MAX_PT, Math.max(FONT_MIN_PT, design.baseFontPt))
+  const renderedFont = design.baseFontPt
   const target = design.targetPages
   const { pageCount, caretPage, overflowPx, linePx, oversized } = pagination
   const measured = pageCount > 0
@@ -59,7 +59,7 @@ export function CvDocsToolbar({ design, pagination, onDesign, onMark }: {
       <div className="cv-docs-toolbar__group" role="group" aria-label="Text size">
         <button type="button" className="cv-docs-toolbar__btn" aria-label="Decrease text size" disabled={font <= FONT_MIN_PT}
           onMouseDown={keepSelection} onClick={() => setFont(font - FONT_STEP_PT)}>A−</button>
-        <span className="cv-docs-toolbar__value" aria-live="polite">{font.toFixed(1)} pt</span>
+        <span className="cv-docs-toolbar__value" aria-live="polite">{renderedFont.toFixed(1)} pt</span>
         <button type="button" className="cv-docs-toolbar__btn" aria-label="Increase text size" disabled={font >= FONT_MAX_PT}
           onMouseDown={keepSelection} onClick={() => setFont(font + FONT_STEP_PT)}>A+</button>
       </div>
@@ -89,7 +89,7 @@ export function CvDocsToolbar({ design, pagination, onDesign, onMark }: {
           <Minimize2 size={14} /> {fitting ? "Shrinking…" : "Shrink to fit"}
         </button>
       </div>
-      {font < READABLE_MIN_PT && <p className="cv-docs-toolbar__note">Below 10 pt is small for ATS screening and readability.</p>}
+      {renderedFont < READABLE_MIN_PT && <p className="cv-docs-toolbar__note">Below 10 pt is small for ATS screening and readability.</p>}
       {fitFailed && !fits && <p className="cv-docs-toolbar__note" role="status">Still {pageCount} pages at {FONT_MIN_PT} pt — trim content or spacing.</p>}
       {oversized > 0 && <p className="cv-docs-toolbar__note">{oversized === 1 ? "One block is" : `${oversized} blocks are`} longer than a page and will split when printed (dashed outline).</p>}
     </div>

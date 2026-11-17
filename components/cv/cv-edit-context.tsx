@@ -24,6 +24,8 @@ export interface CvEditApi {
   addBullet(sectionIndex: number, entryIndex: number): void
   focusKey: string | null
   clearFocus(): void
+  /** Paths this provider cannot write back render as plain text. Defaults to all editable. */
+  canEdit?(path: CvPath): boolean
 }
 
 const CvEditContext = createContext<CvEditApi | null>(null)
@@ -69,7 +71,7 @@ export function Editable({
   placeholder?: string
 }) {
   const api = useContext(CvEditContext)
-  if (!api) return <>{isRich(mode) ? parseMarks(value) : value}</>
+  if (!api || api.canEdit?.(path) === false) return <>{isRich(mode) ? parseMarks(value) : value}</>
   return <EditableField api={api} path={path} value={value} mode={mode} placeholder={placeholder} />
 }
 
