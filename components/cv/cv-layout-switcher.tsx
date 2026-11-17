@@ -18,6 +18,24 @@ export interface PresetView {
   data: CvData
 }
 
+/** Shown when every preset is hidden; editors still need a way into the editor. */
+export function CvEmptyState({ isAuthenticated }: { isAuthenticated: boolean }) {
+  return (
+    <div className="proof-empty">
+      <p>{isAuthenticated ? "Every CV is hidden. Make one visible in the editor to publish it." : "No CV has been published yet."}</p>
+      <div className="proof-empty__actions">
+        {isAuthenticated && (
+          <>
+            <Link href="/cv/edit" className="proof-btn proof-btn--primary"><PencilLine size={16} /> Open editor</Link>
+            <Link href="/cv/tailor" className="proof-btn proof-btn--quiet"><Wand2 size={16} /> Tailor</Link>
+          </>
+        )}
+        <Link href="/" className="proof-btn"><ArrowLeft size={16} /> Back to the portfolio</Link>
+      </div>
+    </div>
+  )
+}
+
 export function CvLayoutSwitcher({
   presets,
   profilePicture,
@@ -45,14 +63,7 @@ export function CvLayoutSwitcher({
   const active = presets.find((p) => p.id === activeId) ?? presets[0]
 
 
-  if (!active) {
-    return (
-      <div className="proof-empty">
-        <p>No CV has been published yet.</p>
-        <Link href="/" className="proof-btn"><ArrowLeft size={16} /> Back to the portfolio</Link>
-      </div>
-    )
-  }
+  if (!active) return <CvEmptyState isAuthenticated={!isSessionLoading && isAuthenticated} />
 
   const page = active.data.design?.page ?? "A4"
 

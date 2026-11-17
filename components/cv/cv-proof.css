@@ -147,7 +147,8 @@ body:has(.cv-page.cv-proof) { background: var(--pf-board, #d6d6d4); }
 .proof-versions__tab:focus-visible { outline-offset: -2px; }
 
 .cv-page.cv-proof > .cv-fit-viewport { flex: 1; padding-top: 44px; }
-.proof-empty { display: grid; justify-items: center; gap: 18px; padding: 120px 24px; color: var(--pf-muted); font-size: 17px; }
+.proof-empty { display: grid; justify-items: center; gap: 18px; padding: 120px 24px; color: var(--pf-muted); font-size: 17px; text-align: center; }
+.proof-empty__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 
 @media (max-width: 760px) {
   .cv-page.cv-proof { padding-bottom: 76px; }
